@@ -1,0 +1,77 @@
+/* src/index.css */
+body {
+  font-family: 'Inter', 'Roboto', Arial, sans-serif;
+  background: #23272f;
+  color: #f5f7fa;
+  margin: 0;
+}
+input, button, select {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 0.5em;
+  border-radius: 8px;
+  border: none;
+  margin-bottom: 1em;
+}
+input, select {
+  background: #282c34;
+  color: #fff;
+  border: 1px solid #333;
+}
+button {
+  background: #3e67e0;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+  min-width: 100px;
+}
+button:hover {
+  background: #214ac2;
+}
+a {
+  color: #3e67e0;
+  text-decoration: none;
+}
+.container {
+  max-width: 430px;
+  margin: 80px auto;
+  background: #2b303a;
+  border-radius: 18px;
+  padding: 36px 32px 28px 32px;
+  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.12);
+}
+
+.tab-btn {
+  background: #23272f;
+  color: #bfc8df;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 15px;
+  font-weight: 500;
+  margin-right: 4px;
+  cursor: pointer;
+  transition: background 0.16s, color 0.16s, box-shadow 0.2s;
+}
+
+.tab-btn.active {
+  background: #3e67e0;
+  color: #fff;
+  box-shadow: 0 2px 16px 0 #1f2330bb;
+}
+.period-btn.active {
+  background: #3e67e0 !important;
+  color: #fff !important;
+  border: 2px solid #6e9cf7 !important;
+}
+.period-btn {
+  background: #23272f;
+  color: #c0d7fb;
+  border: 1px solid #323954;
+  border-radius: 10px;
+  margin-bottom: 2px;
+  padding: 11px 0;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.16s;
+}
