@@ -51,6 +51,7 @@ export default function FinancesPage({ periodRange }) {
           )}
         </tbody>
       </table>
+      {/* Статистика кофеен — под таблицей */}
       <div style={{ fontSize: 20, fontWeight: 600, color: '#4eb4e7', marginBottom: 8, marginTop: 0 }}>Статистика кофеен</div>
       <table style={{
         width: '100%',

@@ -5,7 +5,6 @@ import ExpensesPage from './ExpensesPage';
 import ProfilePage from './ProfilePage';
 import StockPage from './StockPage';
 
-// Можно вынести в отдельный файл
 const PERIODS = [
   { label: 'СЕГОДНЯ', getRange: () => {
     const d = new Date();
@@ -53,7 +52,7 @@ export default function Dashboard() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
-  // Обработчик выбора периода
+  // Универсальный обработчик для выбора периода (работает и для расходов, и для финансов)
   const handlePeriodChange = (p) => {
     setPeriod(p);
     const [from, to] = p.getRange();
@@ -64,7 +63,7 @@ export default function Dashboard() {
     }
   };
 
-  // Если выбран "Ваш период", то можно выбрать даты вручную
+  // Для пользовательского периода
   const handleCustomFrom = (date) => {
     setFromDate(date);
     setPeriodRange([date ? new Date(date) : null, periodRange[1]]);
@@ -77,8 +76,7 @@ export default function Dashboard() {
   return (
     <div style={{ minHeight: '100vh', background: '#23272f' }}>
       <Navbar onLogout={() => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('vendista_login');
+        localStorage.clear();
         window.location.href = '/login';
       }} />
       <div style={{ maxWidth: 980, margin: '40px auto', background: '#23273a', borderRadius: 20, padding: 36, boxShadow: '0 8px 32px #0002' }}>
@@ -88,15 +86,22 @@ export default function Dashboard() {
           <button onClick={() => setTab('stock')} className={tab === 'stock' ? 'tab-btn active' : 'tab-btn'}>ЗАПАСЫ</button>
           <button onClick={() => setTab('profile')} className={tab === 'profile' ? 'tab-btn active' : 'tab-btn'}>ПРОФИЛЬ</button>
         </div>
-
-        {/* На вкладке Финансы — кнопки справа от таблицы */}
         {tab === 'finances' && (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 32 }}>
-            <div style={{ flex: 2, minWidth: 340 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24 }}>
+            {/* Левая часть: Финансы */}
+            <div style={{ flex: 2, minWidth: 330 }}>
+              {/* Если выбран "ВАШ ПЕРИОД" — даты над таблицей */}
+              {period.label === 'ВАШ ПЕРИОД' && (
+                <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+                  <input type="date" value={fromDate} onChange={e => handleCustomFrom(e.target.value)} />
+                  <input type="date" value={toDate} onChange={e => handleCustomTo(e.target.value)} />
+                </div>
+              )}
               <FinancesPage periodRange={periodRange} />
             </div>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Правая часть — кнопки периодов в столбик */}
+            <div style={{ flex: 1, minWidth: 190 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                 {PERIODS.map(p => (
                   <button
                     key={p.label}
@@ -104,18 +109,10 @@ export default function Dashboard() {
                     onClick={() => handlePeriodChange(p)}
                   >{p.label}</button>
                 ))}
-                {period.label === 'ВАШ ПЕРИОД' && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                    <input type="date" value={fromDate} onChange={e => handleCustomFrom(e.target.value)} />
-                    <input type="date" value={toDate} onChange={e => handleCustomTo(e.target.value)} />
-                  </div>
-                )}
               </div>
             </div>
           </div>
         )}
-
-        {/* На вкладке Расходы — кнопки в 2 ряда */}
         {tab === 'expenses' && (
           <ExpensesPage
             periodRange={periodRange}
@@ -124,8 +121,8 @@ export default function Dashboard() {
             setPeriod={handlePeriodChange}
             fromDate={fromDate}
             toDate={toDate}
-            setFromDate={setFromDate}
-            setToDate={setToDate}
+            setFromDate={handleCustomFrom}
+            setToDate={handleCustomTo}
           />
         )}
         {tab === 'stock' && <StockPage />}
