@@ -5,7 +5,7 @@ import ExpensesPage from './ExpensesPage';
 import ProfilePage from './ProfilePage';
 import StockPage from './StockPage';
 
-// Можно вынести в отдельный файл
+// Быстрые периоды
 const PERIODS = [
   { label: 'СЕГОДНЯ', getRange: () => {
     const d = new Date();
@@ -64,7 +64,7 @@ export default function Dashboard() {
     }
   };
 
-  // Если выбран "Ваш период", то можно выбрать даты вручную
+  // Для пользовательского периода
   const handleCustomFrom = (date) => {
     setFromDate(date);
     setPeriodRange([date ? new Date(date) : null, periodRange[1]]);
@@ -74,12 +74,15 @@ export default function Dashboard() {
     setPeriodRange([periodRange[0], date ? new Date(date) : null]);
   };
 
+  // Корректный logout (очищает всё)
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href = '/login';
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: '#23272f' }}>
-      <Navbar onLogout={() => {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-      }} />
+      <Navbar onLogout={handleLogout} />
       <div style={{ maxWidth: 980, margin: '40px auto', background: '#23273a', borderRadius: 20, padding: 36, boxShadow: '0 8px 32px #0002' }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
           <button onClick={() => setTab('finances')} className={tab === 'finances' ? 'tab-btn active' : 'tab-btn'}>ФИНАНСЫ</button>
@@ -99,8 +102,17 @@ export default function Dashboard() {
           ))}
           {period.label === 'ВАШ ПЕРИОД' && (
             <>
-              <input type="date" value={fromDate} onChange={e => handleCustomFrom(e.target.value)} style={{ marginLeft: 10, marginRight: 10 }} />
-              <input type="date" value={toDate} onChange={e => handleCustomTo(e.target.value)} />
+              <input
+                type="date"
+                value={fromDate}
+                onChange={e => handleCustomFrom(e.target.value)}
+                style={{ marginLeft: 10, marginRight: 10 }}
+              />
+              <input
+                type="date"
+                value={toDate}
+                onChange={e => handleCustomTo(e.target.value)}
+              />
             </>
           )}
         </div>

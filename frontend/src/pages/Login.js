@@ -12,6 +12,8 @@ export default function Login({ setIsAuth }) {
     e.preventDefault();
     setError('');
     try {
+      // Перед новым входом чистим всё из localStorage
+      localStorage.clear();
       const res = await axios.post('/api/login', {
         vendista_login: vendistaLogin,
         vendista_password: vendistaPass,
@@ -27,7 +29,7 @@ export default function Login({ setIsAuth }) {
 
   return (
     <div className="container">
-      <h2 style={{marginBottom: 16}}>Вход</h2>
+      <h2 style={{ marginBottom: 16 }}>Вход</h2>
       <form onSubmit={handleLogin}>
         <input
           id="login-vendista"
@@ -37,7 +39,7 @@ export default function Login({ setIsAuth }) {
           placeholder="Vendista логин"
           type="text"
           required
-          style={{width: '100%'}}
+          style={{ width: '100%' }}
           autoComplete="username"
         />
         <input
@@ -48,12 +50,18 @@ export default function Login({ setIsAuth }) {
           placeholder="Vendista пароль"
           type="password"
           required
-          style={{width: '100%'}}
+          style={{ width: '100%' }}
           autoComplete="current-password"
         />
-        <button type="submit" style={{width: '100%', marginBottom: 8}}>Войти</button>
-        <button type="button" onClick={() => navigate('/register')} style={{background: '#282c34', color: '#3e67e0', width: '100%'}}>Регистрация</button>
-        {error && <div style={{color: 'salmon', marginTop: 8}}>{error}</div>}
+        <button type="submit" style={{ width: '100%', marginBottom: 8 }}>Войти</button>
+        <button
+          type="button"
+          onClick={() => navigate('/register')}
+          style={{ background: '#282c34', color: '#3e67e0', width: '100%' }}
+        >
+          Регистрация
+        </button>
+        {error && <div style={{ color: 'salmon', marginTop: 8 }}>{error}</div>}
       </form>
     </div>
   );

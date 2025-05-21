@@ -1,4 +1,3 @@
-// src/hooks/useStatsPolling.js
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 
@@ -7,10 +6,10 @@ export function useStatsPolling(periodRange) {
   const [coffeeStats, setCoffeeStats] = useState([]);
   const [statsLoading, setStatsLoading] = useState(true);
   const [coffeeLoading, setCoffeeLoading] = useState(true);
+  const [error, setError] = useState('');
   const timerRef = useRef();
   const token = localStorage.getItem('token');
 
-  // Общая функция обновления
   const fetchAll = async () => {
     if (!periodRange[0] || !periodRange[1]) return;
     const from = periodRange[0].toISOString();
@@ -18,13 +17,15 @@ export function useStatsPolling(periodRange) {
 
     try {
       setStatsLoading(true);
+      setError('');
       const statsRes = await axios.get('/api/transactions/stats', {
         headers: { Authorization: `Bearer ${token}` },
         params: { from, to }
       });
       setStats(statsRes.data.stats);
-    } catch {
+    } catch (e) {
       setStats({ revenue: 0, salesCount: 0, expensesSum: 0 });
+      setError('Ошибка загрузки статистики продаж');
     } finally {
       setStatsLoading(false);
     }
@@ -36,8 +37,9 @@ export function useStatsPolling(periodRange) {
         params: { from, to }
       });
       setCoffeeStats(coffeeRes.data.stats || []);
-    } catch {
+    } catch (e) {
       setCoffeeStats([]);
+      setError('Ошибка загрузки статистики по кофеточкам');
     } finally {
       setCoffeeLoading(false);
     }
@@ -45,7 +47,6 @@ export function useStatsPolling(periodRange) {
 
   useEffect(() => {
     fetchAll();
-    // Очистка и запуск интервала
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(fetchAll, 30 * 1000);
     return () => {
@@ -54,5 +55,5 @@ export function useStatsPolling(periodRange) {
     // eslint-disable-next-line
   }, [periodRange, token]);
 
-  return { stats, statsLoading, coffeeStats, coffeeLoading };
+  return { stats, statsLoading, coffeeStats, coffeeLoading, error };
 }

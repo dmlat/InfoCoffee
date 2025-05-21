@@ -52,6 +52,7 @@ export default function Register() {
     setRegSuccess('');
     if (!setupDate) return setRegError('Укажите дату установки кофейни.');
     try {
+      localStorage.clear(); // ОЧИСТКА всех старых данных перед регистрацией!
       await axios.post('/api/register', {
         vendista_login: vendistaLogin,
         vendista_password: vendistaPass,
@@ -96,7 +97,7 @@ export default function Register() {
           <button type="submit" style={{ width: '100%' }} disabled={vendistaCheck.status === 'loading'}>
             {vendistaCheck.status === 'loading' ? 'Проверяем Vendista...' : 'Авторизуйтесь в Vendista'}
           </button>
-          <div style={{fontSize:13, color:'#888', marginTop:10}}>
+          <div style={{ fontSize: 13, color: '#888', marginTop: 10 }}>
             После авторизации Vendista начнёт передавать данные в ваш Финансовый Дашборд.
           </div>
           {vendistaCheck.status === 'error' && <div style={{ color: 'salmon', marginTop: 8 }}>{vendistaCheck.error}</div>}
