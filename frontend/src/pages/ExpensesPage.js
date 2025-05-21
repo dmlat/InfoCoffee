@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-// Периоды можно вынести в отдельный файл или передавать как props
 function formatDate(date) {
   if (!date) return '';
   return date.toISOString().split('T')[0];
 }
 
-export default function ExpensesPage({ periodRange }) {
+export default function ExpensesPage({ periodRange, periods, period, setPeriod, fromDate, toDate, setFromDate, setToDate }) {
   const today = formatDate(new Date());
   const [expenses, setExpenses] = useState([]);
   const [eForm, setEForm] = useState({ amount: '', expense_time: today, comment: '' });
@@ -66,109 +65,145 @@ export default function ExpensesPage({ periodRange }) {
 
   return (
     <div style={{
-      maxWidth: 700,
-      margin: '0 auto',
       display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'stretch'
+      gap: 32,
+      alignItems: 'flex-start',
+      maxWidth: 900,
+      margin: '0 auto'
     }}>
-      <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 18, color: '#eee', alignSelf: 'flex-start' }}>Запишите расходы</div>
-      <form onSubmit={addExpense} style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 24 }}>
-        <input
-          name="amount"
-          value={eForm.amount}
-          onChange={handleEForm}
-          placeholder="Сумма"
-          type="number"
-          min="0"
-          style={{ width: 100 }}
-          required
-        />
-        <input
-          name="expense_time"
-          value={eForm.expense_time || today}
-          onChange={handleEForm}
-          type="date"
-          style={{ width: 140 }}
-          required
-        />
-        <input
-          name="comment"
-          value={eForm.comment}
-          onChange={handleEForm}
-          placeholder="Комментарий"
-          style={{ width: 200 }}
-        />
-        <button
-          type="submit"
-          style={{
-            background: '#3e67e0',
-            color: '#fff',
-            fontWeight: 500,
-            border: 'none',
-            borderRadius: 8,
-            padding: '8px 22px'
-          }}
-        >
-          Добавить
-        </button>
-      </form>
-      <div style={{
-        marginBottom: 14,
-        fontWeight: 500,
-        fontSize: 17,
-        alignSelf: 'flex-start'
-      }}>Итог: <b style={{ color: '#ffb300' }}>{expensesSum.toLocaleString('ru-RU')} ₽</b></div>
-      <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, alignSelf: 'flex-start' }}>Список расходов</div>
-      <table style={{
-        width: '100%',
-        minWidth: 420,
-        borderCollapse: 'collapse',
-        background: '#23272f',
-        borderRadius: 12,
-        overflow: 'hidden'
-      }}>
-        <thead>
-          <tr style={{ background: '#1f2330', color: '#8ae6ff' }}>
-            <th style={{ textAlign: 'right', padding: '8px 12px', width: 130 }}>Сумма расходов</th>
-            <th style={{ textAlign: 'left', padding: '8px 12px', width: 120 }}>Дата</th>
-            <th style={{ textAlign: 'left', padding: '8px 12px' }}>Комментарий</th>
-            <th style={{ width: 44 }}></th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredExpenses.map((row, idx) => (
-            <tr key={row.id} style={{ background: idx % 2 ? '#262a36' : '#23273a' }}>
-              <td style={{ textAlign: 'right', padding: '8px 12px' }}>{row.amount.toLocaleString('ru-RU')} ₽</td>
-              <td style={{ textAlign: 'left', padding: '8px 12px' }}>{formatDate(new Date(row.expense_time))}</td>
-              <td style={{ textAlign: 'left', padding: '8px 12px' }}>{row.comment}</td>
-              <td style={{ textAlign: 'center', padding: '8px 0' }}>
-                <button
-                  onClick={() => deleteExpense(row.id)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#e06b6b',
-                    fontSize: 18,
-                    lineHeight: 1,
-                    padding: 0
-                  }}
-                  title="Удалить"
-                >
-                  🗑️
-                </button>
-              </td>
+      {/* Левая часть — форма и таблица */}
+      <div style={{ flex: 2 }}>
+        <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 18, color: '#eee', alignSelf: 'flex-start' }}>Запишите расходы</div>
+        <form onSubmit={addExpense} style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 24 }}>
+          <input
+            name="amount"
+            value={eForm.amount}
+            onChange={handleEForm}
+            placeholder="Сумма"
+            type="number"
+            min="0"
+            style={{ width: 100 }}
+            required
+          />
+          <input
+            name="expense_time"
+            value={eForm.expense_time || today}
+            onChange={handleEForm}
+            type="date"
+            style={{ width: 140 }}
+            required
+          />
+          <input
+            name="comment"
+            value={eForm.comment}
+            onChange={handleEForm}
+            placeholder="Комментарий"
+            style={{ width: 200 }}
+          />
+          <button
+            type="submit"
+            style={{
+              background: '#3e67e0',
+              color: '#fff',
+              fontWeight: 500,
+              border: 'none',
+              borderRadius: 8,
+              padding: '8px 22px'
+            }}
+          >
+            Добавить
+          </button>
+        </form>
+        <div style={{
+          marginBottom: 14,
+          fontWeight: 500,
+          fontSize: 17,
+          alignSelf: 'flex-start'
+        }}>Итог: <b style={{ color: '#ffb300' }}>{expensesSum.toLocaleString('ru-RU')} ₽</b></div>
+        <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, alignSelf: 'flex-start' }}>Список расходов</div>
+        <table style={{
+          width: '100%',
+          minWidth: 420,
+          borderCollapse: 'collapse',
+          background: '#23272f',
+          borderRadius: 12,
+          overflow: 'hidden'
+        }}>
+          <thead>
+            <tr style={{ background: '#1f2330', color: '#8ae6ff' }}>
+              <th style={{ textAlign: 'right', padding: '8px 12px', width: 130 }}>Сумма расходов</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px', width: 120 }}>Дата</th>
+              <th style={{ textAlign: 'left', padding: '8px 12px' }}>Комментарий</th>
+              <th style={{ width: 44 }}></th>
             </tr>
+          </thead>
+          <tbody>
+            {filteredExpenses.map((row, idx) => (
+              <tr key={row.id} style={{ background: idx % 2 ? '#262a36' : '#23273a' }}>
+                <td style={{ textAlign: 'right', padding: '8px 12px' }}>{row.amount.toLocaleString('ru-RU')} ₽</td>
+                <td style={{ textAlign: 'left', padding: '8px 12px' }}>{formatDate(new Date(row.expense_time))}</td>
+                <td style={{ textAlign: 'left', padding: '8px 12px' }}>{row.comment}</td>
+                <td style={{ textAlign: 'center', padding: '8px 0' }}>
+                  <button
+                    onClick={() => deleteExpense(row.id)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#e06b6b',
+                      fontSize: 18,
+                      lineHeight: 1,
+                      padding: 0
+                    }}
+                    title="Удалить"
+                  >
+                    🗑
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {!filteredExpenses.length && (
+              <tr>
+                <td colSpan={4} style={{ color: '#888', padding: 20, textAlign: 'center' }}>Нет расходов за период</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        {error && <div style={{ color: 'salmon', marginTop: 10 }}>{error}</div>}
+      </div>
+      {/* Правая часть — кнопки периодов в 2 ряда */}
+      <div style={{ flex: 1, minWidth: 240 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 8,
+          marginBottom: 18,
+          width: '100%'
+        }}>
+          {periods.map((p, idx) => (
+            <button
+              key={p.label}
+              className={period.label === p.label ? 'period-btn active' : 'period-btn'}
+              style={{
+                padding: '10px 0',
+                fontWeight: 500,
+                background: period.label === p.label ? '#3e67e0' : '#23272f',
+                color: period.label === p.label ? '#fff' : '#c0d7fb',
+                border: period.label === p.label ? '2px solid #6e9cf7' : '1px solid #323954',
+                borderRadius: 10,
+                cursor: 'pointer'
+              }}
+              onClick={() => setPeriod(p)}
+            >{p.label}</button>
           ))}
-          {!filteredExpenses.length && (
-            <tr>
-              <td colSpan={4} style={{ color: '#888', padding: 20, textAlign: 'center' }}>Нет расходов за период</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-      {error && <div style={{ color: 'salmon', marginTop: 10 }}>{error}</div>}
+        </div>
+        {period.label === 'ВАШ ПЕРИОД' && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

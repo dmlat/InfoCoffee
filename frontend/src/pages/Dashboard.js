@@ -5,7 +5,7 @@ import ExpensesPage from './ExpensesPage';
 import ProfilePage from './ProfilePage';
 import StockPage from './StockPage';
 
-// Быстрые периоды
+// Можно вынести в отдельный файл
 const PERIODS = [
   { label: 'СЕГОДНЯ', getRange: () => {
     const d = new Date();
@@ -64,7 +64,7 @@ export default function Dashboard() {
     }
   };
 
-  // Для пользовательского периода
+  // Если выбран "Ваш период", то можно выбрать даты вручную
   const handleCustomFrom = (date) => {
     setFromDate(date);
     setPeriodRange([date ? new Date(date) : null, periodRange[1]]);
@@ -74,15 +74,13 @@ export default function Dashboard() {
     setPeriodRange([periodRange[0], date ? new Date(date) : null]);
   };
 
-  // Корректный logout (очищает всё)
-  const handleLogout = () => {
-    localStorage.clear();
-    window.location.href = '/login';
-  };
-
   return (
     <div style={{ minHeight: '100vh', background: '#23272f' }}>
-      <Navbar onLogout={handleLogout} />
+      <Navbar onLogout={() => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('vendista_login');
+        window.location.href = '/login';
+      }} />
       <div style={{ maxWidth: 980, margin: '40px auto', background: '#23273a', borderRadius: 20, padding: 36, boxShadow: '0 8px 32px #0002' }}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
           <button onClick={() => setTab('finances')} className={tab === 'finances' ? 'tab-btn active' : 'tab-btn'}>ФИНАНСЫ</button>
@@ -91,34 +89,45 @@ export default function Dashboard() {
           <button onClick={() => setTab('profile')} className={tab === 'profile' ? 'tab-btn active' : 'tab-btn'}>ПРОФИЛЬ</button>
         </div>
 
-        {/* Быстрый выбор периода */}
-        <div style={{ marginBottom: 18, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {PERIODS.map(p => (
-            <button
-              key={p.label}
-              className={period.label === p.label ? 'period-btn active' : 'period-btn'}
-              onClick={() => handlePeriodChange(p)}
-            >{p.label}</button>
-          ))}
-          {period.label === 'ВАШ ПЕРИОД' && (
-            <>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={e => handleCustomFrom(e.target.value)}
-                style={{ marginLeft: 10, marginRight: 10 }}
-              />
-              <input
-                type="date"
-                value={toDate}
-                onChange={e => handleCustomTo(e.target.value)}
-              />
-            </>
-          )}
-        </div>
+        {/* На вкладке Финансы — кнопки справа от таблицы */}
+        {tab === 'finances' && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 32 }}>
+            <div style={{ flex: 2, minWidth: 340 }}>
+              <FinancesPage periodRange={periodRange} />
+            </div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {PERIODS.map(p => (
+                  <button
+                    key={p.label}
+                    className={period.label === p.label ? 'period-btn active' : 'period-btn'}
+                    onClick={() => handlePeriodChange(p)}
+                  >{p.label}</button>
+                ))}
+                {period.label === 'ВАШ ПЕРИОД' && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <input type="date" value={fromDate} onChange={e => handleCustomFrom(e.target.value)} />
+                    <input type="date" value={toDate} onChange={e => handleCustomTo(e.target.value)} />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
-        {tab === 'finances' && <FinancesPage periodRange={periodRange} />}
-        {tab === 'expenses' && <ExpensesPage periodRange={periodRange} />}
+        {/* На вкладке Расходы — кнопки в 2 ряда */}
+        {tab === 'expenses' && (
+          <ExpensesPage
+            periodRange={periodRange}
+            periods={PERIODS}
+            period={period}
+            setPeriod={handlePeriodChange}
+            fromDate={fromDate}
+            toDate={toDate}
+            setFromDate={setFromDate}
+            setToDate={setToDate}
+          />
+        )}
         {tab === 'stock' && <StockPage />}
         {tab === 'profile' && <ProfilePage />}
       </div>
