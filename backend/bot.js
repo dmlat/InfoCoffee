@@ -9,7 +9,7 @@ const TOKEN = '7874124889:AAFyMIwz1QSRZVuoMIlMpBwPLYDfcvIUbuI'; // твой то
 const bot = new TelegramBot(TOKEN, { polling: true });
 
 // Кнопка запуска Web App
-const WEB_APP_URL = 'http://localhost:3000'; // локально
+const WEB_APP_URL = 'https://infocoffee.ru';
 
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;

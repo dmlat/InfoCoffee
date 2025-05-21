@@ -17,7 +17,7 @@ export default function ExpensesPage({ periodRange }) {
   useEffect(() => {
     const fetchExpenses = async () => {
       try {
-        const eRes = await axios.get('http://localhost:3001/api/expenses', { headers: { Authorization: `Bearer ${token}` } });
+        const eRes = await axios.get('/api/expenses', { headers: { Authorization: `Bearer ${token}` } });
         setExpenses(eRes.data.expenses);
       } catch (err) {
         setError('Ошибка загрузки расходов');
@@ -43,9 +43,9 @@ export default function ExpensesPage({ periodRange }) {
       comment: eForm.comment || ''
     };
     try {
-      await axios.post('http://localhost:3001/api/expenses', payload, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.post('/api/expenses', payload, { headers: { Authorization: `Bearer ${token}` } });
       setEForm({ amount: '', expense_time: today, comment: '' });
-      const eRes = await axios.get('http://localhost:3001/api/expenses', { headers: { Authorization: `Bearer ${token}` } });
+      const eRes = await axios.get('/api/expenses', { headers: { Authorization: `Bearer ${token}` } });
       setExpenses(eRes.data.expenses);
     } catch (err) {
       setError('Ошибка добавления расхода');
@@ -55,7 +55,7 @@ export default function ExpensesPage({ periodRange }) {
   const deleteExpense = async (id) => {
     if (!window.confirm('Удалить расход?')) return;
     try {
-      await axios.delete(`http://localhost:3001/api/expenses/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.delete(`/api/expenses/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       setExpenses(expenses.filter(e => e.id !== id));
     } catch (err) {
       setError('Ошибка удаления расхода');

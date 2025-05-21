@@ -1,6 +1,5 @@
 // src/pages/TelegramLogin.js
 import React, { useEffect } from 'react';
-import axios from 'axios';
 
 export default function TelegramLogin({ setIsAuth }) {
   useEffect(() => {

@@ -30,7 +30,7 @@ export default function Register() {
     e.preventDefault();
     setVendistaCheck({ status: 'loading', error: '' });
     try {
-      const resp = await axios.post('http://localhost:3001/api/vendista/validate', {
+      const resp = await axios.post('/api/vendista/validate', {
         login: vendistaLogin,
         password: vendistaPass
       });
@@ -52,7 +52,7 @@ export default function Register() {
     setRegSuccess('');
     if (!setupDate) return setRegError('Укажите дату установки кофейни.');
     try {
-      await axios.post('http://localhost:3001/api/register', {
+      await axios.post('/api/register', {
         vendista_login: vendistaLogin,
         vendista_password: vendistaPass,
         date_install: setupDate,

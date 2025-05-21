@@ -18,7 +18,7 @@ export function useStatsPolling(periodRange) {
 
     try {
       setStatsLoading(true);
-      const statsRes = await axios.get('http://localhost:3001/api/transactions/stats', {
+      const statsRes = await axios.get('/api/transactions/stats', {
         headers: { Authorization: `Bearer ${token}` },
         params: { from, to }
       });
@@ -31,7 +31,7 @@ export function useStatsPolling(periodRange) {
 
     try {
       setCoffeeLoading(true);
-      const coffeeRes = await axios.get('http://localhost:3001/api/transactions/coffee-stats', {
+      const coffeeRes = await axios.get('/api/transactions/coffee-stats', {
         headers: { Authorization: `Bearer ${token}` },
         params: { from, to }
       });
