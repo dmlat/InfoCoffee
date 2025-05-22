@@ -1,77 +1,245 @@
 /* src/index.css */
+/* Общие стили для всего документа */
 body {
-  font-family: 'Inter', 'Roboto', Arial, sans-serif;
-  background: #23272f;
-  color: #f5f7fa;
   margin: 0;
-}
-input, button, select {
-  font-family: inherit;
-  font-size: 1rem;
-  padding: 0.5em;
-  border-radius: 8px;
-  border: none;
-  margin-bottom: 1em;
-}
-input, select {
-  background: #282c34;
-  color: #fff;
-  border: 1px solid #333;
-}
-button {
-  background: #3e67e0;
-  color: #fff;
-  cursor: pointer;
-  transition: background 0.2s;
-  min-width: 100px;
-}
-button:hover {
-  background: #214ac2;
-}
-a {
-  color: #3e67e0;
-  text-decoration: none;
-}
-.container {
-  max-width: 430px;
-  margin: 80px auto;
-  background: #2b303a;
-  border-radius: 18px;
-  padding: 36px 32px 28px 32px;
-  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.12);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #23272f; /* Основной фон приложения */
+  color: #c6c6c6; /* Основной цвет текста */
 }
 
+/* Стили для кнопок вкладок (ФИНАНСЫ, РАСХОДЫ и т.д.) */
 .tab-btn {
-  background: #23272f;
-  color: #bfc8df;
+  background: none;
   border: none;
-  border-radius: 8px;
-  padding: 10px 24px;
-  font-size: 15px;
-  font-weight: 500;
-  margin-right: 4px;
+  color: #8a9db8; /* Цвет неактивной вкладки */
+  padding: 10px 15px; 
+  font-size: 0.9em;  
+  font-weight: 600; /* Полужирный шрифт */
   cursor: pointer;
-  transition: background 0.16s, color 0.16s, box-shadow 0.2s;
+  border-bottom: 3px solid transparent; /* Прозрачная нижняя граница для неактивных */
+  transition: color 0.2s, border-color 0.2s; /* Плавный переход для hover/active */
+  white-space: nowrap; /* Текст кнопки не переносится */
+}
+.tab-btn:hover {
+  color: #a6bcdf; /* Цвет при наведении */
+}
+.tab-btn.active {
+  color: #8ae6ff; /* Цвет активной вкладки */
+  border-bottom-color: #8ae6ff; /* Подчеркивание активной вкладки */
 }
 
-.tab-btn.active {
-  background: #3e67e0;
-  color: #fff;
-  box-shadow: 0 2px 16px 0 #1f2330bb;
+/* Стили для кнопок выбора периода (СЕГОДНЯ, ВЧЕРА и т.д.) */
+.period-btn {
+  background-color: #2e3340; /* Фон неактивной кнопки периода */
+  color: #a0b0c8;
+  border: 1px solid #303548;
+  padding: 9px 12px; 
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500; /* Средняя жирность */
+  text-align: center;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  font-size: 0.9em; 
+  width: 100%; /* Занимают ширину своего родительского контейнера (.period-buttons-container) */
+  box-sizing: border-box; /* padding и border не увеличивают общую ширину */
+}
+.period-btn:hover {
+  background-color: #383e4c;
+  border-color: #484e5c;
+  color: #c6c6c6;
 }
 .period-btn.active {
-  background: #3e67e0 !important;
-  color: #fff !important;
-  border: 2px solid #6e9cf7 !important;
+  background-color: #3e67e0; /* Яркий фон для активной кнопки периода */
+  color: #fff;
+  border-color: #3e67e0;
+  font-weight: 600; /* Активная кнопка периода чуть жирнее */
 }
-.period-btn {
-  background: #23272f;
-  color: #c0d7fb;
-  border: 1px solid #323954;
-  border-radius: 10px;
-  margin-bottom: 2px;
-  padding: 11px 0;
-  cursor: pointer;
+
+/* Стили для полей ввода даты (класс .period-date-input) */
+input[type="date"].period-date-input {
+  background-color: #2e3340;
+  color: #c6c6c6;
+  border: 1px solid #303548;
+  padding: 8px 10px; 
+  height: 38px; /* Фиксированная высота для выравнивания с кнопками */
+  box-sizing: border-box;
+  border-radius: 6px;
+  font-family: inherit; /* Наследует шрифт от body */
+  font-size: 0.9em; 
+  width: 100%; /* Занимает ширину родительского контейнера (.date-inputs-container) */
+}
+input[type="date"].period-date-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.6); /* Делает иконку календаря светлее на темном фоне */
+}
+input[type="date"].period-date-input:disabled {
+  background-color: #20232a; /* Фон для неактивного поля */
+  opacity: 0.6; /* Делает неактивное поле полупрозрачным */
+}
+
+/* Стили для кнопок действий (например, "Добавить" в расходах) */
+.action-btn {
+  background: #3e67e0;
+  color: #fff;
   font-weight: 500;
-  transition: all 0.16s;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 22px;
+  height: 38px; /* Фиксированная высота для выравнивания */
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 0.95em;
 }
+.action-btn:hover {
+  background: #4a75f0;
+}
+
+/* Стили для кнопки удаления (корзинка) */
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #e06b6b; /* Красный цвет для иконки удаления */
+  font-size: 18px;
+  line-height: 1; /* Для выравнивания иконки */
+  padding: 0;
+}
+.delete-btn:hover {
+  color: #ff8a8a; /* Ярче при наведении */
+}
+
+/* === СТИЛИ ДЛЯ АДАПТИВНОСТИ === */
+
+/* Обертка для основного контента дашборда (в Dashboard.js) */
+.dashboard-content-wrapper {
+  /* Стили для десктопа в основном заданы инлайново в Dashboard.js */
+  /* Здесь будут переопределения для мобильных через @media */
+}
+
+/* Контейнер для кнопок вкладок (в Dashboard.js) */
+.tabs-container {
+  /* Стили для десктопа в основном заданы инлайново в Dashboard.js */
+}
+
+/* Общий контейнер для страниц с возможностью двух колонок (FinancesPage, ExpensesPage) */
+.page-container {
+  display: flex;
+  align-items: flex-start; 
+  gap: 30px; 
+}
+
+/* Основная область контента (обычно левая, большая колонка) */
+.main-content-area {
+  flex: 2; 
+  min-width: 300px; 
+  width: 100%; /* Для одноколоночного макета (как в ExpensesPage) это значение будет основным */
+}
+
+/* Сайдбар (обычно правая, меньшая колонка для управления периодом) */
+.sidebar-area {
+  flex: 1; 
+  min-width: 200px; 
+  display: flex;
+  flex-direction: column; 
+}
+
+/* Контейнер для полей ввода дат в сайдбаре */
+.date-inputs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+  max-width: 200px; /* Ширина контейнера для дат на десктопе */
+  width: 100%; 
+}
+
+/* Контейнер для кнопок выбора периода в сайдбаре */
+.period-buttons-container {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  max-width: 200px; /* Ширина контейнера для кнопок на десктопе */
+  width: 100%;
+}
+
+/* Медиа-запрос для мобильных устройств (экраны меньше 768px) */
+@media (max-width: 767px) {
+  .dashboard-content-wrapper {
+    margin: 10px auto !important;    /* Уменьшаем внешние отступы */
+    padding: 15px !important;       /* Уменьшаем внутренние отступы */
+    border-radius: 10px !important; /* Можно уменьшить скругление углов */
+  }
+  
+  .tabs-container {
+    gap: 0px !important; /* Убираем гэп, кнопки сами будут иметь отступы */
+    padding-bottom: 10px !important;
+    margin-bottom: 16px !important;
+    overflow-x: auto;   /* Горизонтальная прокрутка для табов, если не помещаются */
+    white-space: nowrap; /* Предотвращает перенос текста в кнопках табов */
+    -webkit-overflow-scrolling: touch; /* Плавная прокрутка на iOS */
+  }
+
+  .tab-btn {
+    padding: 8px 10px; /* Уменьшаем паддинги для табов на мобильных */
+    font-size: 0.85em; /* Уменьшаем шрифт табов */
+  }
+
+  .page-container {
+    flex-direction: column; /* Колонки (main-content и sidebar) встанут друг под друга */
+    gap: 20px; /* Уменьшаем отступ между ними */
+  }
+
+  .main-content-area,
+  .sidebar-area {
+    width: 100% !important; /* Каждая колонка теперь занимает всю ширину */
+    min-width: auto !important; /* Сбрасываем min-width */
+    flex-grow: 0 !important; 
+    flex-shrink: 0 !important;
+    flex-basis: auto !important;
+  }
+  
+  .sidebar-area { /* Только для страниц, где есть сайдбар (например, FinancesPage) */
+    order: -1; /* Перемещаем сайдбар (с кнопками периода) наверх */
+  }
+
+  .date-inputs-container,
+  .period-buttons-container {
+    max-width: none; /* На мобильных контейнеры для дат и кнопок периода занимают всю доступную ширину */
+  }
+  
+  table {
+    font-size: 0.8em !important; 
+  }
+  table th, table td {
+    padding: 5px 7px !important; /* Уменьшаем паддинги в ячейках таблиц */
+  }
+
+   h2 { /* Заголовки типа "Финансовые показатели", "Записать расход" */
+    font-size: 1.3em;
+    margin-bottom: 16px !important; 
+  }
+   h4 { /* Подзаголовки типа "Показатели за период" */
+    font-size: 1.0em;
+    margin-bottom: 10px !important;
+   }
+
+  /* Адаптация формы добавления расходов на ExpensesPage */
+  /* Ищем форму по наличию инлайнового стиля flexWrap: 'wrap' (немного хрупко, но для текущей структуры подойдет) */
+  form[style*="flex-wrap: wrap"] { 
+    gap: 10px !important; 
+  }
+  /* Каждый элемент формы (div с label+input или сама кнопка) будет на новой строке */
+  form[style*="flex-wrap: wrap"] > div,
+  form[style*="flex-wrap: wrap"] > button.action-btn {
+    width: 100% !important; /* Элементы формы занимают всю ширину */
+    margin-bottom: 8px; 
+  }
+   form[style*="flex-wrap: wrap"] > button.action-btn {
+     margin-top: 8px; /* Небольшой отступ сверху для кнопки, если она перенеслась */
+   }
+}
+/* === КОНЕЦ СТИЛЕЙ ДЛЯ АДАПТИВНОСТИ === */

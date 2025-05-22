@@ -2,8 +2,14 @@ import React from 'react';
 
 export default function StockPage() {
   return (
-    <div style={{padding:48, textAlign:'center', color:'#9ee', fontSize: 22, fontWeight: 500}}>
-      В разработке
+    <div className="page-container" style={{flexDirection: 'column'}}>
+        <div className="main-content-area" style={{width: '100%'}}>
+            <div style={{ padding: 20, background: '#23272f', borderRadius: '12px', color: '#eee', fontSize: '1.1em' }}>
+                <h2>Запасы</h2>
+                <p><i>Страница в разработке.</i></p>
+                <p>Здесь будет управление остатками ингредиентов, себестоимостью напитков и т.д.</p>
+            </div>
+        </div>
     </div>
   );
 }

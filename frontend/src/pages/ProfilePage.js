@@ -1,9 +1,14 @@
+// src/pages/ProfilePage.js
 import React from 'react';
 
 export default function ProfilePage() {
   const login = localStorage.getItem('vendista_login') || 'example@demo.com';
   const installDate = localStorage.getItem('install_date') || '';
-  const acqFee = parseFloat(localStorage.getItem('acq_fee')?.replace(',', '.') || '0') / 100;
+  
+  // Предполагаем, что в localStorage 'acq_fee' хранится как десятичная дробь (например, "0.016" для 1.6%)
+  const acqRateDecimal = parseFloat(localStorage.getItem('acq_fee')?.replace(',', '.') || '0');
+  const acqFeeDisplay = (acqRateDecimal * 100).toFixed(1); // Преобразуем в проценты для отображения
+
   const taxType = localStorage.getItem('tax_type') || '6';
 
   return (
@@ -17,7 +22,7 @@ export default function ProfilePage() {
         </b>
       </div>
       <div style={{ fontSize: 16, marginBottom: 8 }}>
-        Комиссия эквайринга: <b>{acqFee}%</b>
+        Комиссия эквайринга: <b>{acqFeeDisplay}%</b>
       </div>
     </div>
   );
