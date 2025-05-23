@@ -1,26 +1,44 @@
 // src/pages/ExpensesPage.js
 import React, { useEffect, useState, useCallback } from 'react';
-import axios from 'axios'; // Импортируем axios
+import axios from 'axios';
 import { formatDateForInput } from '../constants';
 import ConfirmModal from '../components/ConfirmModal';
 
-// Стили для элементов формы (можно вынести в index.css, если будут использоваться еще где-то)
-const formElementStyle = {
+// Общие стили для элементов формы, чтобы избежать дублирования в инлайновых стилях
+// и чтобы их можно было легко переопределить в index.css при необходимости
+const formInputStyleBase = { // Базовый стиль для инпутов в форме
   padding: '8px 10px',
   borderRadius: '6px',
   background: '#2e3340',
   border: '1px solid #303548',
   color: '#c6c6c6',
   fontSize: '0.95em',
-  height: '38px',
-  boxSizing: 'border-box'
+  height: '38px', // Совпадает с .period-date-input и .action-btn
+  boxSizing: 'border-box',
+  width: '100%' // По умолчанию инпут занимает всю ширину своего контейнера
 };
 
-const formLabelStyle = {
+const formLabelStyleBase = { // Базовый стиль для лейблов в форме
   fontSize: '0.9em',
-  color: '#a0a0a0', // Цвет как у неактивных элементов сайдбара
-  marginBottom: '3px',
-  display: 'block'
+  color: '#a0b0c8',
+  marginBottom: '4px', // Небольшой отступ под лейблом
+  display: 'block',
+  textAlign: 'left' // Лейблы по левому краю
+};
+
+// Стили для ячеек и заголовков таблицы
+const tableCellStyle = {
+  padding: '10px 12px', // Немного увеличим паддинг для читаемости
+  borderBottom: '1px solid #23272f', // Линия между строками
+  // Вертикальные разделители добавим к каждому, кроме последнего
+};
+
+const tableHeaderCellStyle = {
+  ...tableCellStyle,
+  color: '#a0b0c8', // Цвет как у неактивных кнопок периода
+  fontWeight: 500,
+  textAlign: 'left', // Все заголовки по левому краю
+  borderBottom: '1px solid #353a40', // Более заметная линия под заголовками
 };
 
 export default function ExpensesPage() {
@@ -28,9 +46,9 @@ export default function ExpensesPage() {
 
   const [expenses, setExpenses] = useState([]);
   const [eForm, setEForm] = useState({ amount: '', expense_time: todayISO, comment: '' });
-  const [isLoading, setIsLoading] = useState(false); // Состояние для отслеживания загрузки
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [submitError, setSubmitError] = useState(''); // Отдельная ошибка для формы
+  const [submitError, setSubmitError] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expenseToDeleteId, setExpenseToDeleteId] = useState(null);
@@ -44,7 +62,6 @@ export default function ExpensesPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.data.success) {
-        // Сортируем по дате (новые сверху), и по ID для стабильности при одинаковой дате
         setExpenses(res.data.expenses.sort((a, b) => new Date(b.expense_time) - new Date(a.expense_time) || b.id - a.id));
       } else {
         setError(res.data.error || 'Не удалось загрузить расходы.');
@@ -63,14 +80,14 @@ export default function ExpensesPage() {
 
   const handleEFormChange = e => {
     setEForm({ ...eForm, [e.target.name]: e.target.value });
-    if (e.target.name === 'amount' && submitError) { // Сбрасываем ошибку суммы при изменении
+    if (e.target.name === 'amount' && submitError) {
         setSubmitError('');
     }
   };
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
-    setSubmitError(''); // Сбрасываем предыдущие ошибки формы
+    setSubmitError('');
 
     const amountNum = parseFloat(eForm.amount);
     if (isNaN(amountNum) || amountNum <= 0) {
@@ -85,7 +102,7 @@ export default function ExpensesPage() {
     const payload = {
       amount: amountNum,
       expense_time: eForm.expense_time,
-      comment: eForm.comment.trim() || '', // Убираем лишние пробелы или пустая строка
+      comment: eForm.comment.trim() || '',
     };
 
     try {
@@ -95,9 +112,8 @@ export default function ExpensesPage() {
       });
 
       if (res.data.success && res.data.expense) {
-        // Добавляем новый расход в начало списка и пересортировываем
         setExpenses(prev => [res.data.expense, ...prev].sort((a,b) => new Date(b.expense_time) - new Date(a.expense_time) || b.id - a.id));
-        setEForm({ amount: '', expense_time: todayISO, comment: '' }); // Очищаем форму
+        setEForm({ amount: '', expense_time: todayISO, comment: '' });
       } else {
         setSubmitError(res.data.error || 'Не удалось добавить расход.');
       }
@@ -114,7 +130,7 @@ export default function ExpensesPage() {
 
   const confirmDeleteExpense = async () => {
     if (expenseToDeleteId === null) return;
-    setError(''); // Очищаем общую ошибку списка
+    setError('');
     try {
       const token = localStorage.getItem('token');
       const res = await axios.delete(`/api/expenses/${expenseToDeleteId}`, {
@@ -123,7 +139,7 @@ export default function ExpensesPage() {
       if (res.data.success) {
         setExpenses(prevExpenses => prevExpenses.filter(e => e.id !== expenseToDeleteId));
       } else {
-        setError(res.data.error || 'Не удалось удалить расход.'); // Показываем ошибку в общем списке
+        setError(res.data.error || 'Не удалось удалить расход.');
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Ошибка сети при удалении расхода.');
@@ -139,6 +155,11 @@ export default function ExpensesPage() {
     setExpenseToDeleteId(null);
   };
 
+  // Стиль для колонок с разделителем справа (кроме последней)
+  const cellWithBorder = { ...tableCellStyle, borderRight: '1px solid #23272f' };
+  const headerCellWithBorder = { ...tableHeaderCellStyle, borderRight: '1px solid #23272f' };
+
+
   return (
     <>
       <ConfirmModal
@@ -149,96 +170,116 @@ export default function ExpensesPage() {
         confirmText="Удалить"
         cancelText="Отмена"
       />
-      <div style={{
-          maxWidth: '700px', // Немного увеличим, чтобы таблица лучше смотрелась
-          margin: '0 auto'
-        }}
-      >
-        <h2 style={{ marginBottom: '20px', color: '#eee' }}>Учет расходов</h2> {/* Используем h2 как на других страницах */}
+      {/* Этот div теперь использует классы из index.css, если ты хочешь 
+        двухколоночный макет с сайдбаром на десктопе, как у FinancesPage.
+        Если нужен простой одноколоночный макет, как было, то можно оставить 
+        инлайновые maxWidth и margin: '0 auto'.
+        Я верну .page-container и .main-content-area для консистентности.
+        Если сайдбар для расходов не нужен, его можно просто не рендерить.
+      */}
+      <div className="page-container" style={{flexDirection: 'column'}}> {/* Заставим быть одной колонкой всегда для Expenses */}
+        <div className="main-content-area" style={{width: '100%'}}> {/* Займет всю ширину */}
+          <h2 style={{ marginBottom: '20px', color: '#eee' }}>Учет расходов</h2>
 
-        <form onSubmit={handleAddExpense} style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end', marginBottom: 24, background: '#282c34', padding: '20px', borderRadius: '12px' }}>
-          <div>
-            <label htmlFor="exp-amount-page" style={formLabelStyle}>Сумма (₽) <span style={{color: 'tomato'}}>*</span></label>
-            <input
-              id="exp-amount-page"
-              name="amount"
-              value={eForm.amount}
-              onChange={handleEFormChange}
-              placeholder="0.00"
-              type="number"
-              min="0.01" // Сумма должна быть больше 0
-              step="0.01"
-              style={{...formElementStyle, width: '130px' }} // Немного шире
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="exp-date-page" style={formLabelStyle}>Дата <span style={{color: 'tomato'}}>*</span></label>
-            <input
-              id="exp-date-page"
-              name="expense_time"
-              value={eForm.expense_time || todayISO}
-              onChange={handleEFormChange}
-              type="date"
-              className="period-date-input" // Используем общий класс
-              style={{...formElementStyle, width: '170px' }} // Ширина для даты
-              required
-            />
-          </div>
-          <div style={{ flexGrow: 1, minWidth: '180px' }}> {/* Поле комментария займет оставшееся место */}
-            <label htmlFor="exp-comment-page" style={formLabelStyle}>Категория/Комментарий</label>
-            <input
-              id="exp-comment-page"
-              name="comment"
-              value={eForm.comment}
-              onChange={handleEFormChange}
-              placeholder="Например, Аренда"
-              style={{...formElementStyle, width: '100%' }} // Ширина 100% от родителя
-            />
-          </div>
-          <button
-            type="submit"
-            className="action-btn" // Используем общий класс для кнопки действия
-            // Инлайновые стили для специфичных отступов или размеров можно оставить, но основные лучше через класс
-            style={{ minWidth: '120px' /* Минимальная ширина кнопки */ }}
+          <form 
+            onSubmit={handleAddExpense} 
+            style={{ 
+              display: 'flex', 
+              flexDirection: 'column', // Элементы формы теперь в колонку
+              gap: '15px', 
+              marginBottom: 24, 
+              background: '#282c34', 
+              padding: '20px', 
+              borderRadius: '12px' 
+            }}
           >
-            Добавить
-          </button>
-          {submitError && <div style={{ color: 'salmon', marginTop: 8, width: '100%', textAlign: 'center' }}>{submitError}</div>}
-        </form>
+            {/* Ряд для Суммы и Даты */}
+            <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+              <div style={{ flex: 1 /* Равная ширина для суммы */ }}>
+                <label htmlFor="exp-amount-page" style={formLabelStyleBase}>Сумма (₽) <span style={{color: 'tomato'}}>*</span></label>
+                <input
+                  id="exp-amount-page"
+                  name="amount"
+                  value={eForm.amount}
+                  onChange={handleEFormChange}
+                  placeholder="0.00"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  style={formInputStyleBase}
+                  required
+                />
+              </div>
+              <div style={{ flex: 1 /* Равная ширина для даты */ }}>
+                <label htmlFor="exp-date-page" style={formLabelStyleBase}>Дата <span style={{color: 'tomato'}}>*</span></label>
+                <input
+                  id="exp-date-page"
+                  name="expense_time"
+                  value={eForm.expense_time || todayISO}
+                  onChange={handleEFormChange}
+                  type="date"
+                  className="period-date-input" // Используем общий класс, formInputStyleBase его дополнит
+                  style={formInputStyleBase}
+                  required
+                />
+              </div>
+            </div>
 
-        {/* Убрали заголовок "Список расходов", таблица сама за себя говорит */}
-        {isLoading && <p style={{color: '#888', textAlign: 'center'}}>Загрузка расходов...</p>}
-        {error && <p style={{color: 'salmon', textAlign: 'center'}}>{error}</p>}
+            {/* Поле Комментарий */}
+            <div>
+              <label htmlFor="exp-comment-page" style={formLabelStyleBase}>Комментарий</label>
+              <input
+                id="exp-comment-page"
+                name="comment"
+                value={eForm.comment}
+                onChange={handleEFormChange}
+                placeholder="Например, Аренда"
+                style={formInputStyleBase} // Займет всю ширину родителя (формы)
+              />
+            </div>
+            
+            <button
+              type="submit"
+              className="action-btn"
+              style={{ marginTop: '5px', width: 'auto', alignSelf: 'flex-start' /* Кнопка не растягивается на всю ширину */ }}
+            >
+              Добавить
+            </button>
+            {submitError && <div style={{ color: 'salmon', marginTop: 10, width: '100%', textAlign: 'left' }}>{submitError}</div>}
+          </form>
 
-        {!isLoading && !error && (
-          <div style={{maxHeight: '500px', overflowY: 'auto', background: '#282c34', padding: '15px', borderRadius: '12px'}}>
-            <table style={{ width: '100%', minWidth: '550px', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #353a40' }}>
-                  <th style={{ textAlign: 'right', padding: '10px 12px', color: '#a0b0c8', fontWeight: 500 }}>Сумма</th>
-                  <th style={{ textAlign: 'left', padding: '10px 12px', color: '#a0b0c8', fontWeight: 500 }}>Дата</th>
-                  <th style={{ textAlign: 'left', padding: '10px 12px', color: '#a0b0c8', fontWeight: 500 }}>Комментарий</th>
-                  <th style={{ width: '44px' }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.length === 0 ? (
-                  <tr><td colSpan={4} style={{ color: '#888', padding: '20px', textAlign: 'center' }}>Расходов пока нет. Добавьте первый!</td></tr>
-                ) : (
-                  expenses.map((row, idx) => (
-                    <tr key={row.id} style={{ borderBottom: '1px solid #23272f' }}>
-                      <td style={{ textAlign: 'right', padding: '10px 12px', color: '#e0e0e0', fontWeight: 500 }}>{Number(row.amount).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
-                      <td style={{ textAlign: 'left', padding: '10px 12px', color: '#c6c6c6' }}>{formatDateForInput(new Date(row.expense_time))}</td>
-                      <td style={{ textAlign: 'left', padding: '10px 12px', color: '#c6c6c6', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{row.comment}</td>
-                      <td style={{ textAlign: 'center', padding: '10px 0' }}><button onClick={() => handleDeleteAttempt(row.id)} className="delete-btn" title="Удалить">🗑</button></td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+          {isLoading && <p style={{color: '#888', textAlign: 'center'}}>Загрузка расходов...</p>}
+          {error && <p style={{color: 'salmon', textAlign: 'center'}}>{error}</p>}
+          
+          {!isLoading && !error && (
+            <div style={{overflowX: 'auto', background: '#282c34', padding: '1px 15px 15px 15px', borderRadius: '12px'}}> {/* Добавлен overflowX: 'auto' на случай, если таблица все же не влезет */}
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #353a40' }}>
+                    <th style={{...headerCellWithBorder, textAlign: 'left' }}>Сумма</th> {/* Изменено */}
+                    <th style={{...headerCellWithBorder, textAlign: 'left' }}>Дата</th> {/* Изменено */}
+                    <th style={{...tableHeaderCellStyle, textAlign: 'left' }}>Комментарий</th> {/* Изменено, без правого бордера */}
+                    <th style={{ ...tableHeaderCellStyle, width: '44px', paddingRight: 0, paddingLeft: 0 }}></th> {/* Для кнопки удаления, без бордера */}
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses.length === 0 ? (
+                    <tr><td colSpan={4} style={{ ...tableCellStyle, color: '#888', padding: '20px', textAlign: 'center' }}>Расходов пока нет. Добавьте первый!</td></tr>
+                  ) : (
+                    expenses.map((row, idx) => (
+                      <tr key={row.id} style={{ borderBottom: '1px solid #23272f' }}>
+                        <td style={{...cellWithBorder, textAlign: 'left', color: '#e0e0e0', fontWeight: 500 }}>{Number(row.amount).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
+                        <td style={{...cellWithBorder, textAlign: 'left' }}>{formatDateForInput(new Date(row.expense_time))}</td>
+                        <td style={{...tableCellStyle, textAlign: 'right', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{row.comment}</td> {/* Изменено */}
+                        <td style={{ ...tableCellStyle, textAlign: 'center', paddingRight: 0, paddingLeft: 0 }}><button onClick={() => handleDeleteAttempt(row.id)} className="delete-btn" title="Удалить">🗑</button></td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </>
   );
