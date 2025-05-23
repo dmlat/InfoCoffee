@@ -52,27 +52,42 @@ router.post('/register', async (req, res) => {
 });
 
 // --- Логин пользователя ---
+// Фрагмент файла backend/routes/auth.js
+
 router.post('/login', async (req, res) => {
     try {
         const { vendista_login, vendista_password } = req.body;
         if (!vendista_login || !vendista_password)
             return res.status(400).json({ success: false, error: 'Требуется Vendista логин и пароль' });
 
-        const userRes = await pool.query('SELECT id, vendista_password_hash FROM users WHERE vendista_login=$1', [vendista_login]);
+        // Изменяем SQL-запрос, чтобы получить больше полей
+        const userRes = await pool.query(
+            'SELECT id, vendista_password_hash, setup_date, tax_system, acquiring FROM users WHERE vendista_login=$1', 
+            [vendista_login]
+        );
         if (userRes.rows.length === 0)
             return res.status(400).json({ success: false, error: 'Пользователь не найден!' });
 
-        // Проверка пароля (plain для MVP)
         const user = userRes.rows[0];
-        if (vendista_password !== user.vendista_password_hash)
+        if (vendista_password !== user.vendista_password_hash) // Помни, здесь пока простое сравнение пароля
             return res.status(400).json({ success: false, error: 'Неверный пароль!' });
 
-        // Выдаём JWT
         const token = jwt.sign({ userId: user.id, vendista_login }, process.env.JWT_SECRET, { expiresIn: '12h' });
 
-        res.json({ success: true, token, user: { userId: user.id, vendista_login } });
+        // Возвращаем расширенные данные пользователя
+        res.json({
+            success: true,
+            token,
+            user: {
+                userId: user.id,
+                vendista_login: vendista_login,
+                setup_date: user.setup_date,     // Дата установки
+                tax_system: user.tax_system,   // Система налогообложения
+                acquiring: user.acquiring      // Процент эквайринга
+            }
+        });
     } catch (err) {
-        console.error(err);
+        console.error("Ошибка в /api/login:", err); // Улучшенное логирование
         res.status(500).json({ success: false, error: 'Ошибка входа: ' + err.message });
     }
 });

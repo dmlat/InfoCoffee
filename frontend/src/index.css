@@ -16,8 +16,8 @@ body {
   background: none;
   border: none;
   color: #8a9db8; /* Цвет неактивной вкладки */
-  padding: 10px 15px; 
-  font-size: 0.9em;  
+  padding: 10px 15px;
+  font-size: 0.9em;
   font-weight: 600; /* Полужирный шрифт */
   cursor: pointer;
   border-bottom: 3px solid transparent; /* Прозрачная нижняя граница для неактивных */
@@ -37,13 +37,13 @@ body {
   background-color: #2e3340; /* Фон неактивной кнопки периода */
   color: #a0b0c8;
   border: 1px solid #303548;
-  padding: 9px 12px; 
+  padding: 9px 12px;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 500; /* Средняя жирность */
   text-align: center;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-  font-size: 0.9em; 
+  font-size: 0.9em;
   width: 100%; /* Занимают ширину своего родительского контейнера (.period-buttons-container) */
   box-sizing: border-box; /* padding и border не увеличивают общую ширину */
 }
@@ -64,12 +64,12 @@ input[type="date"].period-date-input {
   background-color: #2e3340;
   color: #c6c6c6;
   border: 1px solid #303548;
-  padding: 8px 10px; 
+  padding: 8px 10px;
   height: 38px; /* Фиксированная высота для выравнивания с кнопками */
   box-sizing: border-box;
   border-radius: 6px;
   font-family: inherit; /* Наследует шрифт от body */
-  font-size: 0.9em; 
+  font-size: 0.9em;
   width: 100%; /* Занимает ширину родительского контейнера (.date-inputs-container) */
 }
 input[type="date"].period-date-input::-webkit-calendar-picker-indicator {
@@ -112,49 +112,64 @@ input[type="date"].period-date-input:disabled {
   color: #ff8a8a; /* Ярче при наведении */
 }
 
-/* === СТИЛИ ДЛЯ АДАПТИВНОСТИ === */
-
+/* === ОБЩИЕ СТИЛИ ДЛЯ ДАШБОРДА === */
 /* Обертка для основного контента дашборда (в Dashboard.js) */
 .dashboard-content-wrapper {
   /* Стили для десктопа в основном заданы инлайново в Dashboard.js */
-  /* Здесь будут переопределения для мобильных через @media */
 }
 
 /* Контейнер для кнопок вкладок (в Dashboard.js) */
 .tabs-container {
-  /* Стили для десктопа в основном заданы инлайново в Dashboard.js */
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #303548;
+  padding-bottom: 16px;
+  justify-content: center; /* Центрирование табов */
 }
 
 /* Общий контейнер для страниц с возможностью двух колонок (FinancesPage, ExpensesPage) */
 .page-container {
   display: flex;
-  align-items: flex-start; 
-  gap: 30px; 
+  align-items: flex-start;
+  gap: 30px;
 }
 
 /* Основная область контента (обычно левая, большая колонка) */
 .main-content-area {
-  flex: 2; 
-  min-width: 300px; 
+  flex: 2;
+  min-width: 300px;
   width: 100%; /* Для одноколоночного макета (как в ExpensesPage) это значение будет основным */
 }
 
 /* Сайдбар (обычно правая, меньшая колонка для управления периодом) */
 .sidebar-area {
-  flex: 1; 
-  min-width: 200px; 
+  flex: 1;
+  min-width: 200px; /* Минимальная ширина сайдбара на десктопе */
+  max-width: 250px; /* Максимальная ширина сайдбара на десктопе */
   display: flex;
-  flex-direction: column; 
+  flex-direction: column;
 }
 
 /* Контейнер для полей ввода дат в сайдбаре */
 .date-inputs-container {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: column; /* На десктопе даты друг под другом */
+  gap: 10px; /* Увеличим немного гэп */
   margin-bottom: 18px;
-  max-width: 200px; /* Ширина контейнера для дат на десктопе */
-  width: 100%; 
+  width: 100%;
+}
+/* Обертка для каждой пары label+input даты */
+.date-input-item {
+    display: flex;
+    flex-direction: column;
+}
+.date-input-item label {
+    font-size: 0.9em;
+    color: #ffffff;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 5px; /* Отступ под лейблом */
 }
 
 /* Контейнер для кнопок выбора периода в сайдбаре */
@@ -162,84 +177,248 @@ input[type="date"].period-date-input:disabled {
   display: flex;
   flex-direction: column;
   gap: 9px;
-  max-width: 200px; /* Ширина контейнера для кнопок на десктопе */
   width: 100%;
 }
 
-/* Медиа-запрос для мобильных устройств (экраны меньше 768px) */
+/* === СТИЛИ ДЛЯ АДАПТИВНОСТИ (МОБИЛЬНЫЕ УСТРОЙСТВА) === */
 @media (max-width: 767px) {
   .dashboard-content-wrapper {
-    margin: 10px auto !important;    /* Уменьшаем внешние отступы */
-    padding: 15px !important;       /* Уменьшаем внутренние отступы */
-    border-radius: 10px !important; /* Можно уменьшить скругление углов */
+    margin: 10px auto !important;
+    padding: 15px !important;
+    border-radius: 10px !important;
   }
-  
+
   .tabs-container {
-    gap: 0px !important; /* Убираем гэп, кнопки сами будут иметь отступы */
+    gap: 0px !important;
     padding-bottom: 10px !important;
     margin-bottom: 16px !important;
-    overflow-x: auto;   /* Горизонтальная прокрутка для табов, если не помещаются */
-    white-space: nowrap; /* Предотвращает перенос текста в кнопках табов */
-    -webkit-overflow-scrolling: touch; /* Плавная прокрутка на iOS */
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start; /* На мобильных табы могут не помещаться, поэтому скролл и от левого края */
   }
 
   .tab-btn {
-    padding: 8px 10px; /* Уменьшаем паддинги для табов на мобильных */
-    font-size: 0.85em; /* Уменьшаем шрифт табов */
+    padding: 8px 10px;
+    font-size: 0.85em;
   }
 
   .page-container {
-    flex-direction: column; /* Колонки (main-content и sidebar) встанут друг под друга */
-    gap: 20px; /* Уменьшаем отступ между ними */
+    flex-direction: column;
+    gap: 20px;
   }
 
   .main-content-area,
   .sidebar-area {
-    width: 100% !important; /* Каждая колонка теперь занимает всю ширину */
-    min-width: auto !important; /* Сбрасываем min-width */
-    flex-grow: 0 !important; 
+    width: 100% !important;
+    min-width: auto !important;
+    max-width: none !important; /* Сбрасываем max-width для сайдбара */
+    flex-grow: 0 !important;
     flex-shrink: 0 !important;
     flex-basis: auto !important;
   }
-  
-  .sidebar-area { /* Только для страниц, где есть сайдбар (например, FinancesPage) */
-    order: -1; /* Перемещаем сайдбар (с кнопками периода) наверх */
+
+  .sidebar-area {
+    order: -1; /* Сайдбар (с датами и кнопками периода) наверх */
+    margin-bottom: 20px;
   }
 
-  .date-inputs-container,
-  .period-buttons-container {
-    max-width: none; /* На мобильных контейнеры для дат и кнопок периода занимают всю доступную ширину */
+  .date-inputs-container {
+    max-width: none;
+    flex-direction: row; /* Даты в одну строку на мобильных */
+    justify-content: space-between;
+    gap: 15px; /* Отступ между блоками дат */
+    align-items: flex-start; /* Выравниваем по верху */
   }
-  
+  .date-inputs-container .date-input-item { /* Каждый блок (label+input) */
+    flex: 1; /* Занимает равное доступное пространство */
+  }
+  .date-inputs-container input[type="date"].period-date-input {
+    width: 100%; /* Input занимает всю ширину своего родительского .date-input-item */
+  }
+
+  .period-buttons-container {
+    max-width: none;
+    display: grid; /* Используем грид-сетку */
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Адаптивные колонки, мин. ширина 120px */
+    gap: 8px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+  }
+
+  .period-btn {
+    padding: 8px 5px;
+    font-size: 0.85em; /* Размер шрифта как у h4 на мобильных (или чуть меньше) */
+    white-space: normal; /* Позволяем тексту переноситься */
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   table {
-    font-size: 0.8em !important; 
+    font-size: 0.8em !important;
   }
   table th, table td {
-    padding: 5px 7px !important; /* Уменьшаем паддинги в ячейках таблиц */
+    padding: 5px 7px !important;
   }
 
    h2 { /* Заголовки типа "Финансовые показатели", "Записать расход" */
-    font-size: 1.3em;
-    margin-bottom: 16px !important; 
+    font-size: 1.3em; /* Уже было */
+    margin-bottom: 16px !important;
   }
-   h4 { /* Подзаголовки типа "Показатели за период" */
-    font-size: 1.0em;
+   h4 { /* Подзаголовки типа "Показатели за период", "Статистика кофеен" */
+    font-size: 1.0em; /* Уже было */
     margin-bottom: 10px !important;
    }
 
   /* Адаптация формы добавления расходов на ExpensesPage */
-  /* Ищем форму по наличию инлайнового стиля flexWrap: 'wrap' (немного хрупко, но для текущей структуры подойдет) */
-  form[style*="flex-wrap: wrap"] { 
-    gap: 10px !important; 
+  form[style*="flex-wrap: wrap"] {
+    gap: 10px !important;
   }
-  /* Каждый элемент формы (div с label+input или сама кнопка) будет на новой строке */
   form[style*="flex-wrap: wrap"] > div,
   form[style*="flex-wrap: wrap"] > button.action-btn {
-    width: 100% !important; /* Элементы формы занимают всю ширину */
-    margin-bottom: 8px; 
+    width: 100% !important;
+    margin-bottom: 8px;
   }
    form[style*="flex-wrap: wrap"] > button.action-btn {
-     margin-top: 8px; /* Небольшой отступ сверху для кнопки, если она перенеслась */
+     margin-top: 8px;
    }
 }
 /* === КОНЕЦ СТИЛЕЙ ДЛЯ АДАПТИВНОСТИ === */
+
+/* === СТИЛИ ДЛЯ СТРАНИЦ АУТЕНТИФИКАЦИИ === */
+.auth-container {
+  background-color: #23272f;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.auth-form-wrapper {
+  background-color: #282c34;
+  padding: 30px 35px;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  color: #e0e0e0;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.auth-form-wrapper h2 {
+  color: #8ae6ff;
+  margin-top: 0;
+  margin-bottom: 25px;
+  font-size: 1.8em;
+}
+
+.auth-form-wrapper input[type="text"],
+.auth-form-wrapper input[type="password"],
+.auth-form-wrapper input[type="email"],
+.auth-form-wrapper input[type="date"] {
+  width: 100%;
+  padding: 12px 15px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  background: #2e3340;
+  border: 1px solid #303548;
+  color: #c6c6c6;
+  font-size: 1em;
+  box-sizing: border-box;
+  height: auto;
+}
+
+.auth-form-wrapper input[type="date"]::-webkit-calendar-picker-indicator {
+   filter: invert(0.6);
+}
+
+.auth-form-wrapper button[type="submit"],
+.auth-form-wrapper .auth-button-primary {
+  width: 100%;
+  padding: 12px 15px;
+  border: none;
+  border-radius: 8px;
+  background-color: #3e67e0;
+  color: white;
+  font-size: 1em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-bottom: 10px;
+}
+.auth-form-wrapper button[type="submit"]:hover,
+.auth-form-wrapper .auth-button-primary:hover {
+  background-color: #4a75f0;
+}
+
+.auth-form-wrapper .auth-button-secondary {
+  width: 100%;
+  padding: 12px 15px;
+  border-radius: 8px;
+  background: none;
+  border: 1px solid #3e67e0;
+  color: #3e67e0;
+  font-size: 1em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  margin-bottom: 10px;
+}
+.auth-form-wrapper .auth-button-secondary:hover {
+  background-color: rgba(62, 103, 224, 0.1);
+  color: #4a75f0;
+}
+
+.auth-form-wrapper .auth-error {
+  color: salmon;
+  margin-top: 15px;
+  font-size: 0.9em;
+}
+
+/* Стили для шагов в Register.js */
+.auth-step-info {
+  font-weight: 500;
+  margin-bottom: 10px;
+  color: #c6c6c6;
+  font-size: 0.95em;
+  text-align: left; /* Для лейблов */
+}
+.auth-fine-print {
+  font-size: 0.8em;
+  color: #888;
+  margin-top: 15px;
+  margin-bottom: 10px;
+  text-align: left; /* Для мелкого текста */
+}
+.tax-options-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.tax-options-container button {
+    flex: 1;
+    padding: 10px;
+    background: #2e3340;
+    color: #a0b0c8;
+    border: 1px solid #303548;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+    font-size: 0.85em; /* Поменьше шрифт для кнопок налогов */
+}
+.tax-options-container button.active {
+    background: #3e67e0;
+    color: #fff;
+    border-color: #3e67e0;
+}
+.auth-form-wrapper input[name="acquiring"] {
+    width: 80px !important;
+    display: inline-block;
+    margin-right: 5px;
+}
