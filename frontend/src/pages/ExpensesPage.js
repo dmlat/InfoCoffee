@@ -77,6 +77,9 @@ export default function ExpensesPage() {
       if (res.data.success && res.data.expense) {
         setExpenses(prev => [res.data.expense, ...prev].sort((a,b) => new Date(b.expense_time) - new Date(a.expense_time) || b.id - a.id));
         setEForm({ amount: '', expense_time: todayISO, comment: '' });
+        if (document.activeElement && typeof document.activeElement.blur === 'function') { // Предотвращаем zoom-in
+          document.activeElement.blur();
+        }
       } else {
         setSubmitError(res.data.error || 'Не удалось добавить расход.');
       }
@@ -133,6 +136,7 @@ export default function ExpensesPage() {
           <h2 style={{ marginBottom: '20px', color: '#eee' }}>Учет расходов</h2>
 
           <form onSubmit={handleAddExpense} className="expense-form-container">
+            {/* Ряд для Суммы и Даты */}
             <div className="expense-form-row">
               <div className="expense-form-field">
                 <label htmlFor="exp-amount-page" className="expense-form-label">Сумма (₽) <span style={{color: 'tomato'}}>*</span></label>
@@ -157,12 +161,13 @@ export default function ExpensesPage() {
                   value={eForm.expense_time || todayISO}
                   onChange={handleEFormChange}
                   type="date"
-                  className="expense-form-input period-date-input" // period-date-input для общих стилей календаря
+                  className="expense-form-input period-date-input"
                   required
                 />
               </div>
             </div>
 
+            {/* Поле Комментарий */}
             <div className="expense-form-field-fullwidth">
               <label htmlFor="exp-comment-page" className="expense-form-label">Комментарий</label>
               <input
@@ -188,15 +193,14 @@ export default function ExpensesPage() {
           {error && <p style={{color: 'salmon', textAlign: 'center', marginTop: '20px'}}>{error}</p>}
           
           {!isLoading && !error && (
-            <div className="expenses-table-container"> {/* Класс для контейнера таблицы */}
-              <table className="expenses-table"> {/* Класс для самой таблицы */}
+            <div className="expenses-table-container">
+              <table className="expenses-table">
                 <thead>
                   <tr>
-                    {/* Классы для выравнивания и стилей из index.css */}
-                    <th className="th-amount">Сумма</th>
-                    <th className="th-date">Дата</th>
-                    <th className="th-comment">Комментарий</th>
-                    <th className="th-action"></th> {/* Для кнопки удаления */}
+                    <th className="expenses-table-header th-amount">Сумма</th>
+                    <th className="expenses-table-header th-date">Дата</th>
+                    <th className="expenses-table-header th-comment">Комментарий</th>
+                    <th className="expenses-table-header th-action"></th> {/* Для кнопки удаления */}
                   </tr>
                 </thead>
                 <tbody>

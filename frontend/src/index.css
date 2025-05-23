@@ -113,9 +113,7 @@ input[type="date"].period-date-input:disabled {
 }
 
 /* === ОБЩИЕ СТИЛИ ДЛЯ ДАШБОРДА === */
-.dashboard-content-wrapper {
-  /* Desktop styles are mostly inline in Dashboard.js */
-}
+.dashboard-content-wrapper { }
 
 .tabs-container {
   display: flex;
@@ -134,8 +132,9 @@ input[type="date"].period-date-input:disabled {
 
 .main-content-area {
   flex: 2;
-  min-width: 300px;
-  width: 100%;
+  min-width: 300px; /* Помогает избежать слишком сильного сжатия */
+  width: 100%; /* Занимает доступную ширину в своем flex-контейнере */
+  overflow: hidden; /* Предотвращает выход контента за пределы, если таблица будет шире */
 }
 
 .sidebar-area {
@@ -177,25 +176,29 @@ input[type="date"].period-date-input:disabled {
 .expense-form-container {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 15px; /* Отступ между рядами формы и кнопкой */
   margin-bottom: 24px;
   background: #282c34;
   padding: 20px;
   border-radius: 12px;
 }
 
-.expense-form-row {
+.expense-form-row { /* Для полей Сумма и Дата */
   display: flex;
-  gap: 12px;
+  gap: 12px; /* Отступ между Суммой и Датой */
   width: 100%;
+  align-items: flex-start; /* Чтобы лейблы были на одном уровне */
 }
 
 .expense-form-field, .expense-form-field-fullwidth {
   display: flex;
-  flex-direction: column; /* Лейбл над инпутом */
+  flex-direction: column;
 }
-.expense-form-field {
-  flex: 1; /* Для полей в ряду, чтобы занимали равную ширину */
+.expense-form-field { /* Поля Сумма и Дата делят ширину */
+  flex: 1;
+}
+.expense-form-field-fullwidth { /* Поле Комментарий на всю ширину */
+  width: 100%;
 }
 
 .expense-form-label {
@@ -206,29 +209,29 @@ input[type="date"].period-date-input:disabled {
   text-align: left;
 }
 
-.expense-form-input { /* Базовый стиль для инпутов в форме расходов */
+.expense-form-input {
   padding: 8px 10px;
   border-radius: 6px;
   background: #2e3340;
   border: 1px solid #303548;
   color: #c6c6c6;
-  font-size: 0.95em; /* Базовый размер шрифта для десктопа */
+  font-size: 0.95em; /* Базовый размер для десктопа */
   height: 38px;
   box-sizing: border-box;
   width: 100%;
 }
 
-input[type="date"].expense-form-input { /* Для инпута даты в форме расходов */
-  font-family: inherit;
+input[type="date"].expense-form-input {
+  font-family: inherit; /* Для консистентности с другими инпутами */
 }
 input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   filter: invert(0.6);
 }
 
-.expense-form-submit-button.action-btn { /* Доп. стили для кнопки Добавить, если нужны */
-    margin-top: 5px; /* Отступ сверху, если форма стала многострочной */
-    width: auto;
-    align-self: flex-start;
+.expense-form-submit-button.action-btn {
+    margin-top: 5px;
+    width: auto; /* Кнопка не растягивается */
+    align-self: flex-start; /* Выравнивание по левому краю в flex-колонке (контейнер формы) */
 }
 
 .expense-form-error {
@@ -239,58 +242,64 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   font-size: 0.9em;
 }
 
+/* Стилизация таблицы расходов */
 .expenses-table-container {
-  overflow-x: auto; /* Скролл для таблицы, если не помещается */
+  overflow-x: auto; /* Горизонтальный скролл для таблицы, если она не помещается */
   background: #282c34;
-  padding: 1px 15px 15px 15px;
+  padding: 1px 15px 15px 15px; /* 1px сверху, чтобы border-radius и border-collapse дружили */
   border-radius: 12px;
   margin-top: 20px;
 }
 .expenses-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: collapse; /* Убираем двойные рамки */
 }
 .expenses-table th, .expenses-table td {
   padding: 10px 12px;
-  border-bottom: 1px solid #23272f; /* Горизонтальные линии */
-  border-right: 1px solid #23272f; /* Вертикальные линии */
-  text-align: left; /* Общее выравнивание по левому краю */
+  border-bottom: 1px solid #23272f; /* Горизонтальные линии между строками */
+  border-right: 1px solid #23272f; /* Вертикальные линии-разделители */
+  text-align: left; /* Общее выравнивание по левому краю для всех */
 }
-.expenses-table th:last-child, .expenses-table td:last-child {
+.expenses-table th:last-child, 
+.expenses-table td:last-child {
   border-right: none; /* Убираем правый бордер у последнего столбца */
 }
 .expenses-table thead tr {
-    border-bottom: 1px solid #353a40; /* Линия под заголовками */
+    border-bottom: 2px solid #353a40; /* Более жирная линия под заголовками */
 }
-.expenses-table th { /* Заголовки Сумма, Дата, Комментарий */
-  color: #a0b0c8;
-  font-weight: 500;
+.expenses-table th.expenses-table-header { /* Общий класс для заголовков */
+  color: #ffffff; /* Белый цвет заголовков */
+  font-weight: 600; /* Немного жирнее */
+  white-space: nowrap; /* Предотвращаем перенос заголовков */
 }
-.expenses-table td.td-amount { /* Ячейка Сумма */
-  text-align: left; /* Как ты просил */
+/* Специфичные классы для выравнивания и стилей ячеек, если нужно */
+.expenses-table td.td-amount {
+  /* text-align: left; уже по умолчанию */
   color: #e0e0e0;
   font-weight: 500;
+  white-space: nowrap; /* Сумма не должна переноситься */
 }
-.expenses-table td.td-date { /* Ячейка Дата */
-  text-align: left; /* Как ты просил */
+.expenses-table td.td-date {
+  /* text-align: left; уже по умолчанию */
   color: #c6c6c6;
+  white-space: nowrap; /* Дата не должна переноситься */
 }
-.expenses-table td.td-comment { /* Ячейка Комментарий */
-  text-align: right; /* Как ты просил */
+.expenses-table td.td-comment {
+  text-align: right; /* Комментарий по правому краю */
   color: #c6c6c6;
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: pre-wrap; /* Позволяет переносить длинные комментарии */
+  word-break: break-word; /* Ломает слово, если оно слишком длинное */
 }
-.expenses-table td.td-action { /* Ячейка для кнопки удаления */
-    text-align: center;
+.expenses-table td.td-action {
+  text-align: center;
+  white-space: nowrap;
 }
-.expenses-table .empty-expenses-row td { /* Для строки "Расходов пока нет" */
+.expenses-table .empty-expenses-row td {
     color: #888;
     padding: 20px;
     text-align: center;
-    border-right: none; /* Убираем бордеры у этой специальной строки */
+    border-right: none; 
 }
-
 
 /* === СТИЛИ ДЛЯ АДАПТИВНОСТИ (МОБИЛЬНЫЕ УСТРОЙСТВА) === */
 @media (max-width: 767px) {
@@ -339,9 +348,9 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
     max-width: none;
     flex-direction: row;
     justify-content: space-between;
-    gap: 12px; /* Уменьшил для мобильных */
+    gap: 10px; /* Уменьшил гэп для мобильных */
     align-items: flex-start;
-    width: 100%; /* Добавил для явности */
+    width: 100%;
     box-sizing: border-box;
   }
   .date-inputs-container .date-input-item {
@@ -358,8 +367,8 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   }
 
   .period-btn {
-    padding: 8px 6px;
-    font-size: 0.8em; /* Уменьшил шрифт кнопок периода */
+    padding: 8px 5px;
+    font-size: 0.8em; /* Уменьшил еще немного */
     white-space: normal;
     min-height: 38px;
     display: flex;
@@ -370,32 +379,32 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 
   /* Стили для формы расходов на мобильных */
   .expense-form-container {
-    padding: 15px; /* Уменьшим паддинг формы */
+    padding: 15px;
   }
   .expense-form-row {
-    flex-direction: column; /* Сумма и Дата друг под другом */
-    gap: 15px; 
+    /* Сумма и Дата остаются в ряд, если хочешь их друг под другом, измени на flex-direction: column; */
+     flex-direction: row; 
+     /* gap: 12px; /* Если в ряд, сохраняем отступ */
   }
+  /* Если Сумма и Дата друг под другом на мобильных: */
+  /* .expense-form-row { flex-direction: column; gap: 15px; } */
+  
   .expense-form-input,
-  input[type="date"].expense-form-input { /* Для инпутов в форме расходов */
+  input[type="date"].expense-form-input {
       font-size: 16px !important; /* Предотвращаем авто-зум на мобильных */
   }
 
 
-  table { /* Общие стили для таблиц на мобильных */
-    font-size: 0.8em !important;
+  table {
+    font-size: 0.8em !important; /* Общее уменьшение для таблиц */
   }
-  table th, table td {
-    padding: 5px 7px !important;
+  /* Специфичные стили для таблицы расходов на мобильных */
+  .expenses-table th, .expenses-table td {
+      padding: 8px 6px !important; /* Уменьшаем паддинги в таблице расходов */
   }
-  .expenses-table th, .expenses-table td { /* Уточнение для таблицы расходов */
-      padding: 8px 6px !important; /* Свои паддинги для таблицы расходов */
-      white-space: normal; /* Позволяем тексту переноситься */
-  }
-  .expenses-table td.td-comment { /* Комментарий может быть длинным */
-      min-width: 120px; /* Дадим ему минимальную ширину, чтобы не сжимался слишком сильно */
-      word-break: break-all; /* Агрессивный перенос слов если нужно */
-  }
+   .expenses-table td.td-comment {
+      min-width: 100px; /* Дадим чуть меньше места комментарию на мобильных */
+   }
 
 
   h2 {
@@ -407,14 +416,12 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
     margin-bottom: 10px !important;
   }
 
-  /* Этот блок уже был для старой формы расходов, он может не понадобиться или его нужно будет адаптировать */
-  /* form[style*="flex-wrap: wrap"] ... */
+  /* Убираем этот блок, так как форма расходов теперь использует классы */
+  /* form[style*="flex-wrap: wrap"] { ... } */
 }
 /* === КОНЕЦ СТИЛЕЙ ДЛЯ АДАПТИВНОСТИ === */
 
 /* === СТИЛИ ДЛЯ СТРАНИЦ АУТЕНТИФИКАЦИИ === */
-/* (Твои стили для .auth-container, .auth-form-wrapper и т.д. должны быть здесь) */
-/* Убедись, что они вставлены здесь, если ты их еще не добавил в этот файл */
 .auth-container {
   background-color: #23272f;
   min-height: 100vh;
@@ -455,21 +462,19 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   background: #2e3340;
   border: 1px solid #303548;
   color: #c6c6c6;
-  font-size: 1em; /* Для десктопа. На мобильных может понадобиться 16px для предотвращения зума */
+  font-size: 1em; /* Базовый размер для десктопа */
   box-sizing: border-box;
   height: auto;
 }
 
-/* Добавим правило для страниц аутентификации на мобильных для инпутов */
 @media (max-width: 767px) {
   .auth-form-wrapper input[type="text"],
   .auth-form-wrapper input[type="password"],
   .auth-form-wrapper input[type="email"],
   .auth-form-wrapper input[type="date"] {
-    font-size: 16px !important; /* Предотвращаем авто-зум */
+    font-size: 16px !important; /* Предотвращаем авто-зум на мобильных */
   }
 }
-
 
 .auth-form-wrapper input[type="date"]::-webkit-calendar-picker-indicator {
    filter: invert(0.6);

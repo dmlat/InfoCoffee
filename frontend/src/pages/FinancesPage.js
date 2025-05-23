@@ -193,7 +193,6 @@ export default function FinancesPage() {
         </div>
 
         <div>
-            <h4 style={{color: '#8ae6ff'}}>Статистика Кофеен</h4>
             {statsError && <p style={{color: 'salmon'}}>Ошибка загрузки статистики по кофейням.</p>}
             <div style={{maxHeight: '400px', overflowY: 'auto'}}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', background: '#23272f', borderRadius: '12px', overflow: 'hidden' }}>
