@@ -83,20 +83,20 @@ export default function Register() {
   }
 
   return (
-    <div className="auth-container"> {/* <--- ВОТ ЭТИ КЛАССЫ ВАЖНЫ */}
-      <div className="auth-form-wrapper"> {/* <--- И ЭТОТ ТОЖЕ */}
+    <div className="auth-container"> {/* <--- Используем правильные классы */}
+      <div className="auth-form-wrapper"> {/* <--- И этот тоже */}
         {step === 1 && (
           <>
             <h2>Регистрация: Шаг 1</h2>
             <div className="auth-step-info">Проверка аккаунта Vendista</div>
             <form onSubmit={handleVendistaCheck}>
-              <input // Тип text по умолчанию, стили применятся
+              <input
+                type="text" // <--- Явно указываем тип
                 value={vendistaLogin}
                 onChange={e => setVendistaLogin(e.target.value)}
                 placeholder="Логин Vendista"
                 autoComplete="username"
                 required
-                // УБРАНЫ инлайновые style={{ width: '100%', marginBottom: 8 }}
               />
               <input
                 value={vendistaPass}
@@ -105,7 +105,6 @@ export default function Register() {
                 type="password"
                 autoComplete="current-password"
                 required
-                // УБРАНЫ инлайновые style={{ width: '100%', marginBottom: 8 }}
               />
               <button type="submit" className="auth-button-primary" disabled={vendistaCheck.status === 'loading'}>
                 {vendistaCheck.status === 'loading' ? 'Проверка...' : 'Проверить аккаунт Vendista'}
@@ -114,7 +113,6 @@ export default function Register() {
                 type="button"
                 onClick={() => navigate('/login')}
                 className="auth-button-secondary"
-                // УБРАН style={{marginTop: '5px'}} (отступы между кнопками теперь за счет margin-bottom у самих кнопок)
               >
                 Назад ко входу
               </button>
@@ -138,7 +136,6 @@ export default function Register() {
                 value={setupDate}
                 onChange={e => setSetupDate(e.target.value)}
                 required
-                // УБРАН style={{marginBottom: '20px'}} (отступ управляется общим стилем инпутов)
               />
 
               <div className="auth-step-info" style={{marginTop: '15px'}}>Система налогообложения</div>
@@ -157,12 +154,11 @@ export default function Register() {
               <div>
                 <input
                   id="acq"
-                  name="acquiring" // CSS-правило .auth-form-wrapper input[name="acquiring"] применит нужную ширину
+                  name="acquiring"
                   value={acq}
                   onChange={e => setAcq(e.target.value)}
                   placeholder="1.6"
                   type="text"
-                  // УБРАН style={{marginBottom: '5px'}}
                 /> %
               </div>
               <div className="auth-fine-print" style={{marginTop: '5px', marginBottom:'20px'}}>
