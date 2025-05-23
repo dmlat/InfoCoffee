@@ -9,7 +9,7 @@ const taxOptions = [
 ];
 
 function normalizeCommission(input) {
-  return input.replace(',', '.').replace(/[^0-9.]/g, '');
+  return String(input).replace(',', '.').replace(/[^0-9.]/g, '');
 }
 
 export default function Register() {
@@ -42,7 +42,7 @@ export default function Register() {
         setVendistaCheck({ status: 'error', error: resp.data.error || 'Ошибка проверки Vendista' });
       }
     } catch (err) {
-      setVendistaCheck({ status: 'error', error: err.response?.data?.error || err.message });
+      setVendistaCheck({ status: 'error', error: err.response?.data?.error || err.message || 'Неизвестная ошибка сети' });
     }
   }
 
@@ -83,19 +83,20 @@ export default function Register() {
   }
 
   return (
-    <div className="auth-container"> {/* Используем новый класс */}
-      <div className="auth-form-wrapper"> {/* Используем новый класс */}
+    <div className="auth-container"> {/* <--- ВОТ ЭТИ КЛАССЫ ВАЖНЫ */}
+      <div className="auth-form-wrapper"> {/* <--- И ЭТОТ ТОЖЕ */}
         {step === 1 && (
           <>
-            <h2>Регистрация: Шаг 1</h2> {/* Убрал "из 2" для чистоты */}
+            <h2>Регистрация: Шаг 1</h2>
             <div className="auth-step-info">Проверка аккаунта Vendista</div>
             <form onSubmit={handleVendistaCheck}>
-              <input
+              <input // Тип text по умолчанию, стили применятся
                 value={vendistaLogin}
                 onChange={e => setVendistaLogin(e.target.value)}
                 placeholder="Логин Vendista"
                 autoComplete="username"
                 required
+                // УБРАНЫ инлайновые style={{ width: '100%', marginBottom: 8 }}
               />
               <input
                 value={vendistaPass}
@@ -104,6 +105,7 @@ export default function Register() {
                 type="password"
                 autoComplete="current-password"
                 required
+                // УБРАНЫ инлайновые style={{ width: '100%', marginBottom: 8 }}
               />
               <button type="submit" className="auth-button-primary" disabled={vendistaCheck.status === 'loading'}>
                 {vendistaCheck.status === 'loading' ? 'Проверка...' : 'Проверить аккаунт Vendista'}
@@ -112,6 +114,7 @@ export default function Register() {
                 type="button"
                 onClick={() => navigate('/login')}
                 className="auth-button-secondary"
+                // УБРАН style={{marginTop: '5px'}} (отступы между кнопками теперь за счет margin-bottom у самих кнопок)
               >
                 Назад ко входу
               </button>
@@ -125,7 +128,7 @@ export default function Register() {
 
         {step === 2 && (
           <>
-            <h2>Регистрация: Шаг 2</h2> {/* Убрал "из 2" */}
+            <h2>Регистрация: Шаг 2</h2>
             <div className="auth-step-info">Дополнительная информация</div>
             <form onSubmit={handleRegister}>
               <label htmlFor="setupDate" className="auth-step-info">Дата установки кофейни <span style={{ color: 'tomato' }}>*</span></label>
@@ -135,9 +138,10 @@ export default function Register() {
                 value={setupDate}
                 onChange={e => setSetupDate(e.target.value)}
                 required
+                // УБРАН style={{marginBottom: '20px'}} (отступ управляется общим стилем инпутов)
               />
 
-              <div className="auth-step-info" style={{marginTop: '15px'}}>Система налогообложения</div> {/* Немного отступа */}
+              <div className="auth-step-info" style={{marginTop: '15px'}}>Система налогообложения</div>
               <div className="tax-options-container">
                 {taxOptions.map(opt => (
                   <button
@@ -150,17 +154,18 @@ export default function Register() {
               </div>
 
               <label htmlFor="acq" className="auth-step-info">Комиссия эквайринга, %</label>
-              <div> {/* Обертка для инпута и знака % */}
+              <div>
                 <input
                   id="acq"
-                  name="acquiring"
+                  name="acquiring" // CSS-правило .auth-form-wrapper input[name="acquiring"] применит нужную ширину
                   value={acq}
                   onChange={e => setAcq(e.target.value)}
                   placeholder="1.6"
                   type="text"
+                  // УБРАН style={{marginBottom: '5px'}}
                 /> %
               </div>
-              <div className="auth-fine-print" style={{marginTop: '5px'}}>
+              <div className="auth-fine-print" style={{marginTop: '5px', marginBottom:'20px'}}>
                 Например: 1.6 (разделитель точка или запятая)
               </div>
 
@@ -168,9 +173,7 @@ export default function Register() {
               <button type="button" onClick={() => setStep(1)} className="auth-button-secondary">
                 Назад к Шагу 1
               </button>
-              <button /* Эта кнопка дублирует функционал "Назад к Шагу 1" + переход на логин. Можно оставить одну или уточнить ее назначение.
-                         Я бы предложил одну "Отменить регистрацию" которая ведет на /login.
-                      */
+              <button
                 type="button"
                 onClick={() => navigate('/login')}
                 className="auth-button-secondary"

@@ -39,7 +39,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
                 COALESCE(SUM(amount),0) as revenue_cents
              FROM transactions
              WHERE user_id = $1
-               AND result = 1
+               AND result::integer = 1
                AND reverse_id = 0
                AND transaction_time >= $2
                AND transaction_time <= $3
@@ -115,8 +115,8 @@ router.get('/coffee-stats', authMiddleware, async (req, res) => {
         const result = await pool.query(`
             SELECT 
                 coffee_shop_id,
-                COUNT(*) FILTER (WHERE result = 1 AND reverse_id = 0) as sales_count,
-                COALESCE(SUM(amount) FILTER (WHERE result = 1 AND reverse_id = 0),0)/100 as revenue
+                COUNT(*) FILTER (WHERE result::integer = 1 AND reverse_id = 0) as sales_count,
+                COALESCE(SUM(amount) FILTER (WHERE result::integer = 1 AND reverse_id = 0),0)/100 as revenue
             FROM transactions
             WHERE user_id = $1
               AND transaction_time >= $2 AND transaction_time <= $3
