@@ -1,77 +1,68 @@
 // src/pages/FinancesPage.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { useStatsPolling } from './useStatsPolling'; // Убедись, что путь правильный, если useStatsPolling в той же папке, то './useStatsPolling'
+import { useStatsPolling } from './useStatsPolling';
 import { PERIODS, formatDateForInput } from '../constants';
 
 const cellStyle = { padding: '8px 12px', borderBottom: '1px solid #2a2e37', color: '#c6c6c6' };
+// Базовый стиль для заголовков таблиц, fontSize будет как у h4 на мобильных (1.0em)
+// На десктопе можно оставить 1.0em или сделать чуть больше, если h4 там крупнее.
+// Текущий index.css делает h4 1.0em на мобильных.
 const baseHeaderCellStyle = {
     padding: '8px 12px',
     borderBottom: '1px solid #2a2e37',
     color: '#8ae6ff',
     fontWeight: '600',
     textAlign: 'left',
-    fontSize: '1.0em' // Совпадает с h4 на мобильных
+    fontSize: '1.0em'
 };
 const valueCellStyle = { ...cellStyle, textAlign: 'right', color: '#e0e0e0' };
 
 export default function FinancesPage() {
-  const pageKey = 'financesPage_v2_dynamic_rates'; 
+  const pageKey = 'financesPage_v3_final_styles'; // Обновляем ключ для сброса кеша периода при изменениях
 
   const getInitialPeriodPreset = useCallback(() => {
     const savedLabel = localStorage.getItem(`${pageKey}_periodLabel`);
     const foundPeriod = PERIODS.find(p => p.label === savedLabel);
-    return foundPeriod || PERIODS.find(p => p.label === 'СЕГОДНЯ') || PERIODS[0]; // Улучшение: если нет СЕГОДНЯ, то первый из списка
-  }, [pageKey]); 
+    return foundPeriod || PERIODS.find(p => p.label === 'СЕГОДНЯ') || PERIODS[0];
+  }, [pageKey]);
 
   const getInitialCustomPeriod = useCallback(() => {
     const savedFrom = localStorage.getItem(`${pageKey}_customFrom`);
     const savedTo = localStorage.getItem(`${pageKey}_customTo`);
-    const defaultPreset = getInitialPeriodPreset();
-    let defaultRange = defaultPreset.getRange();
-    
-    // Если getRange вернул [null, null] (для "ВАШ ПЕРИОД" без сохраненных дат), 
-    // установим дефолтом сегодняшний день
-    if (!defaultRange[0] || !defaultRange[1]) {
-        const todayPreset = PERIODS.find(p => p.label === 'СЕГОДНЯ') || PERIODS[0];
-        defaultRange = todayPreset.getRange();
-    }
 
-    return {
-      from: savedFrom || formatDateForInput(defaultRange[0]),
-      to: savedTo || formatDateForInput(defaultRange[1]),
-    };
+    let defaultFrom, defaultTo;
+    const currentPreset = getInitialPeriodPreset();
+
+    if (currentPreset.label === 'ВАШ ПЕРИОД' && savedFrom && savedTo) {
+        defaultFrom = savedFrom;
+        defaultTo = savedTo;
+    } else {
+        const range = currentPreset.getRange();
+        defaultFrom = formatDateForInput(range[0]);
+        defaultTo = formatDateForInput(range[1]);
+    }
+    return { from: defaultFrom, to: defaultTo };
   }, [getInitialPeriodPreset, pageKey]);
-  
+
   const [currentPeriodPreset, setCurrentPeriodPreset] = useState(getInitialPeriodPreset);
   const [userInputCustomPeriod, setUserInputCustomPeriod] = useState(getInitialCustomPeriod);
-  
+
   const [currentPeriodRange, setCurrentPeriodRange] = useState(() => {
     const initialPreset = getInitialPeriodPreset();
     if (initialPreset.label === 'ВАШ ПЕРИОД') {
-      const custom = getInitialCustomPeriod(); // getInitialCustomPeriod уже содержит логику для дефолтных дат
-      if (custom.from && custom.to) {
-        const fromDate = new Date(custom.from); fromDate.setHours(0,0,0,0);
-        const toDate = new Date(custom.to); toDate.setHours(23,59,59,999);
-        return [fromDate, toDate];
-      } 
-      // Если custom.from или custom.to все еще пустые, getInitialCustomPeriod должен был вернуть валидные даты (например, сегодня)
-      // Но на всякий случай, если что-то пошло не так, вернем диапазон "СЕГОДНЯ"
-      const todayPreset = PERIODS.find(p => p.label === 'СЕГОДНЯ') || PERIODS[0];
-      return todayPreset.getRange();
+      const custom = getInitialCustomPeriod(); // Эта функция теперь всегда вернет валидные from/to
+      const fromDate = new Date(custom.from); fromDate.setHours(0,0,0,0);
+      const toDate = new Date(custom.to); toDate.setHours(23,59,59,999);
+      return [fromDate, toDate];
     }
     return initialPreset.getRange();
   });
 
   useEffect(() => {
     localStorage.setItem(`${pageKey}_periodLabel`, currentPeriodPreset.label);
-    // Сохраняем кастомные даты только если выбран "ВАШ ПЕРИОД"
     if (currentPeriodPreset.label === 'ВАШ ПЕРИОД') {
         localStorage.setItem(`${pageKey}_customFrom`, userInputCustomPeriod.from);
         localStorage.setItem(`${pageKey}_customTo`, userInputCustomPeriod.to);
-    } else {
-      // Очищаем кастомные даты, если выбран другой пресет, чтобы при следующем выборе "ВАШ ПЕРИОД" они не подтянулись
-      localStorage.removeItem(`${pageKey}_customFrom`);
-      localStorage.removeItem(`${pageKey}_customTo`);
     }
   }, [currentPeriodPreset, userInputCustomPeriod, pageKey]);
 
@@ -79,30 +70,31 @@ export default function FinancesPage() {
 
   const handlePeriodPresetChange = (p) => {
     setCurrentPeriodPreset(p);
+    let newRange;
     if (p.label === 'ВАШ ПЕРИОД') {
+      // При выборе "ВАШ ПЕРИОД", используем то, что уже есть в userInputCustomPeriod
+      // Если они пустые, getInitialCustomPeriod при следующей загрузке поставит дефолт (сегодня)
+      // или можно здесь предзаполнить, если хочется
       let from = userInputCustomPeriod.from;
       let to = userInputCustomPeriod.to;
-
-      if (!from || !to) { // Если кастомные даты пусты, ставим сегодняшний день
-        const todayRange = PERIODS.find(period => period.label === 'СЕГОДНЯ').getRange();
-        from = formatDateForInput(todayRange[0]);
-        to = formatDateForInput(todayRange[1]);
-        setUserInputCustomPeriod({ from, to }); // Обновляем состояние инпутов
+      if (!from || !to) { // Если даты в инпутах невалидны, возьмем сегодняшний день
+          const todayPresetRange = (PERIODS.find(item => item.label === 'СЕГОДНЯ') || PERIODS[0]).getRange();
+          from = formatDateForInput(todayPresetRange[0]);
+          to = formatDateForInput(todayPresetRange[1]);
+          setUserInputCustomPeriod({from, to}); // Обновляем состояние инпутов
       }
-      
       const fromDate = new Date(from); fromDate.setHours(0,0,0,0);
       const toDate = new Date(to); toDate.setHours(23,59,59,999);
-      setCurrentPeriodRange([fromDate, toDate]);
-
+      newRange = [fromDate, toDate];
     } else {
-      const newRange = p.getRange();
-      setCurrentPeriodRange(newRange);
-      // Обновляем и userInputCustomPeriod, чтобы поля дат тоже отражали выбранный пресет
+      newRange = p.getRange();
+      // Обновляем userInputCustomPeriod, чтобы поля дат тоже отражали выбранный пресет
       setUserInputCustomPeriod({
         from: formatDateForInput(newRange[0]),
         to: formatDateForInput(newRange[1]),
       });
     }
+    setCurrentPeriodRange(newRange);
   };
 
   const handleCustomDateChange = (field, value) => {
@@ -115,41 +107,37 @@ export default function FinancesPage() {
     }
   };
 
-  // Даты для отображения в инпутах
-  // Если выбран пресет, показываем даты пресета. Если "ВАШ ПЕРИОД", показываем то, что ввел пользователь.
-  const displayDateFrom = currentPeriodPreset.label === 'ВАШ ПЕРИОД' 
-    ? userInputCustomPeriod.from 
+  const displayDateFrom = currentPeriodPreset.label === 'ВАШ ПЕРИОД'
+    ? userInputCustomPeriod.from
     : (currentPeriodRange[0] ? formatDateForInput(currentPeriodRange[0]) : '');
-  const displayDateTo = currentPeriodPreset.label === 'ВАШ ПЕРИОД' 
-    ? userInputCustomPeriod.to 
+  const displayDateTo = currentPeriodPreset.label === 'ВАШ ПЕРИОД'
+    ? userInputCustomPeriod.to
     : (currentPeriodRange[1] ? formatDateForInput(currentPeriodRange[1]) : '');
-
 
   const revenue = stats.revenue || 0;
   const salesCount = stats.salesCount || 0;
   const expensesSum = stats.expensesSum || 0;
 
-  // Получаем данные пользователя из localStorage
   const storedTaxSystem = localStorage.getItem('tax_system');
-  const storedAcquiringRate = localStorage.getItem('acquiring_rate') || '0'; // "1.6"
+  const storedAcquiringRate = localStorage.getItem('acquiring_rate') || '0';
 
-  let userTaxRateDisplay = 0; // Для отображения (6% или 15%)
-  let actualTaxCalculationRate = 0.00; // Для расчета (0.06 или 0.15)
+  let userTaxRateDisplay = 0;
+  let actualTaxCalculationRate = 0.00;
 
   if (storedTaxSystem === 'income_6') {
     userTaxRateDisplay = 6;
     actualTaxCalculationRate = 0.06;
   } else if (storedTaxSystem === 'income_expense_15') {
     userTaxRateDisplay = 15;
-    actualTaxCalculationRate = 0.15; // Ставка для Доходы-Расходы
+    actualTaxCalculationRate = 0.15;
   }
 
-  const userAcquiringRateDisplay = parseFloat(storedAcquiringRate); // 1.6
-  const actualAcquiringCalculationRate = userAcquiringRateDisplay / 100; // 0.016
+  const userAcquiringRateDisplay = parseFloat(storedAcquiringRate) || 0;
+  const actualAcquiringCalculationRate = userAcquiringRateDisplay / 100;
 
   let taxBase = revenue;
   if (storedTaxSystem === 'income_expense_15') {
-    taxBase = Math.max(0, revenue - expensesSum); // Налог от (Выручка - Расходы)
+    taxBase = Math.max(0, revenue - expensesSum);
   }
 
   const taxes = +(taxBase * actualTaxCalculationRate).toFixed(2);
@@ -161,12 +149,12 @@ export default function FinancesPage() {
     <div className="page-container">
       <div className="main-content-area">
         <div style={{ background: '#23272f', padding: '18px', borderRadius: '14px', marginBottom: '24px' }}>
-            <h4 style={{marginTop: 0, marginBottom: '15px', color: '#8ae6ff', fontSize: '1.1em'}}>
+            <h4 style={{marginTop: 0, marginBottom: '15px', color: '#8ae6ff'}}> {/* fontSize убран, будет из index.css h4 */}
                 Показатели за период: <span style={{color: '#ffffff', fontWeight: 'bold'}}>{currentPeriodPreset.label}</span>
             </h4>
-            {statsError && <p style={{color: 'salmon'}}>Ошибка загрузки статистики: {statsError}</p>}
+            {statsError && <p style={{color: 'salmon'}}>Ошибка загрузки статистики: {typeof statsError === 'string' ? statsError : 'Попробуйте позже.'}</p>}
             {statsLoading ? ( <p style={{color: '#888'}}>Загрузка показателей...</p> ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95em' /* Чуть меньше для компактности */}}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95em'}}>
             <tbody>
                 <tr><td style={{...cellStyle, fontWeight: 500}}>Продажи</td><td style={valueCellStyle}>{salesCount} шт.</td></tr>
                 <tr><td style={{...cellStyle, fontWeight: 500}}>Выручка</td><td style={{ ...valueCellStyle, color: '#ffb300', fontWeight: 'bold' }}>{revenue.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td></tr>
@@ -193,14 +181,12 @@ export default function FinancesPage() {
             )}
         </div>
 
-        {/* Таблица Статистики Кофеен */}
-        <div> {/* Обертка для таблицы кофеен, чтобы заголовок был вместе с ней */}
-            <h4 style={{color: '#8ae6ff', fontSize: '1.0em', marginBottom: '10px' }}>Статистика Кофеен</h4>
+        <div>
+            <h4 style={{color: '#8ae6ff'}}>Статистика Кофеен</h4> {/* fontSize убран, будет из index.css h4 */}
             {statsError && <p style={{color: 'salmon'}}>Ошибка загрузки статистики по кофейням.</p>}
             <div style={{maxHeight: '400px', overflowY: 'auto'}}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', background: '#23272f', borderRadius: 12, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', background: '#23272f', borderRadius: '12px', overflow: 'hidden' }}>
                 <thead>
-                    {/* Используем baseHeaderCellStyle для заголовков */}
                     <tr style={{ background: '#1f2330', color: '#8ae6ff', position: 'sticky', top: 0, zIndex: 1 }}>
                     <th style={baseHeaderCellStyle}>Кофейня</th>
                     <th style={{...baseHeaderCellStyle, textAlign: 'right'}}>Выручка</th>
@@ -214,10 +200,10 @@ export default function FinancesPage() {
                     <tr><td colSpan={3} style={{ ...cellStyle, color: '#888', padding: 20, textAlign: 'center' }}>Нет данных по кофейням за период</td></tr>
                     ) : (
                     coffeeStats.map((row, idx) => (
-                        <tr key={row.coffee_shop_id || idx} style={{ background: idx % 2 ? '#262a36' : '#23273a', borderBottom: '1px solid #303548' }}>
-                        <td style={{...cellStyle, color: '#c6c6c6', borderBottom: 'none'}}>{row.name || `Кофейня ${row.coffee_shop_id}`}</td>
-                        <td style={{...valueCellStyle, borderBottom: 'none'}}>{Number(row.revenue).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
-                        <td style={{...valueCellStyle, borderBottom: 'none'}}>{row.sales_count}</td>
+                        <tr key={row.coffee_shop_id || idx} style={{ background: idx % 2 ? '#262a36' : '#23273a' /*, borderBottom: '1px solid #303548' - убрал, так как у ячеек есть свой */ }}>
+                        <td style={{...cellStyle, borderBottom: idx === coffeeStats.length - 1 ? 'none' : cellStyle.borderBottom}}>{row.name || `Кофейня ${row.coffee_shop_id}`}</td>
+                        <td style={{...valueCellStyle, borderBottom: idx === coffeeStats.length - 1 ? 'none' : valueCellStyle.borderBottom}}>{Number(row.revenue).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
+                        <td style={{...valueCellStyle, borderBottom: idx === coffeeStats.length - 1 ? 'none' : valueCellStyle.borderBottom}}>{row.sales_count}</td>
                         </tr>
                     ))
                     )}
@@ -225,12 +211,11 @@ export default function FinancesPage() {
                 </table>
             </div>
         </div>
-
       </div>
 
       <div className="sidebar-area">
         <div className="date-inputs-container">
-            <div className="date-input-item"> {/* Обертка для первой пары */}
+            <div className="date-input-item">
                 <label htmlFor="finances_from_date_page">Начало периода:</label>
                 <input
                     id="finances_from_date_page" type="date" value={displayDateFrom}
@@ -239,7 +224,7 @@ export default function FinancesPage() {
                     className="period-date-input"
                 />
             </div>
-            <div className="date-input-item"> {/* Обертка для второй пары */}
+            <div className="date-input-item">
                 <label htmlFor="finances_to_date_page">Конец периода:</label>
                 <input
                     id="finances_to_date_page" type="date" value={displayDateTo}
