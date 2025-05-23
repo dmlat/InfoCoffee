@@ -7,40 +7,40 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #23272f; /* Основной фон приложения */
-  color: #c6c6c6; /* Основной цвет текста */
+  background-color: #23272f;
+  color: #c6c6c6;
 }
 
 /* Стили для кнопок вкладок (ФИНАНСЫ, РАСХОДЫ и т.д.) */
 .tab-btn {
   background: none;
   border: none;
-  color: #8a9db8; /* Цвет неактивной вкладки */
+  color: #8a9db8;
   padding: 10px 15px;
   font-size: 0.9em;
-  font-weight: 600; /* Полужирный шрифт */
+  font-weight: 600;
   cursor: pointer;
-  border-bottom: 3px solid transparent; /* Прозрачная нижняя граница для неактивных */
-  transition: color 0.2s, border-color 0.2s; /* Плавный переход для hover/active */
-  white-space: nowrap; /* Текст кнопки не переносится */
+  border-bottom: 3px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+  white-space: nowrap;
 }
 .tab-btn:hover {
-  color: #a6bcdf; /* Цвет при наведении */
+  color: #a6bcdf;
 }
 .tab-btn.active {
-  color: #8ae6ff; /* Цвет активной вкладки */
-  border-bottom-color: #8ae6ff; /* Подчеркивание активной вкладки */
+  color: #8ae6ff;
+  border-bottom-color: #8ae6ff;
 }
 
-/* Стили для кнопок выбора периода (СЕГОДНЯ, ВЧЕРА и т.д.) */
+/* Стили для кнопок выбора периода */
 .period-btn {
-  background-color: #2e3340; /* Фон неактивной кнопки периода */
+  background-color: #2e3340;
   color: #a0b0c8;
   border: 1px solid #303548;
   padding: 9px 12px;
   border-radius: 8px;
   cursor: pointer;
-  font-weight: 500; /* Средняя жирность */
+  font-weight: 500;
   text-align: center;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
   font-size: 0.9em;
@@ -59,7 +59,7 @@ body {
   font-weight: 600;
 }
 
-/* Стили для полей ввода даты (класс .period-date-input) */
+/* Стили для полей ввода даты */
 input[type="date"].period-date-input {
   background-color: #2e3340;
   color: #c6c6c6;
@@ -123,7 +123,7 @@ input[type="date"].period-date-input:disabled {
   margin-bottom: 24px;
   border-bottom: 1px solid #303548;
   padding-bottom: 16px;
-  justify-content: center; /* Center tabs by default */
+  justify-content: center;
 }
 
 .page-container {
@@ -161,7 +161,7 @@ input[type="date"].period-date-input:disabled {
 .date-input-item label {
     font-size: 0.9em;
     color: #ffffff;
-    font-weight: 600; /* Сделаем чуть жирнее */
+    font-weight: 600;
     display: block;
     margin-bottom: 5px;
 }
@@ -172,6 +172,125 @@ input[type="date"].period-date-input:disabled {
   gap: 9px;
   width: 100%;
 }
+
+/* === СТИЛИ ДЛЯ ФОРМЫ И ТАБЛИЦЫ РАСХОДОВ (ExpensesPage.js) === */
+.expense-form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 24px;
+  background: #282c34;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.expense-form-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.expense-form-field, .expense-form-field-fullwidth {
+  display: flex;
+  flex-direction: column; /* Лейбл над инпутом */
+}
+.expense-form-field {
+  flex: 1; /* Для полей в ряду, чтобы занимали равную ширину */
+}
+
+.expense-form-label {
+  font-size: 0.9em;
+  color: #a0b0c8;
+  margin-bottom: 4px;
+  display: block;
+  text-align: left;
+}
+
+.expense-form-input { /* Базовый стиль для инпутов в форме расходов */
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #2e3340;
+  border: 1px solid #303548;
+  color: #c6c6c6;
+  font-size: 0.95em; /* Базовый размер шрифта для десктопа */
+  height: 38px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+input[type="date"].expense-form-input { /* Для инпута даты в форме расходов */
+  font-family: inherit;
+}
+input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+}
+
+.expense-form-submit-button.action-btn { /* Доп. стили для кнопки Добавить, если нужны */
+    margin-top: 5px; /* Отступ сверху, если форма стала многострочной */
+    width: auto;
+    align-self: flex-start;
+}
+
+.expense-form-error {
+  color: salmon;
+  margin-top: 10px;
+  width: 100%;
+  text-align: left;
+  font-size: 0.9em;
+}
+
+.expenses-table-container {
+  overflow-x: auto; /* Скролл для таблицы, если не помещается */
+  background: #282c34;
+  padding: 1px 15px 15px 15px;
+  border-radius: 12px;
+  margin-top: 20px;
+}
+.expenses-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.expenses-table th, .expenses-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #23272f; /* Горизонтальные линии */
+  border-right: 1px solid #23272f; /* Вертикальные линии */
+  text-align: left; /* Общее выравнивание по левому краю */
+}
+.expenses-table th:last-child, .expenses-table td:last-child {
+  border-right: none; /* Убираем правый бордер у последнего столбца */
+}
+.expenses-table thead tr {
+    border-bottom: 1px solid #353a40; /* Линия под заголовками */
+}
+.expenses-table th { /* Заголовки Сумма, Дата, Комментарий */
+  color: #a0b0c8;
+  font-weight: 500;
+}
+.expenses-table td.td-amount { /* Ячейка Сумма */
+  text-align: left; /* Как ты просил */
+  color: #e0e0e0;
+  font-weight: 500;
+}
+.expenses-table td.td-date { /* Ячейка Дата */
+  text-align: left; /* Как ты просил */
+  color: #c6c6c6;
+}
+.expenses-table td.td-comment { /* Ячейка Комментарий */
+  text-align: right; /* Как ты просил */
+  color: #c6c6c6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.expenses-table td.td-action { /* Ячейка для кнопки удаления */
+    text-align: center;
+}
+.expenses-table .empty-expenses-row td { /* Для строки "Расходов пока нет" */
+    color: #888;
+    padding: 20px;
+    text-align: center;
+    border-right: none; /* Убираем бордеры у этой специальной строки */
+}
+
 
 /* === СТИЛИ ДЛЯ АДАПТИВНОСТИ (МОБИЛЬНЫЕ УСТРОЙСТВА) === */
 @media (max-width: 767px) {
@@ -188,7 +307,7 @@ input[type="date"].period-date-input:disabled {
     overflow-x: auto;
     white-space: nowrap;
     -webkit-overflow-scrolling: touch;
-    justify-content: flex-start; /* Tabs scroll from left on mobile */
+    justify-content: flex-start;
   }
 
   .tab-btn {
@@ -212,73 +331,90 @@ input[type="date"].period-date-input:disabled {
   }
 
   .sidebar-area {
-    order: -1; /* Sidebar (dates, period buttons) on top */
+    order: -1;
     margin-bottom: 20px;
   }
 
   .date-inputs-container {
     max-width: none;
-    flex-direction: row; /* Date inputs in a row on mobile */
+    flex-direction: row;
     justify-content: space-between;
-    gap: 12px;
+    gap: 12px; /* Уменьшил для мобильных */
     align-items: flex-start;
+    width: 100%; /* Добавил для явности */
+    box-sizing: border-box;
   }
   .date-inputs-container .date-input-item {
     flex: 1;
   }
-  /* input[type="date"].period-date-input width is already 100% of its .date-input-item */
 
   .period-buttons-container {
     max-width: none;
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 4 buttons per row to make 2 rows for 8 buttons */
+    grid-template-columns: repeat(4, 1fr); /* Строго 4 кнопки в ряд */
     gap: 8px;
     margin-top: 15px;
     margin-bottom: 15px;
   }
 
   .period-btn {
-    padding: 8px 5px;
-    font-size: 0.85em; /* Font size similar to h4 on mobile */
+    padding: 8px 6px;
+    font-size: 0.8em; /* Уменьшил шрифт кнопок периода */
     white-space: normal;
-    min-height: 38px; /* Consistent button height */
+    min-height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
     line-height: 1.2;
   }
 
-  table {
+  /* Стили для формы расходов на мобильных */
+  .expense-form-container {
+    padding: 15px; /* Уменьшим паддинг формы */
+  }
+  .expense-form-row {
+    flex-direction: column; /* Сумма и Дата друг под другом */
+    gap: 15px; 
+  }
+  .expense-form-input,
+  input[type="date"].expense-form-input { /* Для инпутов в форме расходов */
+      font-size: 16px !important; /* Предотвращаем авто-зум на мобильных */
+  }
+
+
+  table { /* Общие стили для таблиц на мобильных */
     font-size: 0.8em !important;
   }
   table th, table td {
     padding: 5px 7px !important;
   }
+  .expenses-table th, .expenses-table td { /* Уточнение для таблицы расходов */
+      padding: 8px 6px !important; /* Свои паддинги для таблицы расходов */
+      white-space: normal; /* Позволяем тексту переноситься */
+  }
+  .expenses-table td.td-comment { /* Комментарий может быть длинным */
+      min-width: 120px; /* Дадим ему минимальную ширину, чтобы не сжимался слишком сильно */
+      word-break: break-all; /* Агрессивный перенос слов если нужно */
+  }
+
 
   h2 {
     font-size: 1.3em;
     margin-bottom: 16px !important;
   }
-  h4 { /* "Показатели за период", "Статистика кофеен" table header */
+  h4 {
     font-size: 1.0em;
     margin-bottom: 10px !important;
   }
 
-  form[style*="flex-wrap: wrap"] {
-    gap: 10px !important;
-  }
-  form[style*="flex-wrap: wrap"] > div,
-  form[style*="flex-wrap: wrap"] > button.action-btn {
-    width: 100% !important;
-    margin-bottom: 8px;
-  }
-  form[style*="flex-wrap: wrap"] > button.action-btn {
-    margin-top: 8px;
-  }
+  /* Этот блок уже был для старой формы расходов, он может не понадобиться или его нужно будет адаптировать */
+  /* form[style*="flex-wrap: wrap"] ... */
 }
 /* === КОНЕЦ СТИЛЕЙ ДЛЯ АДАПТИВНОСТИ === */
 
 /* === СТИЛИ ДЛЯ СТРАНИЦ АУТЕНТИФИКАЦИИ === */
+/* (Твои стили для .auth-container, .auth-form-wrapper и т.д. должны быть здесь) */
+/* Убедись, что они вставлены здесь, если ты их еще не добавил в этот файл */
 .auth-container {
   background-color: #23272f;
   min-height: 100vh;
@@ -319,13 +455,24 @@ input[type="date"].period-date-input:disabled {
   background: #2e3340;
   border: 1px solid #303548;
   color: #c6c6c6;
-  font-size: 1em;
+  font-size: 1em; /* Для десктопа. На мобильных может понадобиться 16px для предотвращения зума */
   box-sizing: border-box;
   height: auto;
 }
 
+/* Добавим правило для страниц аутентификации на мобильных для инпутов */
+@media (max-width: 767px) {
+  .auth-form-wrapper input[type="text"],
+  .auth-form-wrapper input[type="password"],
+  .auth-form-wrapper input[type="email"],
+  .auth-form-wrapper input[type="date"] {
+    font-size: 16px !important; /* Предотвращаем авто-зум */
+  }
+}
+
+
 .auth-form-wrapper input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.6);
+   filter: invert(0.6);
 }
 
 .auth-form-wrapper button[type="submit"],
@@ -407,8 +554,8 @@ input[type="date"].period-date-input:disabled {
     color: #fff;
     border-color: #3e67e0;
 }
-.auth-form-wrapper input[name="acquiring"] { /* Для поля эквайринга в Register.js */
-    width: 80px !important; /* Уменьшим поле для % */
+.auth-form-wrapper input[name="acquiring"] {
+    width: 80px !important;
     display: inline-block;
     margin-right: 5px;
 }
