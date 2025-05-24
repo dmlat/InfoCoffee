@@ -213,7 +213,7 @@ export default function FinancesPage() {
                     {!coffeeLoading && !statsError && coffeeStats && coffeeStats.length > 0 && (
                     coffeeStats.map((row, idx) => (
                         <tr key={row.coffee_shop_id || idx} style={{ background: idx % 2 ? '#262a36' : '#23273a' }}>
-                        <td style={{...cellStyle, borderBottom: idx === coffeeStats.length - 1 ? 'none' : cellStyle.borderBottom}}>{row.name || `Кофейня ${row.coffee_shop_id}`}</td>
+                        <td style={{...cellStyle, borderBottom: idx === coffeeStats.length - 1 ? 'none' : cellStyle.borderBottom}}>{row.terminal_comment || `Кофейня ${row.coffee_shop_id}`}</td>
                         <td style={{...valueCellStyle, borderBottom: idx === coffeeStats.length - 1 ? 'none' : valueCellStyle.borderBottom}}>{Number(row.revenue).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
                         <td style={{...valueCellStyle, borderBottom: idx === coffeeStats.length - 1 ? 'none' : valueCellStyle.borderBottom}}>{row.sales_count}</td>
                         </tr>

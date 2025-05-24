@@ -115,6 +115,7 @@ router.get('/coffee-stats', authMiddleware, async (req, res) => {
         const result = await pool.query(`
             SELECT 
                 coffee_shop_id,
+                MAX(terminal_comment) AS terminal_comment,
                 COUNT(*) FILTER (WHERE result::integer = 1 AND reverse_id = 0) as sales_count,
                 COALESCE(SUM(amount) FILTER (WHERE result::integer = 1 AND reverse_id = 0),0)/100 as revenue
             FROM transactions
