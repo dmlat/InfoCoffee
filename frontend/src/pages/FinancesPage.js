@@ -227,8 +227,7 @@ export default function FinancesPage() {
 
       <div className="sidebar-area">
         <div className="date-inputs-container">
-            <div className="date-input-item">
-                {/* Лейбл теперь стилизуется через CSS класс .date-input-item label */}
+            <div className="date-input-item"> {/* Используем КЛАСС, а не инлайн-стиль */}
                 <label htmlFor="finances_from_date_page">Начало периода:</label>
                 <input
                     id="finances_from_date_page" type="date" value={displayDateFrom}
@@ -237,7 +236,7 @@ export default function FinancesPage() {
                     className="period-date-input"
                 />
             </div>
-            <div className="date-input-item">
+            <div className="date-input-item"> {/* Используем КЛАСС, убран marginLeft */}
                 <label htmlFor="finances_to_date_page">Конец периода:</label>
                 <input
                     id="finances_to_date_page" type="date" value={displayDateTo}
