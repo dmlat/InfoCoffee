@@ -1,6 +1,6 @@
 // frontend/src/pages/Login.js
 import React, { useState } from 'react';
-import axios from 'axios';
+import apiClient from '../api'; // Путь к api.js
 import { useNavigate } from 'react-router-dom';
 
 export default function Login({ setIsAuth }) {
@@ -14,7 +14,7 @@ export default function Login({ setIsAuth }) {
     setError('');
     try {
       localStorage.clear();
-      const res = await axios.post('/api/login', {
+      const res = await apiClient.post('/login', { // '/api/' уже в baseURL
         vendista_login: vendistaLogin,
         vendista_password: vendistaPass,
       });

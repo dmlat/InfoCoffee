@@ -1,6 +1,6 @@
 // frontend/src/pages/Register.js
 import React, { useState } from 'react';
-import axios from 'axios';
+import apiClient from '../api';
 import { useNavigate } from 'react-router-dom';
 
 const taxOptions = [
@@ -31,7 +31,7 @@ export default function Register() {
     e.preventDefault();
     setVendistaCheck({ status: 'loading', error: '' });
     try {
-      const resp = await axios.post('/api/vendista/validate', {
+      const resp = await apiClient.post('/vendista/validate', {
         login: vendistaLogin,
         password: vendistaPass
       });
@@ -68,7 +68,7 @@ export default function Register() {
 
     try {
       localStorage.clear();
-      await axios.post('/api/register', {
+      await apiClient.post('/register', {
         vendista_login: vendistaLogin,
         vendista_password: vendistaPass,
         date_install: setupDate,

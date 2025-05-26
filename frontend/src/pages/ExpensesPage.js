@@ -1,6 +1,6 @@
 // src/pages/ExpensesPage.js
 import React, { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
+import apiClient from '../api';
 import { formatDateForInput } from '../constants';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -21,7 +21,7 @@ export default function ExpensesPage() {
     setError('');
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('/api/expenses', {
+      const res = await apiClient.get('/expenses', {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.data.success) {
@@ -69,11 +69,8 @@ export default function ExpensesPage() {
     };
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await axios.post('/api/expenses', payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+      const res = await apiClient.post('/expenses', payload)
+    
       if (res.data.success && res.data.expense) {
         setExpenses(prev => [res.data.expense, ...prev].sort((a,b) => new Date(b.expense_time) - new Date(a.expense_time) || b.id - a.id));
         setEForm({ amount: '', expense_time: todayISO, comment: '' });
@@ -99,7 +96,7 @@ export default function ExpensesPage() {
     setError('');
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.delete(`/api/expenses/${expenseToDeleteId}`, {
+      const res = await apiClient.delete(`/expenses/${expenseToDeleteId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.data.success) {

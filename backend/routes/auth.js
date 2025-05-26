@@ -87,4 +87,85 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// --- "Тихое" обновление сессии через Telegram ID ---
+router.post('/refresh-session-via-telegram', async (req, res) => {
+  const { telegram_id, initData } = req.body; // initData - для возможной будущей валидации
+
+  if (!telegram_id) {
+    return res.status(400).json({ success: false, error: 'Отсутствует Telegram ID' });
+  }
+
+  // TODO (в будущем): Валидация initData от Telegram на сервере для безопасности
+  // Это более сложная тема, требует проверки подписи данных с использованием твоего токена бота
+  // Пока для простоты мы будем доверять telegram_id, но для продакшена это нужно усилить.
+  // console.log('[refresh-session-via-telegram] Received initData:', initData);
+
+  try {
+    const userRes = await pool.query(
+      'SELECT id, vendista_login, vendista_password_hash, setup_date, tax_system, acquiring FROM users WHERE telegram_id = $1',
+      [telegram_id]
+    );
+
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Пользователь с таким Telegram ID не найден в нашей системе.' });
+    }
+
+    const user = userRes.rows[0];
+    const vendistaLogin = user.vendista_login;
+    const vendistaPassword = user.vendista_password_hash; // Это должен быть РЕАЛЬНЫЙ пароль Vendista
+
+    if (!vendistaLogin || !vendistaPassword) {
+      return res.status(400).json({ success: false, error: 'Учетные данные Vendista для этого пользователя неполные.' });
+    }
+
+    // 1. Пытаемся получить токен от API Vendista
+    let vendistaApiToken;
+    try {
+      const tokenResp = await axios.get('https://api.vendista.ru:99/token', {
+        params: { login: vendistaLogin, password: vendistaPassword },
+        timeout: 10000 // Таймаут
+      });
+      vendistaApiToken = tokenResp.data.token;
+      if (!vendistaApiToken) {
+        // Пароль Vendista в нашей БД мог устареть
+        console.warn(`[refresh-session-via-telegram] Не удалось получить токен Vendista для пользователя ${user.id} (Telegram ID: ${telegram_id}). Возможно, учетные данные Vendista устарели.`);
+        return res.status(401).json({ success: false, error: 'Не удалось подтвердить учетные данные Vendista. Возможно, они изменились.' });
+      }
+    } catch (vendistaError) {
+      console.error(`[refresh-session-via-telegram] Ошибка при запросе токена Vendista для пользователя ${user.id}:`, vendistaError.message);
+      return res.status(503).json({ success: false, error: 'Сервис Vendista временно недоступен или произошла ошибка при проверке учетных данных.' });
+    }
+
+    // 2. Если токен Vendista получен, генерируем новый JWT-токен нашего приложения
+    const newAppToken = jwt.sign(
+      { userId: user.id, vendista_login: user.vendista_login }, // Полезная нагрузка токена
+      process.env.JWT_SECRET,
+      { expiresIn: '12h' }
+    );
+
+    // 3. Возвращаем новый JWT и основные данные пользователя (аналогично /login)
+    const userResponseData = {
+        userId: user.id,
+        vendista_login: user.vendista_login,
+        setup_date: user.setup_date,     // Эти поля нужно будет также выбрать в SQL-запросе выше
+        tax_system: user.tax_system,   // или передать в JWT, если они не меняются часто
+        acquiring: user.acquiring      // и не нужны для каждой сессии сразу
+    };
+    // Чтобы вернуть setup_date, tax_system, acquiring, их нужно выбрать из БД:
+    // ИЗМЕНИ SQL-запрос выше на:
+    // 'SELECT id, vendista_login, vendista_password_hash, setup_date, tax_system, acquiring FROM users WHERE telegram_id = $1'
+
+    console.log(`[refresh-session-via-telegram] Успешно обновлена сессия для пользователя ${user.id} (Telegram ID: ${telegram_id})`);
+    res.json({
+      success: true,
+      token: newAppToken,
+      user: userResponseData // Отправляем те же данные, что и при обычном логине
+    });
+
+  } catch (err) {
+    console.error("Ошибка в /api/auth/refresh-session-via-telegram:", err);
+    res.status(500).json({ success: false, error: 'Внутренняя ошибка сервера при обновлении сессии.' });
+  }
+});
+
 module.exports = router;

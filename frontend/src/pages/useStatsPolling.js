@@ -1,6 +1,6 @@
 // src/pages/useStatsPolling.js
 import { useEffect, useRef, useState, useCallback } from 'react';
-import axios from 'axios';
+import apiClient from './api';
 
 export function useStatsPolling(periodRange) {
   const [stats, setStats] = useState({ revenue: 0, salesCount: 0, expensesSum: 0 });
@@ -50,8 +50,7 @@ export function useStatsPolling(periodRange) {
     }
 
     try {
-      const statsRes = await axios.get('/api/transactions/stats', {
-        headers: { Authorization: `Bearer ${token}` },
+      const statsRes = await apiClient.get('/transactions/stats', {
         params: { from, to }
       });
       setStats(statsRes.data.stats || { revenue: 0, salesCount: 0, expensesSum: 0 });
@@ -69,8 +68,7 @@ export function useStatsPolling(periodRange) {
     }
 
     try {
-      const coffeeRes = await axios.get('/api/transactions/coffee-stats', {
-        headers: { Authorization: `Bearer ${token}` },
+      const coffeeRes = await apiClient.get('/transactions/coffee-stats', {
         params: { from, to }
       });
       setCoffeeStats(coffeeRes.data.stats || []);
