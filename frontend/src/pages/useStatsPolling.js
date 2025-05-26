@@ -1,6 +1,6 @@
 // src/pages/useStatsPolling.js
 import { useEffect, useRef, useState, useCallback } from 'react';
-import apiClient from './api';
+import apiClient from '../api';
 
 export function useStatsPolling(periodRange) {
   const [stats, setStats] = useState({ revenue: 0, salesCount: 0, expensesSum: 0 });

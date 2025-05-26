@@ -151,9 +151,6 @@ router.post('/refresh-session-via-telegram', async (req, res) => {
         tax_system: user.tax_system,   // или передать в JWT, если они не меняются часто
         acquiring: user.acquiring      // и не нужны для каждой сессии сразу
     };
-    // Чтобы вернуть setup_date, tax_system, acquiring, их нужно выбрать из БД:
-    // ИЗМЕНИ SQL-запрос выше на:
-    // 'SELECT id, vendista_login, vendista_password_hash, setup_date, tax_system, acquiring FROM users WHERE telegram_id = $1'
 
     console.log(`[refresh-session-via-telegram] Успешно обновлена сессия для пользователя ${user.id} (Telegram ID: ${telegram_id})`);
     res.json({
