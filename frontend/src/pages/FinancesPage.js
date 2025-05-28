@@ -1,119 +1,126 @@
 // src/pages/FinancesPage.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { useStatsPolling } from './useStatsPolling'; // Убедись, что useStatsPolling.js в той же папке
+import { useStatsPolling } from './useStatsPolling';
 import { PERIODS, formatDateForInput } from '../constants';
 
-const cellStyle = { padding: '8px 12px', borderBottom: '1px solid #2a2e37', color: '#c6c6c6' };
-// Базовый стиль для заголовков таблиц, fontSize соответствует h4 на мобильных (из index.css)
-const baseHeaderCellStyle = {
-    padding: '8px 12px',
-    borderBottom: '1px solid #2a2e37',
-    color: '#8ae6ff',
-    fontWeight: '600',
-    textAlign: 'left',
-    fontSize: '1.0em' // Как h4 на мобильных
-};
-const valueCellStyle = { ...cellStyle, textAlign: 'right', color: '#e0e0e0' };
-
 export default function FinancesPage() {
-  const pageKey = 'financesPage_v4_dynamic_rates_final'; // Новый ключ для сброса старых данных localStorage
+  const pageKey = 'financesPage_v5_profile_integration';
 
-  const getTodayRange = useCallback(() => { // Вспомогательная функция для получения диапазона "СЕГОДНЯ"
+  const getTodayRange = useCallback(() => {
     return (PERIODS.find(p => p.label === 'СЕГОДНЯ') || PERIODS[0]).getRange();
   }, []);
 
   const getInitialPeriodPreset = useCallback(() => {
     const savedLabel = localStorage.getItem(`${pageKey}_periodLabel`);
-    const foundPeriod = PERIODS.find(p => p.label === savedLabel);
-    return foundPeriod || PERIODS.find(p => p.label === 'СЕГОДНЯ') || PERIODS[0];
+    return PERIODS.find(p => p.label === savedLabel) || PERIODS.find(p => p.label === 'СЕГОДНЯ') || PERIODS[0];
   }, [pageKey]);
 
   const getInitialCustomPeriod = useCallback(() => {
     const savedFrom = localStorage.getItem(`${pageKey}_customFrom`);
     const savedTo = localStorage.getItem(`${pageKey}_customTo`);
-    
+    const currentInitialPreset = getInitialPeriodPreset();
     let defaultFrom, defaultTo;
-    const currentInitialPreset = getInitialPeriodPreset(); // Используем getInitialPeriodPreset чтобы избежать рекурсии
-    
+
     if (currentInitialPreset.label === 'ВАШ ПЕРИОД' && savedFrom && savedTo) {
-        defaultFrom = savedFrom;
-        defaultTo = savedTo;
-    } else { 
-        const range = currentInitialPreset.getRange();
-        if (range[0] && range[1]) {
-            defaultFrom = formatDateForInput(range[0]);
-            defaultTo = formatDateForInput(range[1]);
-        } else { // Если getRange для пресета вернул null (например, для "ВАШ ПЕРИОД" без сохраненных дат)
-            const todayRange = getTodayRange();
-            defaultFrom = formatDateForInput(todayRange[0]);
-            defaultTo = formatDateForInput(todayRange[1]);
-        }
+      defaultFrom = savedFrom;
+      defaultTo = savedTo;
+    } else {
+      const range = currentInitialPreset.getRange();
+      defaultFrom = formatDateForInput(range[0]);
+      defaultTo = formatDateForInput(range[1]);
     }
     return { from: defaultFrom, to: defaultTo };
-  }, [getInitialPeriodPreset, pageKey, getTodayRange]);
-  
+  }, [getInitialPeriodPreset, pageKey]);
+
   const [currentPeriodPreset, setCurrentPeriodPreset] = useState(getInitialPeriodPreset);
   const [userInputCustomPeriod, setUserInputCustomPeriod] = useState(getInitialCustomPeriod);
   
-  const [currentPeriodRange, setCurrentPeriodRange] = useState(() => {
-    const initialPreset = getInitialPeriodPreset();
-    if (initialPreset.label === 'ВАШ ПЕРИОД') {
-      const custom = getInitialCustomPeriod();
-      if (custom.from && custom.to && new Date(custom.from).getTime() && new Date(custom.to).getTime()) {
-        const fromDate = new Date(custom.from); fromDate.setHours(0,0,0,0);
-        const toDate = new Date(custom.to); toDate.setHours(23,59,59,999);
-        return [fromDate, toDate];
+  // State for tax and acquiring, read from localStorage and updated on storage event
+  const [taxSystem, setTaxSystem] = useState(localStorage.getItem('user_tax_system') || '');
+  const [acquiringRate, setAcquiringRate] = useState(localStorage.getItem('user_acquiring_rate') || '0');
+
+
+  const calculatePeriodRange = useCallback((preset, customPeriod) => {
+    if (preset.label === 'ВАШ ПЕРИОД') {
+      if (customPeriod.from && customPeriod.to && new Date(customPeriod.from).getTime() && new Date(customPeriod.to).getTime()) {
+        const fromDate = new Date(customPeriod.from); fromDate.setHours(0,0,0,0);
+        const toDate = new Date(customPeriod.to); toDate.setHours(23,59,59,999);
+        return { dateFrom: formatDateForInput(fromDate), dateTo: formatDateForInput(toDate) };
       }
-      // Если кастомные даты невалидны, ставим сегодняшний день по умолчанию
-      return getTodayRange();
+      const todayRange = getTodayRange(); // Fallback to today if custom dates are invalid
+      return { dateFrom: formatDateForInput(todayRange[0]), dateTo: formatDateForInput(todayRange[1]) };
     }
-    return initialPreset.getRange();
-  });
+    const range = preset.getRange();
+    return { dateFrom: formatDateForInput(range[0]), dateTo: formatDateForInput(range[1]) };
+  }, [getTodayRange]);
+
+  const [currentApiPeriod, setCurrentApiPeriod] = useState(() => 
+    calculatePeriodRange(getInitialPeriodPreset(), getInitialCustomPeriod())
+  );
+
+  // Effect to update tax/acquiring from localStorage if they change (e.g. from ProfilePage)
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setTaxSystem(localStorage.getItem('user_tax_system') || '');
+      setAcquiringRate(localStorage.getItem('user_acquiring_rate') || '0');
+      // Force stats re-fetch or re-calculation if parameters changed
+      // The useStatsPolling hook will refetch if currentApiPeriod changes.
+      // If only tax/acquiring change, calculations below will update automatically.
+    };
+    window.addEventListener('storage', handleStorageChange);
+    // Also listen for custom events if ProfilePage dispatches one on save
+    const handleProfileUpdate = () => handleStorageChange(); // Re-read from LS
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
+  }, []);
+
 
   useEffect(() => {
     localStorage.setItem(`${pageKey}_periodLabel`, currentPeriodPreset.label);
     if (currentPeriodPreset.label === 'ВАШ ПЕРИОД') {
-        localStorage.setItem(`${pageKey}_customFrom`, userInputCustomPeriod.from);
-        localStorage.setItem(`${pageKey}_customTo`, userInputCustomPeriod.to);
+      localStorage.setItem(`${pageKey}_customFrom`, userInputCustomPeriod.from);
+      localStorage.setItem(`${pageKey}_customTo`, userInputCustomPeriod.to);
     }
   }, [currentPeriodPreset, userInputCustomPeriod, pageKey]);
-
-  const { stats, statsLoading, coffeeStats, coffeeLoading, error: statsError } = useStatsPolling(currentPeriodRange);
+  
+  const { stats, statsLoading, coffeeStats, coffeeLoading, error: statsError } = useStatsPolling(currentApiPeriod);
 
   const handlePeriodPresetChange = (p) => {
     setCurrentPeriodPreset(p);
-    let newRange;
+    let newApiDates;
     if (p.label === 'ВАШ ПЕРИОД') {
       let from = userInputCustomPeriod.from;
       let to = userInputCustomPeriod.to;
+      // If custom dates are not set or invalid, use today as default for display and API
       if (!from || !to || !new Date(from).getTime() || !new Date(to).getTime()) {
-          const todayRangeDefault = getTodayRange();
-          from = formatDateForInput(todayRangeDefault[0]);
-          to = formatDateForInput(todayRangeDefault[1]);
-          setUserInputCustomPeriod({from, to}); 
+          const todayRange = getTodayRange();
+          from = formatDateForInput(todayRange[0]);
+          to = formatDateForInput(todayRange[1]);
+          setUserInputCustomPeriod({ from, to }); // Update UI input fields
       }
-      const fromDate = new Date(from); fromDate.setHours(0,0,0,0);
-      const toDate = new Date(to); toDate.setHours(23,59,59,999);
-      newRange = [fromDate, toDate];
+      newApiDates = { dateFrom: from, dateTo: to };
     } else {
-      newRange = p.getRange();
-      setUserInputCustomPeriod({
-        from: formatDateForInput(newRange[0]),
-        to: formatDateForInput(newRange[1]),
-      });
+      const range = p.getRange();
+      const fromDate = formatDateForInput(range[0]);
+      const toDate = formatDateForInput(range[1]);
+      setUserInputCustomPeriod({ from: fromDate, to: toDate }); // Update UI input fields
+      newApiDates = { dateFrom: fromDate, dateTo: toDate };
     }
-    setCurrentPeriodRange(newRange);
+    setCurrentApiPeriod(newApiDates);
   };
 
   const handleCustomDateChange = (field, value) => {
     const updatedInput = { ...userInputCustomPeriod, [field]: value };
     setUserInputCustomPeriod(updatedInput);
+    // If "Your Period" is active, update API period immediately
     if (currentPeriodPreset.label === 'ВАШ ПЕРИОД' && updatedInput.from && updatedInput.to) {
-      if (new Date(updatedInput.from).getTime() && new Date(updatedInput.to).getTime()) {
-        const fromDate = new Date(updatedInput.from); fromDate.setHours(0,0,0,0);
-        const toDate = new Date(updatedInput.to); toDate.setHours(23,59,59,999);
-        setCurrentPeriodRange([fromDate, toDate]);
-      }
+       if (new Date(updatedInput.from).getTime() && new Date(updatedInput.to).getTime()) {
+           setCurrentApiPeriod({ dateFrom: updatedInput.from, dateTo: updatedInput.to });
+       }
     }
   };
   
@@ -122,100 +129,94 @@ export default function FinancesPage() {
 
   const revenue = stats.revenue || 0;
   const salesCount = stats.salesCount || 0;
-  const expensesSum = stats.expensesSum || 0;
+  const expensesSum = stats.expensesSum || 0; // These are 'other' expenses
 
-  // --- ДИНАМИЧЕСКОЕ ПОЛУЧЕНИЕ СТАВОК ---
-  const storedTaxSystem = localStorage.getItem('tax_system'); // e.g., "income_6"
-  const storedAcquiringRate = localStorage.getItem('acquiring_rate') || '0'; // e.g., "1.6"
-
-  let userTaxRateDisplay = 0; 
+  let userTaxRateDisplay = 'не задана';
   let actualTaxCalculationRate = 0.00;
+  const userAcquiringRatePercent = parseFloat(acquiringRate) || 0;
+  const actualAcquiringCalcRate = userAcquiringRatePercent / 100;
 
-  if (storedTaxSystem === 'income_6') {
-    userTaxRateDisplay = 6;
+  const acquiringCommissionCost = revenue * actualAcquiringCalcRate;
+  const revenueAfterAcquiring = revenue - acquiringCommissionCost;
+
+  let taxBaseForCalc = 0;
+  if (taxSystem === 'income_6') {
+    userTaxRateDisplay = '6% от (Выручка - Эквайринг)';
     actualTaxCalculationRate = 0.06;
-  } else if (storedTaxSystem === 'income_expense_15') {
-    userTaxRateDisplay = 15;
-    actualTaxCalculationRate = 0.15; // Ставка для Доходы-Расходы
+    taxBaseForCalc = revenueAfterAcquiring;
+  } else if (taxSystem === 'income_expense_15') {
+    userTaxRateDisplay = '15% от (Выручка - Эквайринг - Расходы)';
+    actualTaxCalculationRate = 0.15;
+    taxBaseForCalc = Math.max(0, revenueAfterAcquiring - expensesSum);
   }
-  // Если tax_system не задан или другой, userTaxRateDisplay и actualTaxCalculationRate останутся 0
-
-  const userAcquiringRateDisplay = parseFloat(storedAcquiringRate) || 0; // Для отображения (1.6)
-  const actualAcquiringCalculationRate = userAcquiringRateDisplay / 100; // Для расчета (0.016)
-
-  let taxBase = revenue;
-  if (storedTaxSystem === 'income_expense_15') {
-    taxBase = Math.max(0, revenue - expensesSum); 
-  }
-
-  const taxes = +(taxBase * actualTaxCalculationRate).toFixed(2);
-  const acquiring = +(revenue * actualAcquiringCalculationRate).toFixed(2);
-  const netProfit = +(revenue - expensesSum - taxes - acquiring).toFixed(2);
+  
+  const taxes = +(Math.max(0, taxBaseForCalc) * actualTaxCalculationRate).toFixed(2);
+  const netProfit = +(revenueAfterAcquiring - expensesSum - taxes).toFixed(2);
   const margin = revenue ? (netProfit / revenue * 100).toFixed(1) : 0;
 
+
   return (
-    <div className="page-container">
+    <div className="page-container finances-page">
       <div className="main-content-area">
-        <div style={{ background: '#23272f', padding: '18px', borderRadius: '14px', marginBottom: '24px' }}>
-            <h4 style={{marginTop: 0, marginBottom: '15px', color: '#8ae6ff'}}>
-                Показатели за период: <span style={{color: '#ffffff', fontWeight: 'bold'}}>{currentPeriodPreset.label}</span>
+        <div className="summary-card">
+            <h4 className="summary-card-title">
+                Показатели за период: <span className="summary-card-period">{currentPeriodPreset.label}</span>
             </h4>
-            {statsError && <p style={{color: 'salmon'}}>Ошибка загрузки статистики: {typeof statsError === 'string' ? statsError : 'Проверьте соединение или попробуйте позже.'}</p>}
-            {statsLoading && !statsError && <p style={{color: '#888'}}>Загрузка показателей...</p>}
+            {statsError && <p className="error-message">Ошибка загрузки статистики: {typeof statsError === 'string' ? statsError : 'Проверьте соединение.'}</p>}
+            {statsLoading && !statsError && <p className="loading-message">Загрузка показателей...</p>}
             {!statsLoading && !statsError && (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95em'}}>
+            <table className="summary-table">
             <tbody>
-                <tr><td style={{...cellStyle, fontWeight: 500}}>Продажи</td><td style={valueCellStyle}>{salesCount} шт.</td></tr>
-                <tr><td style={{...cellStyle, fontWeight: 500}}>Выручка</td><td style={{ ...valueCellStyle, color: '#ffb300', fontWeight: 'bold' }}>{revenue.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td></tr>
-                <tr><td style={{...cellStyle, fontWeight: 500}}>Расходы</td><td style={valueCellStyle}>{expensesSum.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td></tr>
+                <tr><td>Продажи</td><td className="value-cell">{salesCount} шт.</td></tr>
+                <tr><td>Выручка (общая)</td><td className="value-cell revenue-value">{revenue.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td></tr>
+                <tr><td>Расходы (кроме налогов и эквайринга)</td><td className="value-cell">{expensesSum.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td></tr>
                 <tr>
-                  <td style={{...cellStyle, fontWeight: 500}}>
-                    Налоги ({storedTaxSystem === 'income_expense_15' 
-                            ? `${userTaxRateDisplay}% от (Д-Р)` 
-                            : (userTaxRateDisplay ? `${userTaxRateDisplay}%` : 'не задан')})
-                  </td>
-                  <td style={valueCellStyle}>{taxes.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
+                  <td>Эквайринг ({userAcquiringRatePercent > 0 ? `${userAcquiringRatePercent.toFixed(1)}%` : 'не задан'})</td>
+                  <td className="value-cell">{acquiringCommissionCost.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
                 </tr>
                 <tr>
-                  <td style={{...cellStyle, fontWeight: 500}}>
-                    Эквайринг ({userAcquiringRateDisplay > 0 ? `${userAcquiringRateDisplay.toFixed(1)}%` : 'не задан'})
-                  </td>
-                  <td style={valueCellStyle}>{acquiring.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
+                  <td>Выручка (после эквайринга)</td>
+                  <td className="value-cell">{revenueAfterAcquiring.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
                 </tr>
-                <tr style={{ background: '#2a2e37' }}>
-                    <td style={{ ...cellStyle, fontWeight: 700, color: '#fff', borderBottom: '1px solid #3a3e47' }}>Прибыль</td>
-                    <td style={{ ...valueCellStyle, fontWeight: 700, color: '#4caf50', borderBottom: '1px solid #3a3e47' }}>{netProfit.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
+                 <tr>
+                  <td>Налоги ({userTaxRateDisplay})</td>
+                  <td className="value-cell">{taxes.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
                 </tr>
-                <tr><td style={{...cellStyle, fontWeight: 500, borderBottom: 'none'}}>Маржинальность</td><td style={{...valueCellStyle, borderBottom: 'none'}}>{margin}%</td></tr>
+                <tr className="profit-row">
+                    <td className="profit-label">Чистая Прибыль</td>
+                    <td className="value-cell profit-value">{netProfit.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
+                </tr>
+                <tr><td>Маржинальность (от общей выручки)</td><td className="value-cell">{margin}%</td></tr>
             </tbody>
             </table>
             )}
         </div>
 
-        <div>
-            {statsError && <p style={{color: 'salmon'}}>Ошибка загрузки статистики по кофейням.</p>}
-            <div style={{maxHeight: '400px', overflowY: 'auto'}}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', background: '#23272f', borderRadius: '12px', overflow: 'hidden' }}>
+        <div className="coffee-stats-card">
+            <h4 className="coffee-stats-title">Статистика по кофейням</h4>
+            {statsError && <p className="error-message">Ошибка загрузки статистики по кофейням.</p>}
+            <div className="table-scroll-container">
+                <table className="coffee-stats-table">
                 <thead>
-                    <tr style={{ background: '#1f2330', color: '#8ae6ff', position: 'sticky', top: 0, zIndex: 1 }}>
-                    <th style={baseHeaderCellStyle}>Кофейня</th>
-                    <th style={{...baseHeaderCellStyle, textAlign: 'right'}}>Выручка</th>
-                    <th style={{...baseHeaderCellStyle, textAlign: 'right'}}>Продажи</th>
+                    <tr>
+                    <th>Кофейня</th>
+                    <th className="text-right">Выручка</th>
+                    <th className="text-right">Продажи</th>
                     </tr>
                 </thead>
                 <tbody>
                     {coffeeLoading && !statsError && (
-                    <tr><td colSpan={3} style={{ ...cellStyle, color: '#888', padding: 20, textAlign: 'center' }}>Загрузка кофеен...</td></tr>
+                    <tr><td colSpan={3} className="loading-message text-center">Загрузка кофеен...</td></tr>
                     )}
                     {!coffeeLoading && !statsError && (!coffeeStats || coffeeStats.length === 0) && (
-                    <tr><td colSpan={3} style={{ ...cellStyle, color: '#888', padding: 20, textAlign: 'center' }}>Нет данных по кофейням за период</td></tr>
+                    <tr><td colSpan={3} className="empty-data-message text-center">Нет данных по кофейням за период</td></tr>
                     )}
                     {!coffeeLoading && !statsError && coffeeStats && coffeeStats.length > 0 && (
                     coffeeStats.map((row, idx) => (
-                        <tr key={row.coffee_shop_id || idx} style={{ background: idx % 2 ? '#262a36' : '#23273a' }}>
-                        <td style={{...cellStyle, borderBottom: idx === coffeeStats.length - 1 ? 'none' : cellStyle.borderBottom}}>{row.terminal_comment || `Кофейня ${row.coffee_shop_id}`}</td>
-                        <td style={{...valueCellStyle, borderBottom: idx === coffeeStats.length - 1 ? 'none' : valueCellStyle.borderBottom}}>{Number(row.revenue).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
-                        <td style={{...valueCellStyle, borderBottom: idx === coffeeStats.length - 1 ? 'none' : valueCellStyle.borderBottom}}>{row.sales_count}</td>
+                        <tr key={row.coffee_shop_id || idx}>
+                        <td>{row.terminal_comment || `Кофейня ${row.coffee_shop_id}`}</td>
+                        <td className="text-right">{Number(row.revenue).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
+                        <td className="text-right">{row.sales_count}</td>
                         </tr>
                     ))
                     )}
@@ -227,8 +228,8 @@ export default function FinancesPage() {
 
       <div className="sidebar-area">
         <div className="date-inputs-container">
-            <div className="date-input-item"> {/* Используем КЛАСС, а не инлайн-стиль */}
-                <label htmlFor="finances_from_date_page">Начало периода:</label>
+            <div className="date-input-item">
+                <label htmlFor="finances_from_date_page">Начало:</label>
                 <input
                     id="finances_from_date_page" type="date" value={displayDateFrom}
                     onChange={e => handleCustomDateChange('from', e.target.value)}
@@ -236,8 +237,8 @@ export default function FinancesPage() {
                     className="period-date-input"
                 />
             </div>
-            <div className="date-input-item"> {/* Используем КЛАСС, убран marginLeft */}
-                <label htmlFor="finances_to_date_page">Конец периода:</label>
+            <div className="date-input-item">
+                <label htmlFor="finances_to_date_page">Конец:</label>
                 <input
                     id="finances_to_date_page" type="date" value={displayDateTo}
                     onChange={e => handleCustomDateChange('to', e.target.value)}
@@ -249,7 +250,7 @@ export default function FinancesPage() {
         <div className="period-buttons-container">
           {PERIODS.map(p => (
             <button key={p.label}
-              className={currentPeriodPreset.label === p.label ? 'period-btn active' : 'period-btn'}
+              className={`period-btn ${currentPeriodPreset.label === p.label ? 'active' : ''}`}
               onClick={() => handlePeriodPresetChange(p)}
             >{p.label}</button>
           ))}

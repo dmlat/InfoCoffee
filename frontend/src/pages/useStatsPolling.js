@@ -2,132 +2,106 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import apiClient from '../api';
 
-export function useStatsPolling(periodRange) {
+export function useStatsPolling(apiPeriod) { // apiPeriod is { dateFrom: 'YYYY-MM-DD', dateTo: 'YYYY-MM-DD' }
   const [stats, setStats] = useState({ revenue: 0, salesCount: 0, expensesSum: 0 });
   const [coffeeStats, setCoffeeStats] = useState([]);
-
-  // Изначально ставим true, чтобы при первой загрузке показать индикаторы
   const [statsLoading, setStatsLoading] = useState(true);
   const [coffeeLoading, setCoffeeLoading] = useState(true);
-
   const [error, setError] = useState('');
+  
   const timerRef = useRef(null);
-  const token = localStorage.getItem('token');
-
-  // Используем useRef для отслеживания, это первичная загрузка для текущего periodRange или нет
-  // Он будет сбрасываться при изменении periodRange
-  const initialFetchDoneRef = useRef(false);
+  const initialFetchDoneRef = useRef(false); 
 
   const fetchAll = useCallback(async (isBackgroundUpdate = false) => {
-    if (!periodRange || !periodRange[0] || !periodRange[1]) {
-      console.warn('useStatsPolling: periodRange is incomplete, skipping fetch.');
+    const token = localStorage.getItem('app_token'); // Используем 'app_token' как в api.js
+    if (!apiPeriod || !apiPeriod.dateFrom || !apiPeriod.dateTo) {
+      console.warn('useStatsPolling: apiPeriod is incomplete, skipping fetch.', apiPeriod);
       setStats({ revenue: 0, salesCount: 0, expensesSum: 0 });
       setCoffeeStats([]);
-      setStatsLoading(false);
-      setCoffeeLoading(false);
-      setError('Период не задан полностью для загрузки статистики.');
+      if (!isBackgroundUpdate) {
+          setStatsLoading(false);
+          setCoffeeLoading(false);
+          setError('Период не задан полностью.');
+      }
       return;
     }
     if (!token) {
-      console.warn('useStatsPolling: token is missing, skipping fetch.');
-      setStats({ revenue: 0, salesCount: 0, expensesSum: 0 });
-      setCoffeeStats([]);
-      setStatsLoading(false);
-      setCoffeeLoading(false);
-      setError('Отсутствует токен авторизации для загрузки статистики.');
+      console.warn('useStatsPolling: token is missing.');
+       if (!isBackgroundUpdate) {
+          setStatsLoading(false);
+          setCoffeeLoading(false);
+          setError('Отсутствует токен авторизации.');
+       }
       return;
     }
 
-    const from = periodRange[0].toISOString();
-    const to = periodRange[1].toISOString();
-    let currentError = '';
-
-    // Устанавливаем loading в true только если это не фоновое обновление (т.е. первая загрузка для диапазона)
     if (!isBackgroundUpdate) {
       setStatsLoading(true);
       setCoffeeLoading(true);
-      setError(''); // Сбрасываем предыдущие ошибки при новой "полной" загрузке
+      setError('');
     }
 
+    let currentError = '';
     try {
+      // dateFrom и dateTo уже должны быть в формате YYYY-MM-DD
       const statsRes = await apiClient.get('/transactions/stats', {
-        params: { from, to }
+        params: { from: apiPeriod.dateFrom, to: apiPeriod.dateTo } 
       });
       setStats(statsRes.data.stats || { revenue: 0, salesCount: 0, expensesSum: 0 });
     } catch (e) {
       console.error("Error fetching overall stats:", e);
-      // При ошибке не сбрасываем старые данные, если это фоновое обновление
-      if (!isBackgroundUpdate) {
-        setStats({ revenue: 0, salesCount: 0, expensesSum: 0 });
-      }
-      currentError += `Ошибка загрузки статистики продаж (${e.message}). `;
+      if (!isBackgroundUpdate) setStats({ revenue: 0, salesCount: 0, expensesSum: 0 });
+      currentError += `Ошибка статистики продаж (${e.response?.data?.error || e.message}). `;
     } finally {
-      if (!isBackgroundUpdate) { // Устанавливаем false только после нефоновой загрузки
-        setStatsLoading(false);
-      }
+      if (!isBackgroundUpdate) setStatsLoading(false);
     }
 
     try {
       const coffeeRes = await apiClient.get('/transactions/coffee-stats', {
-        params: { from, to }
+        params: { from: apiPeriod.dateFrom, to: apiPeriod.dateTo }
       });
       setCoffeeStats(coffeeRes.data.stats || []);
     } catch (e) {
       console.error("Error fetching coffee stats:", e);
-      if (!isBackgroundUpdate) {
-        setCoffeeStats([]);
-      }
-      currentError += `Ошибка загрузки статистики по кофеточкам (${e.message}).`;
+      if (!isBackgroundUpdate) setCoffeeStats([]);
+      currentError += `Ошибка статистики по кофейням (${e.response?.data?.error || e.message}).`;
     } finally {
-      if (!isBackgroundUpdate) {
-        setCoffeeLoading(false);
-      }
+      if (!isBackgroundUpdate) setCoffeeLoading(false);
     }
 
-    // Если были ошибки во время фонового обновления, можно их показать
-    // или просто залогировать, чтобы не беспокоить пользователя постоянными сообщениями
-    if (currentError.trim() && isBackgroundUpdate) {
-        console.warn("Фоновое обновление статистики завершилось с ошибками:", currentError.trim());
-        // Можно установить setError(currentError.trim()); если хочешь, чтобы пользователь видел эти ошибки
-        // но это может быть навязчиво при каждом интервале.
-    } else {
+    if (currentError.trim()) {
         setError(currentError.trim());
+        if (isBackgroundUpdate) {
+            console.warn("Фоновое обновление статистики с ошибками:", currentError.trim());
+        }
+    } else if (!isBackgroundUpdate) { 
+        setError('');
     }
 
-  }, [periodRange, token]);
+  }, [apiPeriod]);
 
-  // Эффект для сброса initialFetchDoneRef при изменении periodRange
-  // и для начальной загрузки
   useEffect(() => {
-    initialFetchDoneRef.current = false; // Сбрасываем флаг при смене диапазона
-
-    // При монтировании или смене periodRange, делаем "полную" загрузку (с индикаторами)
-    setStatsLoading(true); 
+    initialFetchDoneRef.current = false;
+    setStatsLoading(true);
     setCoffeeLoading(true);
-    fetchAll(false).then(() => { // false означает не фоновое обновление
-        initialFetchDoneRef.current = true; // Отмечаем, что начальная загрузка для этого диапазона завершена
+    fetchAll(false).then(() => {
+      initialFetchDoneRef.current = true;
     });
-  }, [fetchAll, periodRange]); // Зависимость от periodRange важна для перезапуска при смене дат
+  }, [fetchAll]); // Убрали apiPeriod отсюда, т.к. fetchAll уже зависит от него и вызовет перезапуск
 
-  // Эффект для настройки интервального поллинга
   useEffect(() => {
-    // Убедимся, что поллинг запускается только после первой загрузки
-    if (!initialFetchDoneRef.current) {
-        // Если initialFetchDoneRef все еще false, значит, первая загрузка еще не завершилась,
-        // или fetchAll не был вызван из предыдущего useEffect.
-        // Это состояние обычно временное. Можно дождаться, пока initialFetchDoneRef.current станет true.
-        // Но логика выше (fetchAll(false).then(...)) должна это покрыть.
-    }
-
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
-    // Запускаем поллинг только если есть токен и валидный диапазон
-    if (token && periodRange && periodRange[0] && periodRange[1]) {
-        timerRef.current = setInterval(() => {
-            console.log('Polling for stats update...');
-            fetchAll(true); // true означает фоновое обновление без индикаторов загрузки
-        }, 30 * 1000); // Poll every 30 seconds
+    
+    // Получаем токен внутри эффекта, чтобы условие было актуальным
+    const currentToken = localStorage.getItem('app_token'); 
+
+    if (currentToken && apiPeriod && apiPeriod.dateFrom && apiPeriod.dateTo && initialFetchDoneRef.current) {
+      timerRef.current = setInterval(() => {
+        console.log('Polling for stats update...', apiPeriod);
+        fetchAll(true); 
+      }, 30 * 1000); 
     }
 
     return () => {
@@ -135,7 +109,9 @@ export function useStatsPolling(periodRange) {
         clearInterval(timerRef.current);
       }
     };
-  }, [token, periodRange, fetchAll]); // Добавляем token и periodRange, чтобы перезапускать таймер при их изменении
+  // Зависимость от fetchAll и apiPeriod корректна, т.к. они определяют, как и когда должен работать поллинг.
+  // currentToken проверяется внутри, поэтому его нет в зависимостях.
+  }, [apiPeriod, fetchAll]); 
 
   return { stats, statsLoading, coffeeStats, coffeeLoading, error };
 }

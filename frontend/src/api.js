@@ -16,12 +16,12 @@ const processQueue = (error, token = null) => {
 };
 
 const apiClient = axios.create({
-  baseURL: '/api' // Базовый URL для всех API-запросов
+  baseURL: '/api' // Base URL from proxy in package.json or direct
 });
 
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('app_token'); // Changed key for clarity
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -31,6 +31,40 @@ apiClient.interceptors.request.use(
     return Promise.reject(error);
   }
 );
+
+function redirectToLogin(reason = 'unknown_401') {
+  console.log(`Redirecting to login. Reason: ${reason}`);
+  localStorage.removeItem('app_token');
+  localStorage.removeItem('userId');
+  localStorage.removeItem('telegram_id'); // Keep telegram_id if useful for re-auth
+  localStorage.removeItem('user_setup_date');
+  localStorage.removeItem('user_tax_system');
+  localStorage.removeItem('user_acquiring_rate');
+
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith('financesPage_') || key.startsWith('profilePage_')) {
+      localStorage.removeItem(key);
+    }
+  });
+
+  // If inside Telegram Web App, it might not make sense to redirect to a /login page.
+  // The app should instead guide the user to re-authenticate via Telegram.
+  // For now, this redirect might be for non-Telegram context or initial setup.
+  if (window.Telegram && window.Telegram.WebApp) {
+    // window.Telegram.WebApp.close(); // Or show a message to restart/re-open
+    console.error("Session expired or invalid within Telegram Web App. User may need to reopen the Web App.");
+    // Display a message to the user within the app interface instead of redirecting.
+    // For MVP, a simple alert or message on the page could work.
+    // For a better UX, handle this state within your App component.
+  } else if (window.location.pathname !== '/register' && !window.location.pathname.startsWith('/app-entry')) {
+    // Redirect to a generic entry/error page if not in Telegram
+    const queryParams = new URLSearchParams();
+    queryParams.set('session_expired', 'true');
+    queryParams.set('reason', reason);
+    // window.location.href = `/app-entry?${queryParams.toString()}`; // New generic entry page
+  }
+}
+
 
 apiClient.interceptors.response.use(
   (response) => {
@@ -47,89 +81,61 @@ apiClient.interceptors.response.use(
           originalRequest.headers['Authorization'] = 'Bearer ' + token;
           return apiClient(originalRequest);
         }).catch(err => {
-          return Promise.reject(err); // Возвращаем ошибку, если не удалось из очереди
+          return Promise.reject(err);
         });
       }
 
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+      const tgInitData = window.Telegram?.WebApp?.initData;
 
-      if (tgUser && tgUser.id) {
-        console.log('[API Interceptor] Обнаружена ошибка 401. Попытка тихого обновления сессии через Telegram ID:', tgUser.id);
+      if (tgInitData) {
+        console.log('[API Interceptor] 401: Attempting app token refresh via Telegram initData.');
         try {
-          // ИСПРАВЛЕННЫЙ URL: '/auth/refresh-session-via-telegram'
-          const rs = await apiClient.post('/auth/refresh-session-via-telegram', {
-            telegram_id: tgUser.id,
-            // initData: window.Telegram.WebApp.initData // Можно передать для валидации на бэке
+          const rs = await axios.post('/api/auth/refresh-app-token', { // Using axios directly to avoid loop
+            initData: tgInitData,
           });
 
           if (rs.data.success && rs.data.token) {
-            console.log('[API Interceptor] Сессия успешно обновлена через Telegram.');
-            const newToken = rs.data.token;
-            localStorage.setItem('token', newToken);
+            console.log('[API Interceptor] App token successfully refreshed via Telegram.');
+            const newAppToken = rs.data.token;
+            localStorage.setItem('app_token', newAppToken);
             if (rs.data.user) {
-                localStorage.setItem('vendista_login', rs.data.user.vendista_login || '');
                 localStorage.setItem('userId', String(rs.data.user.userId || ''));
-                localStorage.setItem('setup_date', rs.data.user.setup_date || '');
-                localStorage.setItem('tax_system', rs.data.user.tax_system || '');
-                localStorage.setItem('acquiring_rate', String(rs.data.user.acquiring || '0'));
+                // Update other user details if needed
+                localStorage.setItem('user_setup_date', rs.data.user.setup_date || '');
+                localStorage.setItem('user_tax_system', rs.data.user.tax_system || '');
+                localStorage.setItem('user_acquiring_rate', String(rs.data.user.acquiring || '0'));
             }
-            
-            // Обновляем токен в заголовках по умолчанию для последующих запросов в этом экземпляре apiClient
-            apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newToken;
-            // Обновляем токен в оригинальном запросе
-            originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
-            
-            processQueue(null, newToken); // Обрабатываем очередь ожидания с новым токеном
-            return apiClient(originalRequest); // Повторяем оригинальный запрос
+            apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newAppToken;
+            originalRequest.headers['Authorization'] = 'Bearer ' + newAppToken;
+            processQueue(null, newAppToken);
+            return apiClient(originalRequest);
           } else {
-            console.warn('[API Interceptor] Тихое обновление сессии не удалось (ответ от бэка):', rs.data.error);
-            processQueue(rs.data.error || new Error('Silent refresh failed, backend responded.'), null);
-            redirectToLogin('silent_refresh_failed');
-            return Promise.reject(rs.data.error || new Error('Silent refresh failed, backend responded.'));
+            console.warn('[API Interceptor] App token refresh failed (backend response):', rs.data.error);
+            processQueue(rs.data.error || new Error('App token refresh failed, backend responded.'), null);
+            redirectToLogin('app_token_refresh_failed_backend');
+            return Promise.reject(rs.data.error || new Error('App token refresh failed'));
           }
         } catch (refreshError) {
-          console.error('[API Interceptor] Ошибка при запросе тихого обновления сессии:', refreshError.response?.data || refreshError.message);
+          console.error('[API Interceptor] Error during app token refresh request:', refreshError.response?.data || refreshError.message);
           processQueue(refreshError, null);
-          redirectToLogin('silent_refresh_error');
+          redirectToLogin('app_token_refresh_error_request');
           return Promise.reject(refreshError);
         } finally {
           isRefreshing = false;
         }
       } else {
-        console.log('[API Interceptor] Ошибка 401, нет данных Telegram или не в Telegram Web App. Редирект на логин.');
-        isRefreshing = false; 
-        processQueue(error, null); // Отклоняем запросы в очереди, если они были
-        redirectToLogin('no_telegram_data');
+        console.log('[API Interceptor] 401: No Telegram initData available for refresh. Redirecting.');
+        isRefreshing = false;
+        processQueue(error, null);
+        redirectToLogin('no_telegram_data_for_refresh');
         return Promise.reject(error);
       }
     }
     return Promise.reject(error);
   }
 );
-
-function redirectToLogin(reason = 'unknown_401') {
-    localStorage.removeItem('token');
-    localStorage.removeItem('vendista_login');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('setup_date');
-    localStorage.removeItem('tax_system');
-    localStorage.removeItem('acquiring_rate');
-    // Очистим и ключи для финансов, чтобы не было старых данных при следующем входе
-    Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('financesPage_')) {
-            localStorage.removeItem(key);
-        }
-    });
-
-    if (window.location.pathname !== '/login') {
-        const queryParams = new URLSearchParams(window.location.search);
-        queryParams.set('session_expired', 'true');
-        queryParams.set('reason', reason); // Добавляем причину для возможной отладки или кастомного сообщения
-        window.location.href = `/login?${queryParams.toString()}`;
-    }
-}
 
 export default apiClient;

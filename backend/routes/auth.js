@@ -1,168 +1,270 @@
+require('dotenv').config();
 const express = require('express');
 const jwt = require('jsonwebtoken');
-// const bcrypt = require('bcryptjs'); // Для хэша — если будет нужно
 const pool = require('../db');
 const axios = require('axios');
-const router = express.Router();
+const crypto = require('crypto');
 const { startImport } = require('../worker/vendista_import_worker');
 
-// --- Регистрация пользователя ---
-router.post('/register', async (req, res) => {
-    try {
-        const { vendista_login, vendista_password, date_install, tax_system, acquiring } = req.body;
-        if (!vendista_login || !vendista_password || !date_install)
-            return res.status(400).json({ success: false, error: 'Все поля обязательны!' });
+const router = express.Router();
 
-        const exist = await pool.query('SELECT * FROM users WHERE vendista_login = $1', [vendista_login]);
-        if (exist.rows.length > 0)
-            return res.status(400).json({ success: false, error: 'Пользователь уже зарегистрирован!' });
+const VENDISTA_API_URL = process.env.VENDISTA_API_BASE_URL || 'https://api.vendista.ru:99';
 
-        const tokenResp = await axios.get(`https://api.vendista.ru:99/token`, {
-            params: { login: vendista_login, password: vendista_password }
-        });
-        if (!tokenResp.data.token)
-            return res.status(400).json({ success: false, error: 'Vendista логин/пароль невалидны!' });
-
-        await pool.query(
-            `INSERT INTO users (vendista_login, vendista_password_hash, setup_date, tax_system, acquiring) VALUES ($1,$2,$3,$4,$5)`,
-            [vendista_login, vendista_password, date_install, tax_system, acquiring]
-        );
-        const userRes = await pool.query('SELECT id FROM users WHERE vendista_login=$1', [vendista_login]);
-        const userId = userRes.rows[0].id;
-
-        startImport({
-            user_id: userId,
-            vendistaLogin: vendista_login,
-            vendistaPass: vendista_password,
-            first_coffee_date: date_install
-        });
-
-        const token = jwt.sign({ userId, vendista_login }, process.env.JWT_SECRET, { expiresIn: '12h' });
-        // При регистрации не возвращаем все данные профиля, пользователь должен будет залогиниться
-        res.json({ success: true, token, user: { userId, vendista_login } });
-    } catch (err) {
-        console.error("Ошибка в /api/register:", err);
-        res.status(500).json({ success: false, error: 'Ошибка регистрации: ' + err.message });
-    }
-});
-
-// --- Логин пользователя ---
-router.post('/login', async (req, res) => {
-    try {
-        const { vendista_login, vendista_password } = req.body;
-        if (!vendista_login || !vendista_password)
-            return res.status(400).json({ success: false, error: 'Требуется Vendista логин и пароль' });
-
-        const userRes = await pool.query(
-            'SELECT id, vendista_login AS db_vendista_login, vendista_password_hash, setup_date, tax_system, acquiring FROM users WHERE vendista_login=$1', // Добавил db_vendista_login для ясности
-            [vendista_login]
-        );
-        if (userRes.rows.length === 0)
-            return res.status(400).json({ success: false, error: 'Пользователь не найден!' });
-
-        const user = userRes.rows[0];
-        if (vendista_password !== user.vendista_password_hash)
-            return res.status(400).json({ success: false, error: 'Неверный пароль!' });
-
-        const token = jwt.sign({ userId: user.id, vendista_login: user.db_vendista_login }, process.env.JWT_SECRET, { expiresIn: '12h' });
-
-        const userResponseData = {
-            userId: user.id,
-            vendista_login: user.db_vendista_login, // Используем логин из БД
-            setup_date: user.setup_date,
-            tax_system: user.tax_system,
-            acquiring: user.acquiring
-        };
-
-        console.log('[Backend /api/login] Данные пользователя для отправки:', userResponseData); // Лог для отладки
-
-        res.json({
-            success: true,
-            token,
-            user: userResponseData
-        });
-    } catch (err) {
-        console.error("Ошибка в /api/login:", err);
-        res.status(500).json({ success: false, error: 'Ошибка входа: ' + err.message });
-    }
-});
-
-// --- "Тихое" обновление сессии через Telegram ID ---
-router.post('/refresh-session-via-telegram', async (req, res) => {
-  const { telegram_id, initData } = req.body; // initData - для возможной будущей валидации
-
-  if (!telegram_id) {
-    return res.status(400).json({ success: false, error: 'Отсутствует Telegram ID' });
+// Helper function to validate Telegram initData
+const validateTelegramInitData = (initDataString) => {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    console.error('Telegram Bot Token not configured on backend.');
+    return { valid: false, data: null };
   }
 
-  // TODO (в будущем): Валидация initData от Telegram на сервере для безопасности
-  // Это более сложная тема, требует проверки подписи данных с использованием твоего токена бота
-  // Пока для простоты мы будем доверять telegram_id, но для продакшена это нужно усилить.
-  // console.log('[refresh-session-via-telegram] Received initData:', initData);
+  const params = new URLSearchParams(initDataString);
+  const hash = params.get('hash');
+  params.delete('hash');
+
+  // Sort keys alphabetically for hash calculation
+  const dataCheckArr = [];
+  for (const [key, value] of params.entries()) {
+    dataCheckArr.push(`${key}=${value}`);
+  }
+  dataCheckArr.sort();
+  const dataCheckString = dataCheckArr.join('\n');
+
+  const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
+  const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+
+  if (calculatedHash === hash) {
+    const user = params.get('user');
+    try {
+      return { valid: true, data: JSON.parse(decodeURIComponent(user)) };
+    } catch (e) {
+      console.error('Error parsing Telegram user data:', e);
+      return { valid: false, data: null };
+    }
+  }
+  return { valid: false, data: null };
+};
+
+
+// --- Telegram Login / Initial Handshake ---
+router.post('/telegram-login', async (req, res) => {
+  const { initData } = req.body;
+
+  if (!initData) {
+    return res.status(400).json({ success: false, error: 'initData is required.' });
+  }
+
+  const validationResult = validateTelegramInitData(initData);
+  if (!validationResult.valid || !validationResult.data?.id) {
+    return res.status(403).json({ success: false, error: 'Invalid Telegram data.' });
+  }
+
+  const telegram_id = validationResult.data.id;
 
   try {
-    const userRes = await pool.query(
-      'SELECT id, vendista_login, vendista_password_hash, setup_date, tax_system, acquiring FROM users WHERE telegram_id = $1',
-      [telegram_id]
-    );
+    const userResult = await pool.query('SELECT id, vendista_api_token, setup_date, tax_system, acquiring FROM users WHERE telegram_id = $1', [telegram_id]);
 
-    if (userRes.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Пользователь с таким Telegram ID не найден в нашей системе.' });
-    }
-
-    const user = userRes.rows[0];
-    const vendistaLogin = user.vendista_login;
-    const vendistaPassword = user.vendista_password_hash; // Это должен быть РЕАЛЬНЫЙ пароль Vendista
-
-    if (!vendistaLogin || !vendistaPassword) {
-      return res.status(400).json({ success: false, error: 'Учетные данные Vendista для этого пользователя неполные.' });
-    }
-
-    // 1. Пытаемся получить токен от API Vendista
-    let vendistaApiToken;
-    try {
-      const tokenResp = await axios.get('https://api.vendista.ru:99/token', {
-        params: { login: vendistaLogin, password: vendistaPassword },
-        timeout: 10000 // Таймаут
-      });
-      vendistaApiToken = tokenResp.data.token;
-      if (!vendistaApiToken) {
-        // Пароль Vendista в нашей БД мог устареть
-        console.warn(`[refresh-session-via-telegram] Не удалось получить токен Vendista для пользователя ${user.id} (Telegram ID: ${telegram_id}). Возможно, учетные данные Vendista устарели.`);
-        return res.status(401).json({ success: false, error: 'Не удалось подтвердить учетные данные Vendista. Возможно, они изменились.' });
+    if (userResult.rows.length > 0) {
+      const user = userResult.rows[0];
+      if (user.vendista_api_token) {
+        // User exists and is fully registered
+        const appToken = jwt.sign({ userId: user.id, telegramId: telegram_id }, process.env.JWT_SECRET, { expiresIn: '12h' });
+        res.json({
+          success: true,
+          action: 'login_success',
+          token: appToken,
+          user: {
+            userId: user.id,
+            telegram_id: telegram_id,
+            setup_date: user.setup_date,
+            tax_system: user.tax_system,
+            acquiring: user.acquiring,
+            // vendista_api_token: user.vendista_api_token // Client might not need this
+          }
+        });
+      } else {
+        // User exists but registration is incomplete (missing Vendista token)
+        res.json({
+          success: true,
+          action: 'registration_incomplete',
+          telegram_id: telegram_id,
+          message: 'Please complete your Vendista account setup.'
+        });
       }
-    } catch (vendistaError) {
-      console.error(`[refresh-session-via-telegram] Ошибка при запросе токена Vendista для пользователя ${user.id}:`, vendistaError.message);
-      return res.status(503).json({ success: false, error: 'Сервис Vendista временно недоступен или произошла ошибка при проверке учетных данных.' });
+    } else {
+      // New user, registration required
+      res.json({
+        success: true,
+        action: 'registration_required',
+        telegram_id: telegram_id,
+        message: 'Welcome! Please register your Vendista account.'
+      });
+    }
+  } catch (err) {
+    console.error("Error in /telegram-login:", err);
+    res.status(500).json({ success: false, error: 'Server error during login.' });
+  }
+});
+
+// --- Step 1 of Registration: Validate Vendista & Get Long-Lived Token ---
+router.post('/vendista-credentials', async (req, res) => {
+  const { telegram_id, vendista_login, vendista_password } = req.body;
+
+  if (!telegram_id || !vendista_login || !vendista_password) {
+    return res.status(400).json({ success: false, error: 'Telegram ID, Vendista login, and password are required.' });
+  }
+
+  try {
+    // For MVP, we assume the token obtained from /token IS the long-lived one.
+    // In a real scenario, Vendista might have a different endpoint or method for permanent tokens.
+    const tokenResp = await axios.get(`${VENDISTA_API_URL}/token`, {
+      params: { login: vendista_login, password: vendista_password },
+      timeout: 15000
+    });
+
+    if (tokenResp.data && tokenResp.data.token) {
+      const vendista_api_token = tokenResp.data.token;
+      // Further validation (e.g., fetching terminals) can be done here if needed
+      // For now, a successful token fetch is considered validation.
+      res.json({ success: true, vendista_api_token: vendista_api_token });
+    } else {
+      res.status(401).json({ success: false, error: 'Invalid Vendista credentials or unable to fetch token.' });
+    }
+  } catch (err) {
+    console.error("Error validating Vendista credentials:", err.response?.data || err.message);
+    let errorMessage = 'Error connecting to Vendista.';
+    if (err.response?.status === 401 || err.response?.data?.error?.includes('auth')) {
+        errorMessage = 'Invalid Vendista login or password.';
+    } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+    }
+    res.status(err.response?.status || 500).json({ success: false, error: errorMessage });
+  }
+});
+
+// --- Step 2 of Registration: Complete User Profile & Store Vendista Token ---
+router.post('/complete-registration', async (req, res) => {
+  const { telegram_id, vendista_api_token, setup_date, tax_system, acquiring } = req.body;
+
+  if (!telegram_id || !vendista_api_token || !setup_date) {
+    return res.status(400).json({ success: false, error: 'Missing required registration data.' });
+  }
+
+  try {
+    // Check if user with this telegram_id already exists
+    let userResult = await pool.query('SELECT id FROM users WHERE telegram_id = $1', [telegram_id]);
+    let userId;
+
+    if (userResult.rows.length > 0) {
+      // User exists (incomplete registration case), update them
+      userId = userResult.rows[0].id;
+      await pool.query(
+        `UPDATE users SET vendista_api_token = $1, setup_date = $2, tax_system = $3, acquiring = $4, updated_at = NOW()
+         WHERE id = $5`,
+        [vendista_api_token, setup_date, tax_system || null, acquiring || null, userId]
+      );
+    } else {
+      // New user, insert them
+      const insertResult = await pool.query(
+        `INSERT INTO users (telegram_id, vendista_api_token, setup_date, tax_system, acquiring, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id`,
+        [telegram_id, vendista_api_token, setup_date, tax_system || null, acquiring || null]
+      );
+      userId = insertResult.rows[0].id;
     }
 
-    // 2. Если токен Vendista получен, генерируем новый JWT-токен нашего приложения
-    const newAppToken = jwt.sign(
-      { userId: user.id, vendista_login: user.vendista_login }, // Полезная нагрузка токена
-      process.env.JWT_SECRET,
-      { expiresIn: '12h' }
-    );
+    // Initial data import (async, don't wait)
+    startImport({
+      user_id: userId,
+      vendistaApiToken: vendista_api_token, // Worker needs the token now
+      first_coffee_date: setup_date
+    }).catch(importError => console.error(`Initial import failed for user ${userId}:`, importError));
 
-    // 3. Возвращаем новый JWT и основные данные пользователя (аналогично /login)
-    const userResponseData = {
-        userId: user.id,
-        vendista_login: user.vendista_login,
-        setup_date: user.setup_date,     // Эти поля нужно будет также выбрать в SQL-запросе выше
-        tax_system: user.tax_system,   // или передать в JWT, если они не меняются часто
-        acquiring: user.acquiring      // и не нужны для каждой сессии сразу
-    };
+    const appToken = jwt.sign({ userId: userId, telegramId: telegram_id }, process.env.JWT_SECRET, { expiresIn: '12h' });
 
-    console.log(`[refresh-session-via-telegram] Успешно обновлена сессия для пользователя ${user.id} (Telegram ID: ${telegram_id})`);
-    res.json({
+    res.status(201).json({
       success: true,
-      token: newAppToken,
-      user: userResponseData // Отправляем те же данные, что и при обычном логине
+      token: appToken,
+      user: {
+        userId: userId,
+        telegram_id: telegram_id,
+        setup_date: setup_date,
+        tax_system: tax_system,
+        acquiring: acquiring,
+      }
     });
 
   } catch (err) {
-    console.error("Ошибка в /api/auth/refresh-session-via-telegram:", err);
-    res.status(500).json({ success: false, error: 'Внутренняя ошибка сервера при обновлении сессии.' });
+    console.error("Error in /complete-registration:", err);
+    if (err.code === '23505' && err.constraint === 'users_telegram_id_unique') {
+        return res.status(409).json({ success: false, error: 'This Telegram account is already registered.' });
+    }
+    res.status(500).json({ success: false, error: 'Server error during registration completion.' });
   }
 });
+
+
+// --- Refresh App Token (used by frontend interceptor on 401) ---
+router.post('/refresh-app-token', async (req, res) => {
+    const { initData } = req.body; // Expect full initData for validation
+
+    if (!initData) {
+        return res.status(400).json({ success: false, error: 'initData is required for token refresh.' });
+    }
+
+    const validationResult = validateTelegramInitData(initData);
+    if (!validationResult.valid || !validationResult.data?.id) {
+        console.warn('[refresh-app-token] Invalid Telegram initData received.');
+        return res.status(401).json({ success: false, error: 'Invalid or missing Telegram data. Cannot refresh token.' });
+    }
+    
+    const telegram_id = validationResult.data.id;
+
+    try {
+        const userRes = await pool.query(
+            'SELECT id, setup_date, tax_system, acquiring, vendista_api_token FROM users WHERE telegram_id = $1',
+            [telegram_id]
+        );
+
+        if (userRes.rows.length === 0) {
+            console.warn(`[refresh-app-token] User not found for Telegram ID: ${telegram_id}`);
+            return res.status(401).json({ success: false, error: 'User not found. Please log in again.' });
+        }
+        
+        const user = userRes.rows[0];
+
+        if (!user.vendista_api_token) {
+            console.warn(`[refresh-app-token] User ${user.id} (TG: ${telegram_id}) missing Vendista API token. Registration likely incomplete.`);
+            return res.status(401).json({ success: false, error: 'Account setup incomplete. Cannot refresh token.' });
+        }
+
+        // For MVP, we trust the stored vendista_api_token.
+        // A more robust solution might re-validate it with Vendista if it can expire or be revoked.
+
+        const newAppToken = jwt.sign(
+            { userId: user.id, telegramId: telegram_id },
+            process.env.JWT_SECRET,
+            { expiresIn: '12h' }
+        );
+        
+        console.log(`[refresh-app-token] App token refreshed for user ${user.id} (TG: ${telegram_id})`);
+        res.json({
+            success: true,
+            token: newAppToken,
+            user: { // Send back user data so frontend can update localStorage
+                userId: user.id,
+                telegram_id: telegram_id,
+                setup_date: user.setup_date,
+                tax_system: user.tax_system,
+                acquiring: user.acquiring,
+            }
+        });
+
+    } catch (err) {
+        console.error("Error in /refresh-app-token:", err);
+        res.status(500).json({ success: false, error: 'Internal server error during token refresh.' });
+    }
+});
+
 
 module.exports = router;

@@ -1,4 +1,3 @@
-// backend/worker/schedule_imports.js
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const cron = require('node-cron');
 const pool = require('../db');
@@ -14,12 +13,8 @@ async function logJobStatus(userId, jobName, status, result, errorMessage = null
       INSERT INTO worker_logs (user_id, job_name, last_run_at, status, processed_items, added_items, updated_items, error_message)
       VALUES ($1, $2, NOW(), $3, $4, $5, $6, $7)
     `, [
-      userId,
-      jobName,
-      status,
-      result?.processed || 0,
-      result?.added || 0,
-      result?.updated || 0,
+      userId, jobName, status,
+      result?.processed || 0, result?.added || 0, result?.updated || 0,
       errorMessage
     ]);
   } catch (logErr) {
@@ -27,11 +22,10 @@ async function logJobStatus(userId, jobName, status, result, errorMessage = null
   }
 }
 
-async function scheduleSafeImport(params, jobName) {
+async function scheduleSafeImport(params, jobName) { // params should now include vendistaApiToken
   if (importingUsers.has(params.user_id)) {
     const message = `Пропуск для User ${params.user_id}: предыдущий импорт еще не завершен.`;
     console.log(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] ${message}`);
-    // Логируем пропуск из-за блокировки
     await logJobStatus(params.user_id, jobName, 'skipped_due_to_lock', null, message);
     return;
   }
@@ -40,11 +34,15 @@ async function scheduleSafeImport(params, jobName) {
   console.log(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Запуск для User ${params.user_id} с ${params.dateFrom} по ${params.dateTo}`);
   let importResult;
   try {
-    importResult = await importTransactionsForPeriod(params);
+    importResult = await importTransactionsForPeriod(params); // Pass params directly
     if (importResult.success) {
       await logJobStatus(params.user_id, jobName, 'success', importResult);
     } else {
       await logJobStatus(params.user_id, jobName, 'failure', importResult, importResult.error);
+       if (importResult.error && importResult.error.toLowerCase().includes('token')) {
+            // Optional: Notify admin or user about token issue
+            console.error(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] User ${params.user_id} Vendista token might be invalid.`);
+       }
     }
   } catch (e) {
     console.error(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Ошибка для User ${params.user_id}: ${e.message}`);
@@ -55,78 +53,57 @@ async function scheduleSafeImport(params, jobName) {
   }
 }
 
-// --- ЗАДАЧА 1: Каждые 15 минут ---
-cron.schedule('*/15 * * * *', async () => {
-  const jobName = '15-Min Import';
+async function runScheduledJob(jobName, dateSubtractArgs, fetchAllPages) {
   console.log(`[Cron ${moment().tz(TIMEZONE).format()}] Запуск ${jobName}...`);
   try {
-    const usersRes = await pool.query('SELECT id, vendista_login, vendista_password_hash AS vendista_pass FROM users WHERE vendista_login IS NOT NULL AND vendista_password_hash IS NOT NULL');
+    // Fetch users who have a vendista_api_token
+    const usersRes = await pool.query('SELECT id, vendista_api_token FROM users WHERE vendista_api_token IS NOT NULL');
     if (usersRes.rows.length === 0) {
       console.log(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Нет пользователей для импорта.`);
       return;
     }
+
     const dateTo = moment().tz(TIMEZONE).format('YYYY-MM-DD');
-    const dateFrom = moment().tz(TIMEZONE).subtract(1, 'days').format('YYYY-MM-DD');
+    const dateFrom = moment().tz(TIMEZONE).subtract(...dateSubtractArgs).format('YYYY-MM-DD');
+
     for (const user of usersRes.rows) {
       await scheduleSafeImport({
-        user_id: user.id, vendistaLogin: user.vendista_login, vendistaPass: user.vendista_pass,
-        dateFrom, dateTo, fetchAllPages: false
+        user_id: user.id,
+        vendistaApiToken: user.vendista_api_token, // Use the token from DB
+        dateFrom,
+        dateTo,
+        fetchAllPages
       }, jobName);
     }
-  } catch (e) { console.error(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Глобальная ошибка: ${e.message}`); }
-}, { scheduled: true, timezone: TIMEZONE });
-console.log('15-минутный планировщик импорта транзакций с логированием запущен.');
+  } catch (e) {
+    console.error(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Глобальная ошибка: ${e.message}`);
+  }
+}
 
-// --- ЗАДАЧА 2: Ежедневно (Пн-Сб) в 23:00 МСК (48ч) ---
-cron.schedule('0 23 * * 1-6', async () => {
-  const jobName = 'Daily Update (48h)';
-  console.log(`[Cron ${moment().tz(TIMEZONE).format()}] Запуск ${jobName}...`);
-  try {
-    const usersRes = await pool.query('SELECT id, vendista_login, vendista_password_hash AS vendista_pass FROM users WHERE vendista_login IS NOT NULL AND vendista_password_hash IS NOT NULL');
-    if (usersRes.rows.length === 0) return;
-    const dateTo = moment().tz(TIMEZONE).format('YYYY-MM-DD');
-    const dateFrom = moment().tz(TIMEZONE).subtract(2, 'days').format('YYYY-MM-DD');
-    for (const user of usersRes.rows) {
-      await scheduleSafeImport({
-        user_id: user.id, vendistaLogin: user.vendista_login, vendistaPass: user.vendista_pass,
-        dateFrom, dateTo, fetchAllPages: true
-      }, jobName);
-    }
-  } catch (e) { console.error(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Глобальная ошибка: ${e.message}`); }
-}, { scheduled: true, timezone: TIMEZONE });
-console.log('Ежедневный (48ч, Пн-Сб) планировщик с логированием запущен на 23:00 МСК.');
+// --- ЗАДАЧА 1: Каждые 15 минут (вчерашний + сегодняшний день, только первая страница) ---
+cron.schedule('*/15 * * * *', () => runScheduledJob('15-Min Import', [1, 'days'], false), { scheduled: true, timezone: TIMEZONE });
+console.log('15-минутный планировщик импорта транзакций запущен.');
 
-// --- ЗАДАЧА 3: Еженедельно (Вс) в 23:00 МСК (7д) ---
-cron.schedule('0 23 * * 0', async () => {
-  const jobName = 'Weekly Update (7d)';
-  console.log(`[Cron ${moment().tz(TIMEZONE).format()}] Запуск ${jobName}...`);
-  try {
-    const usersRes = await pool.query('SELECT id, vendista_login, vendista_password_hash AS vendista_pass FROM users WHERE vendista_login IS NOT NULL AND vendista_password_hash IS NOT NULL');
-    if (usersRes.rows.length === 0) return;
-    const dateTo = moment().tz(TIMEZONE).format('YYYY-MM-DD');
-    const dateFrom = moment().tz(TIMEZONE).subtract(7, 'days').format('YYYY-MM-DD');
-    for (const user of usersRes.rows) {
-      await scheduleSafeImport({
-        user_id: user.id, vendistaLogin: user.vendista_login, vendistaPass: user.vendista_pass,
-        dateFrom, dateTo, fetchAllPages: true
-      }, jobName);
-    }
-  } catch (e) { console.error(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Глобальная ошибка: ${e.message}`); }
-}, { scheduled: true, timezone: TIMEZONE });
-console.log('Еженедельный (7д, Вс) планировщик с логированием запущен на 23:00 МСК.');
+// --- ЗАДАЧА 2: Ежедневно (Пн-Сб) в 23:00 МСК (последние 2 дня, все страницы) ---
+cron.schedule('0 23 * * 1-6', () => runScheduledJob('Daily Update (48h)', [2, 'days'], true), { scheduled: true, timezone: TIMEZONE });
+console.log('Ежедневный (48ч, Пн-Сб) планировщик запущен на 23:00 МСК.');
 
-// Ручной запуск
+// --- ЗАДАЧА 3: Еженедельно (Вс) в 23:00 МСК (последние 7 дней, все страницы) ---
+cron.schedule('0 23 * * 0', () => runScheduledJob('Weekly Update (7d)', [7, 'days'], true), { scheduled: true, timezone: TIMEZONE });
+console.log('Еженедельный (7д, Вс) планировщик запущен на 23:00 МСК.');
+
+
 async function manualImportLastNDays(days, specificUserId = null) {
     const jobName = `Manual Import (${days}d)${specificUserId ? ` for User ${specificUserId}` : ''}`;
     console.log(`[Manual Trigger ${moment().tz(TIMEZONE).format()}] Запуск ${jobName}...`);
     try {
-        let query = 'SELECT id, vendista_login, vendista_password_hash AS vendista_pass FROM users WHERE vendista_login IS NOT NULL AND vendista_password_hash IS NOT NULL';
+        let queryText = 'SELECT id, vendista_api_token FROM users WHERE vendista_api_token IS NOT NULL';
         const queryParams = [];
         if (specificUserId) {
-            query += ' AND id = $1';
+            queryText += ' AND id = $1';
             queryParams.push(specificUserId);
         }
-        const usersRes = await pool.query(query, queryParams);
+        const usersRes = await pool.query(queryText, queryParams);
 
         if (usersRes.rows.length === 0) {
             console.log(`[Manual Trigger] Нет пользователей для импорта (ID: ${specificUserId || 'all'}).`);
@@ -137,7 +114,8 @@ async function manualImportLastNDays(days, specificUserId = null) {
 
         for (const user of usersRes.rows) {
             await scheduleSafeImport({
-                user_id: user.id, vendistaLogin: user.vendista_login, vendistaPass: user.vendista_pass,
+                user_id: user.id,
+                vendistaApiToken: user.vendista_api_token,
                 dateFrom, dateTo, fetchAllPages: true
             }, jobName);
         }
@@ -169,4 +147,4 @@ if (require.main === module) {
     }
 }
 
-module.exports = { manualImportLastNDays }; // Экспортируем, если нужно вызывать из других мест
+module.exports = { manualImportLastNDays };

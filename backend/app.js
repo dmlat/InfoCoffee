@@ -3,14 +3,16 @@ const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
 const authRoutes = require('./routes/auth');
+const profileRoutes = require('./routes/profile'); // Added profile routes
 
-const app = express();                // <-- сначала создаём app!
+const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Подключаем /api/*
-app.use('/api', authRoutes);
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/profile', profileRoutes); // Added profile routes
 
 const transactionsRoutes = require('./routes/transactions');
 app.use('/api/transactions', transactionsRoutes);
@@ -18,10 +20,13 @@ app.use('/api/transactions', transactionsRoutes);
 const expensesRoutes = require('./routes/expenses');
 app.use('/api/expenses', expensesRoutes);
 
-const vendistaRouter = require('./routes/vendista');
-app.use('/api/vendista', vendistaRouter);
+// Vendista specific routes might be largely handled by auth now,
+// but if you have other utility vendista routes, keep them.
+// const vendistaRouter = require('./routes/vendista');
+// app.use('/api/vendista', vendistaRouter);
 
-// Тестовый endpoint для проверки соединения с БД
+
+// DB Connection Test Endpoint
 app.get('/api/test-db', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()');
