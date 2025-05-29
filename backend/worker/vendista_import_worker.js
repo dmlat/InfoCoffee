@@ -61,14 +61,12 @@ async function importTransactionsForPeriod({
       transactionsProcessed += transactions.length;
 
       for (const tr of transactions) {
-        // --- ИСПРАВЛЕНИЕ ДЛЯ machine_item_id ---
         let dbMachineItemId = null;
         if (tr.machine_item && Array.isArray(tr.machine_item) && tr.machine_item.length > 0 && tr.machine_item[0]) {
           if (typeof tr.machine_item[0].machine_item_id !== 'undefined') {
             dbMachineItemId = tr.machine_item[0].machine_item_id;
           }
         }
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         const result = await pool.query(`
           INSERT INTO transactions (
@@ -91,7 +89,7 @@ async function importTransactionsForPeriod({
             left_sum = EXCLUDED.left_sum,
             left_bonus = EXCLUDED.left_bonus,
             user_id = EXCLUDED.user_id, -- Добавлено user_id в UPDATE для полноты
-            machine_item_id = EXCLUDED.machine_item_id, // COALESCE здесь не нужен, т.к. EXCLUDED уже будет правильным значением
+            machine_item_id = EXCLUDED.machine_item_id, -- EXCLUDED.machine_item_id будет содержать новое значение
             last_updated_at = NOW()
           RETURNING xmax;
         `, [
@@ -99,29 +97,30 @@ async function importTransactionsForPeriod({
           String(tr.result || '0'), tr.reverse_id || 0, tr.terminal_comment || '',
           tr.card_number || '', String(tr.status || '0'), tr.bonus || 0,
           tr.left_sum || 0, tr.left_bonus || 0, user_id, 
-          dbMachineItemId // Используем извлеченное значение
+          dbMachineItemId
         ]);
 
-        if (result.rows[0].xmax === '0') { // xmax = 0 означает INSERT
+        if (result.rows[0].xmax === '0') {
             newTransactionsAdded++;
-        } else { // иначе UPDATE
+        } else {
             transactionsUpdated++;
         }
       }
 
       if (!fetchAllPages || transactions.length < itemsPerPage) {
-        break; // Выходим, если загрузили не все страницы или это была последняя страница
+        break;
       }
       currentPage++;
     }
     console.log(`[Worker] User ${user_id}: Импорт с ${dateFrom} по ${dateTo} завершен. Обработано: ${transactionsProcessed}, Добавлено: ${newTransactionsAdded}, Обновлено: ${transactionsUpdated}.`);
     return { success: true, processed: transactionsProcessed, added: newTransactionsAdded, updated: transactionsUpdated };
   } catch (e) {
-    console.error(`[Worker] User ${user_id}: Ошибка импорта транзакций с ${dateFrom} по ${dateTo}: ${e.message}`, e.response?.data);
+    console.error(`[Worker] User ${user_id}: Ошибка импорта транзакций с ${dateFrom} по ${dateTo}: ${e.message}`, e.response?.data || (e.stack ? e.stack.split('\n').slice(0,3).join('\n') : '')); // Выводим также часть стека, если есть
     let errorDetail = `Ошибка импорта: ${e.message}`;
-    // Проверяем, содержит ли сообщение об ошибке от API Vendista слово "token" или типичный текст ошибки авторизации
     if (e.response?.status === 401 || (e.response?.data?.error && (e.response.data.error.toLowerCase().includes('token') || e.response.data.error.toLowerCase().includes('авторизаци')))) {
         errorDetail = 'Ошибка токена Vendista. Возможно, он недействителен, истек или был неверно дешифрован.';
+    } else if (e.message && e.message.toLowerCase().includes('syntax error at or near')) { // Более точное определение SQL ошибок
+        errorDetail = `SQL Syntax Error: ${e.message}`;
     }
     return { success: false, error: errorDetail, processed: transactionsProcessed, added: newTransactionsAdded, updated: transactionsUpdated };
   }
@@ -131,7 +130,6 @@ async function startImportLegacy({ user_id, vendistaApiToken, first_coffee_date 
     console.log(`[Worker] Legacy startImport для User ${user_id} с ${first_coffee_date}, используя API токен.`);
     const dateFrom = moment(first_coffee_date).tz('Europe/Moscow').format('YYYY-MM-DD');
     const dateTo = moment().tz('Europe/Moscow').format('YYYY-MM-DD');
-    // vendistaApiToken здесь должен быть уже дешифрован вызывающей стороной (например, import_all.js)
     return importTransactionsForPeriod({ user_id, vendistaApiToken, dateFrom, dateTo, fetchAllPages: true });
 }
 
