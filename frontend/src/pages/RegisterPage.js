@@ -17,15 +17,16 @@ export default function RegisterPage({ setIsAuth }) {
   const location = useLocation();
 
   const [telegramId, setTelegramId] = useState('');
-  const [currentStep, setCurrentStep] = useState(1); // 1: Vendista creds, 2: Other details
+  const [firstName, setFirstName] = useState('');
+  const [username, setUsername] = useState('');
+  const [currentStep, setCurrentStep] = useState(1);
+  const [registrationStatus, setRegistrationStatus] = useState(''); // 'registration_required' or 'registration_incomplete'
 
-  // Form fields for Step 1 (Vendista Credentials)
   const [vendistaLogin, setVendistaLogin] = useState('');
   const [vendistaPassword, setVendistaPassword] = useState('');
-  const [vendistaApiToken, setVendistaApiToken] = useState(''); // To store token from step 1 backend response
+  const [vendistaApiTokenPlain, setVendistaApiTokenPlain] = useState(''); // Нешифрованный токен Vendista
   const [vendistaCheckStatus, setVendistaCheckStatus] = useState({ status: 'idle', message: '' });
 
-  // Form fields for Step 2 (Other Details)
   const [setupDate, setSetupDate] = useState('');
   const [taxSystem, setTaxSystem] = useState('');
   const [acquiringRate, setAcquiringRate] = useState('');
@@ -36,36 +37,38 @@ export default function RegisterPage({ setIsAuth }) {
     const params = new URLSearchParams(location.search);
     const tgIdFromQuery = params.get('tg_id');
     const statusFromQuery = params.get('status');
+    const firstNameFromQuery = params.get('firstName');
+    const usernameFromQuery = params.get('username');
 
     if (tgIdFromQuery) {
       setTelegramId(tgIdFromQuery);
     } else {
-      // If no tg_id, this page shouldn't be accessible directly
-      // navigate('/app-entry?error=missing_tg_id_for_registration', { replace: true });
-      console.warn("Registration page accessed without Telegram ID.");
+      // Если нет tg_id, но есть из localStorage (от старого TelegramLogin или initDataUnsafe)
+      const storedTgId = localStorage.getItem('telegram_id_unsafe');
+      if (storedTgId) setTelegramId(storedTgId);
+      else console.warn("RegisterPage: Telegram ID not found in URL or localStorage.");
     }
-    if (statusFromQuery === 'registration_incomplete') {
-        // If registration was incomplete, user might already have some data.
-        // For now, we just start the flow. Could pre-fill if backend sent existing data.
-        setCurrentStep(1); // Start with Vendista credentials input again
-    }
+    
+    setFirstName(firstNameFromQuery || localStorage.getItem('firstName_unsafe') || '');
+    setUsername(usernameFromQuery || localStorage.getItem('username_unsafe') || '');
+    setRegistrationStatus(statusFromQuery || 'registration_required');
+    setCurrentStep(1); // Всегда начинаем с шага 1 при входе на эту страницу
 
-  }, [location.search, navigate]);
+  }, [location.search]);
 
-  // Step 1: Submit Vendista Credentials
   const handleVendistaCredentialsSubmit = async (e) => {
     e.preventDefault();
     setVendistaCheckStatus({ status: 'loading', message: 'Проверка учетных данных Vendista...' });
     try {
-      const response = await apiClient.post('/auth/vendista-credentials', {
-        telegram_id: telegramId,
+      const response = await apiClient.post('/auth/validate-vendista', { // Новый эндпоинт
+        telegram_id: telegramId, // telegram_id нужен для логов или будущих проверок
         vendista_login: vendistaLogin,
         vendista_password: vendistaPassword
       });
-      if (response.data.success && response.data.vendista_api_token) {
-        setVendistaApiToken(response.data.vendista_api_token);
+      if (response.data.success && response.data.vendista_api_token_plain) {
+        setVendistaApiTokenPlain(response.data.vendista_api_token_plain); // Сохраняем нешифрованный токен
         setVendistaCheckStatus({ status: 'success', message: 'Учетные данные Vendista подтверждены.' });
-        setCurrentStep(2); // Move to step 2
+        setCurrentStep(2);
       } else {
         setVendistaCheckStatus({ status: 'error', message: response.data.error || 'Не удалось проверить учетные данные Vendista.' });
       }
@@ -74,7 +77,6 @@ export default function RegisterPage({ setIsAuth }) {
     }
   };
 
-  // Step 2: Submit Final Registration Details
   const handleFinalRegistrationSubmit = async (e) => {
     e.preventDefault();
     setFinalRegStatus({ status: 'loading', message: 'Завершение регистрации...' });
@@ -90,27 +92,33 @@ export default function RegisterPage({ setIsAuth }) {
     }
     if (normalizedAcq !== null) normalizedAcq = parseFloat(normalizedAcq);
 
-
     try {
       const response = await apiClient.post('/auth/complete-registration', {
         telegram_id: telegramId,
-        vendista_api_token: vendistaApiToken,
+        vendista_api_token_plain: vendistaApiTokenPlain, // Отправляем нешифрованный токен Vendista
         setup_date: setupDate,
-        tax_system: taxSystem || null, // Send null if empty
-        acquiring: normalizedAcq // Send normalized number or null
+        tax_system: taxSystem || null,
+        acquiring: normalizedAcq,
+        firstName: firstName, // Передаем для информации, если бэкенд захочет это сохранить
+        username: username 
       });
 
       if (response.data.success && response.data.token) {
         localStorage.setItem('app_token', response.data.token);
         if (response.data.user) {
-          localStorage.setItem('userId', String(response.data.user.userId));
-          localStorage.setItem('user_setup_date', response.data.user.setup_date || '');
-          localStorage.setItem('user_tax_system', response.data.user.tax_system || '');
-          localStorage.setItem('user_acquiring_rate', String(response.data.user.acquiring || '0'));
+            // Используем saveUserDataToLocalStorage из App.js или apiClient.js (если она экспортирована и импортирована)
+            // Для простоты, дублируем логику сохранения здесь или передаем как prop
+            localStorage.setItem('userId', String(response.data.user.userId));
+            localStorage.setItem('telegramId', String(response.data.user.telegramId || ''));
+            localStorage.setItem('userFirstName', response.data.user.firstName || '');
+            localStorage.setItem('userUsername', response.data.user.username || '');
+            localStorage.setItem('user_setup_date', response.data.user.setup_date || '');
+            localStorage.setItem('user_tax_system', response.data.user.tax_system || '');
+            localStorage.setItem('user_acquiring_rate', String(response.data.user.acquiring || '0'));
         }
         setIsAuth(true);
-        setFinalRegStatus({ status: 'success', message: 'Регистрация успешно завершена! Перенаправление на дашборд...' });
-        setTimeout(() => navigate('/dashboard', { replace: true }), 2000);
+        setFinalRegStatus({ status: 'success', message: 'Регистрация успешно завершена! Перенаправление...' });
+        setTimeout(() => navigate('/dashboard', { replace: true }), 1500);
       } else {
         setFinalRegStatus({ status: 'error', message: response.data.error || 'Ошибка при завершении регистрации.' });
       }
@@ -119,17 +127,27 @@ export default function RegisterPage({ setIsAuth }) {
     }
   };
 
-
-  if (!telegramId && currentStep !== 0) { // currentStep 0 could be a loading/error state if needed
-    return <div className="auth-container"><div className="auth-form-wrapper"><p>Для регистрации необходимо открыть приложение через Telegram.</p></div></div>;
+  if (!telegramId && registrationStatus !== 'pending') { 
+    return (
+        <div className="auth-container">
+            <div className="auth-form-wrapper">
+                <h1>InfoCoffee.ru</h1>
+                <p>Ошибка: Не удалось определить ваш Telegram ID. Пожалуйста, откройте приложение снова через вашего Telegram бота.</p>
+            </div>
+        </div>
+    );
   }
-
 
   return (
     <div className="auth-container">
       <div className="auth-form-wrapper">
         <h1>InfoCoffee.ru</h1>
-        <p className="auth-welcome-text">Добро пожаловать в сервис аналитики!</p>
+        <p className="auth-welcome-text">
+          {firstName ? `Привет, ${firstName}! ` : 'Добро пожаловать! '} 
+          {registrationStatus === 'registration_incomplete' 
+            ? 'Завершите настройку вашего аккаунта.' 
+            : 'Давайте настроим ваш аккаунт.'}
+        </p>
 
         {currentStep === 1 && (
           <>
@@ -138,19 +156,15 @@ export default function RegisterPage({ setIsAuth }) {
             <form onSubmit={handleVendistaCredentialsSubmit} className="auth-form">
               <div className="form-field">
                 <label htmlFor="vendistaLogin">Логин Vendista</label>
-                <input
-                  id="vendistaLogin" type="text" value={vendistaLogin}
+                <input id="vendistaLogin" type="text" value={vendistaLogin}
                   onChange={e => setVendistaLogin(e.target.value)}
-                  placeholder="Ваш логин в системе Vendista" required
-                />
+                  placeholder="Логин в системе Vendista" required autoComplete="username" />
               </div>
               <div className="form-field">
                 <label htmlFor="vendistaPassword">Пароль Vendista</label>
-                <input
-                  id="vendistaPassword" type="password" value={vendistaPassword}
+                <input id="vendistaPassword" type="password" value={vendistaPassword}
                   onChange={e => setVendistaPassword(e.target.value)}
-                  placeholder="Ваш пароль в системе Vendista" required
-                />
+                  placeholder="Пароль в системе Vendista" required autoComplete="current-password"/>
               </div>
               <button type="submit" className="auth-button-primary" disabled={vendistaCheckStatus.status === 'loading'}>
                 {vendistaCheckStatus.status === 'loading' ? 'Проверка...' : 'Далее'}
@@ -171,17 +185,14 @@ export default function RegisterPage({ setIsAuth }) {
             <form onSubmit={handleFinalRegistrationSubmit} className="auth-form">
               <div className="form-field">
                 <label htmlFor="setupDate">Дата установки кофейни <span className="required-asterisk">*</span></label>
-                <input
-                  id="setupDate" type="date" value={setupDate}
-                  onChange={e => setSetupDate(e.target.value)} required
-                />
+                <input id="setupDate" type="date" value={setupDate}
+                  onChange={e => setSetupDate(e.target.value)} required />
               </div>
               <div className="form-field">
                 <label>Система налогообложения</label>
                 <div className="tax-options-container">
                   {taxOptions.map(opt => (
-                    <button
-                      type="button" key={opt.value}
+                    <button type="button" key={opt.value}
                       onClick={() => setTaxSystem(prev => prev === opt.value ? '' : opt.value)}
                       className={`tax-option-btn ${taxSystem === opt.value ? 'active' : ''}`}
                     >{opt.label}</button>
@@ -190,12 +201,10 @@ export default function RegisterPage({ setIsAuth }) {
               </div>
               <div className="form-field">
                 <label htmlFor="acquiringRate">Комиссия эквайринга, %</label>
-                <input
-                  id="acquiringRate" type="text" value={acquiringRate}
+                <input id="acquiringRate" type="text" value={acquiringRate}
                   onChange={e => setAcquiringRate(e.target.value)}
-                  placeholder="Например: 2.1"
-                />
-                 <small className="form-field-hint">Необязательный шаг. Например, 2.1 (разделитель точка или запятая)</small>
+                  placeholder="Например: 2.1" />
+                 <small className="form-field-hint">Необязательный. Пример: 2.1 (разделитель точка)</small>
               </div>
               <button type="submit" className="auth-button-primary" disabled={finalRegStatus.status === 'loading'} style={{marginTop: '20px'}}>
                 {finalRegStatus.status === 'loading' ? 'Регистрация...' : 'Завершить регистрацию'}

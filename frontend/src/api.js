@@ -16,12 +16,12 @@ const processQueue = (error, token = null) => {
 };
 
 const apiClient = axios.create({
-  baseURL: '/api' // Base URL from proxy in package.json or direct
+  baseURL: process.env.REACT_APP_API_BASE_URL || '/api' // Убедись, что baseURL настроен
 });
 
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('app_token'); // Changed key for clarity
+    const token = localStorage.getItem('app_token');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -32,37 +32,38 @@ apiClient.interceptors.request.use(
   }
 );
 
-function redirectToLogin(reason = 'unknown_401') {
-  console.log(`Redirecting to login. Reason: ${reason}`);
+function clearUserDataAndRedirect(reason = 'unknown_401') {
+  console.log(`Clearing user data and potentially redirecting. Reason: ${reason}`);
   localStorage.removeItem('app_token');
   localStorage.removeItem('userId');
-  localStorage.removeItem('telegram_id'); // Keep telegram_id if useful for re-auth
+  localStorage.removeItem('telegramId');
+  localStorage.removeItem('userFirstName');
+  localStorage.removeItem('userUsername');
   localStorage.removeItem('user_setup_date');
   localStorage.removeItem('user_tax_system');
   localStorage.removeItem('user_acquiring_rate');
+  localStorage.removeItem('telegram_id_unsafe'); // Очищаем и это
+  localStorage.removeItem('firstName_unsafe');
+  localStorage.removeItem('username_unsafe');
+
 
   Object.keys(localStorage).forEach(key => {
     if (key.startsWith('financesPage_') || key.startsWith('profilePage_')) {
       localStorage.removeItem(key);
     }
   });
+  
+  // Вместо прямого редиректа, можно просто обновить состояние isAuth в App.js,
+  // а App.js уже решит, куда направить пользователя (на /app-entry).
+  // Диспатчим событие, чтобы App.js мог отреагировать.
+  window.dispatchEvent(new CustomEvent('authErrorRedirect', { detail: { reason } }));
 
-  // If inside Telegram Web App, it might not make sense to redirect to a /login page.
-  // The app should instead guide the user to re-authenticate via Telegram.
-  // For now, this redirect might be for non-Telegram context or initial setup.
-  if (window.Telegram && window.Telegram.WebApp) {
-    // window.Telegram.WebApp.close(); // Or show a message to restart/re-open
-    console.error("Session expired or invalid within Telegram Web App. User may need to reopen the Web App.");
-    // Display a message to the user within the app interface instead of redirecting.
-    // For MVP, a simple alert or message on the page could work.
-    // For a better UX, handle this state within your App component.
-  } else if (window.location.pathname !== '/register' && !window.location.pathname.startsWith('/app-entry')) {
-    // Redirect to a generic entry/error page if not in Telegram
-    const queryParams = new URLSearchParams();
-    queryParams.set('session_expired', 'true');
-    queryParams.set('reason', reason);
-    // window.location.href = `/app-entry?${queryParams.toString()}`; // New generic entry page
-  }
+  // Старый код редиректа, если нужен прямой редирект из api.js (менее предпочтительно)
+  // if (window.Telegram && window.Telegram.WebApp) {
+  //   // console.error("Session expired. Please reopen the Web App via Telegram.");
+  // } else if (!window.location.pathname.startsWith('/app-entry')) {
+  //   // window.location.href = `/app-entry?reason=${reason}`;
+  // }
 }
 
 
@@ -73,13 +74,14 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+    // Проверяем, что это ошибка 401 и не повторный запрос на refresh-app-token
+    if (error.response && error.response.status === 401 && originalRequest.url !== '/auth/refresh-app-token' && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise(function(resolve, reject) {
           failedQueue.push({ resolve, reject });
         }).then(token => {
           originalRequest.headers['Authorization'] = 'Bearer ' + token;
-          return apiClient(originalRequest);
+          return apiClient(originalRequest); // apiClient (originalRequest) - это рекурсивный вызов axios
         }).catch(err => {
           return Promise.reject(err);
         });
@@ -93,49 +95,65 @@ apiClient.interceptors.response.use(
       if (tgInitData) {
         console.log('[API Interceptor] 401: Attempting app token refresh via Telegram initData.');
         try {
-          const rs = await axios.post('/api/auth/refresh-app-token', { // Using axios directly to avoid loop
+          // Используем axios.create() без интерцепторов для этого запроса, чтобы избежать цикла
+          const refreshClient = axios.create({ baseURL: process.env.REACT_APP_API_BASE_URL || '/api' });
+          const rs = await refreshClient.post('/auth/refresh-app-token', { 
             initData: tgInitData,
           });
 
           if (rs.data.success && rs.data.token) {
-            console.log('[API Interceptor] App token successfully refreshed via Telegram.');
+            console.log('[API Interceptor] App token successfully refreshed.');
             const newAppToken = rs.data.token;
             localStorage.setItem('app_token', newAppToken);
-            if (rs.data.user) {
-                localStorage.setItem('userId', String(rs.data.user.userId || ''));
-                // Update other user details if needed
-                localStorage.setItem('user_setup_date', rs.data.user.setup_date || '');
-                localStorage.setItem('user_tax_system', rs.data.user.tax_system || '');
-                localStorage.setItem('user_acquiring_rate', String(rs.data.user.acquiring || '0'));
+            if (rs.data.user) { // Обновляем данные пользователя
+                saveUserDataToLocalStorage(rs.data.user);
             }
+            
+            // Обновляем заголовок авторизации для apiClient по умолчанию
             apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newAppToken;
+            // Обновляем заголовок для текущего оригинального запроса
             originalRequest.headers['Authorization'] = 'Bearer ' + newAppToken;
+            
             processQueue(null, newAppToken);
-            return apiClient(originalRequest);
+            return apiClient(originalRequest); // Повторяем оригинальный запрос с новым токеном
           } else {
             console.warn('[API Interceptor] App token refresh failed (backend response):', rs.data.error);
-            processQueue(rs.data.error || new Error('App token refresh failed, backend responded.'), null);
-            redirectToLogin('app_token_refresh_failed_backend');
+            processQueue(rs.data.error || new Error('App token refresh failed, server responded error.'), null);
+            clearUserDataAndRedirect('app_token_refresh_failed_backend');
             return Promise.reject(rs.data.error || new Error('App token refresh failed'));
           }
         } catch (refreshError) {
           console.error('[API Interceptor] Error during app token refresh request:', refreshError.response?.data || refreshError.message);
           processQueue(refreshError, null);
-          redirectToLogin('app_token_refresh_error_request');
+          clearUserDataAndRedirect('app_token_refresh_error_request');
           return Promise.reject(refreshError);
         } finally {
           isRefreshing = false;
         }
       } else {
-        console.log('[API Interceptor] 401: No Telegram initData available for refresh. Redirecting.');
+        console.log('[API Interceptor] 401: No Telegram initData for refresh. Clearing data.');
         isRefreshing = false;
         processQueue(error, null);
-        redirectToLogin('no_telegram_data_for_refresh');
+        clearUserDataAndRedirect('no_telegram_data_for_refresh');
         return Promise.reject(error);
       }
     }
     return Promise.reject(error);
   }
 );
+
+// Вспомогательная функция для сохранения данных пользователя (дублируется из App.js для использования здесь)
+// В идеале, это должно быть в общем утилитном файле
+function saveUserDataToLocalStorage(userData) {
+    if (!userData) return;
+    localStorage.setItem('userId', String(userData.userId || ''));
+    localStorage.setItem('telegramId', String(userData.telegramId || ''));
+    localStorage.setItem('userFirstName', userData.firstName || '');
+    localStorage.setItem('userUsername', userData.username || '');
+    localStorage.setItem('user_setup_date', userData.setup_date || '');
+    localStorage.setItem('user_tax_system', userData.tax_system || '');
+    localStorage.setItem('user_acquiring_rate', String(userData.acquiring || '0'));
+}
+
 
 export default apiClient;

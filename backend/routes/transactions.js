@@ -1,30 +1,36 @@
+// backend/routes/transactions.js
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const pool = require('../db');
-const moment = require('moment-timezone'); // Ensure moment-timezone is installed
+const moment = require('moment-timezone');
+
+const TIMEZONE = 'Europe/Moscow'; // Или твоя целевая таймзона
 
 // --- Aggregating endpoint for Dashboard ---
 router.get('/stats', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.userId;
-        let { from, to } = req.query; // Expecting YYYY-MM-DD strings
+        let { from, to } = req.query; // Ожидаем строки YYYY-MM-DD от фронтенда (useStatsPolling)
 
-        if (!from || !to) {
-            // Default to current month in Moscow time if not provided
-            const todayMoscow = moment().tz('Europe/Moscow');
-            from = todayMoscow.clone().startOf('month').format('YYYY-MM-DD');
-            to = todayMoscow.format('YYYY-MM-DD');
+        console.log(`[GET /api/transactions/stats] UserID: ${userId}, Raw query params: from=${from}, to=${to}`);
+
+        let dateFrom, dateTo;
+
+        if (from && to && moment(from, 'YYYY-MM-DD', true).isValid() && moment(to, 'YYYY-MM-DD', true).isValid()) {
+            dateFrom = moment.tz(from, TIMEZONE).startOf('day').format('YYYY-MM-DD HH:mm:ss');
+            dateTo = moment.tz(to, TIMEZONE).endOf('day').format('YYYY-MM-DD HH:mm:ss');
+        } else {
+            console.log(`[GET /api/transactions/stats] Invalid or missing date params, defaulting to current month in ${TIMEZONE}`);
+            const todayMoscow = moment().tz(TIMEZONE);
+            dateFrom = todayMoscow.clone().startOf('month').format('YYYY-MM-DD HH:mm:ss');
+            dateTo = todayMoscow.endOf('month').format('YYYY-MM-DD HH:mm:ss'); // Используем конец текущего дня месяца
         }
-
-        // Construct date range for SQL query, assuming transaction_time is stored effectively as Moscow time
-        // The database will interpret these as 'YYYY-MM-DD 00:00:00' and 'YYYY-MM-DD 23:59:59' in its local/session timezone.
-        // If transaction_time is timestamp WITH timezone, this is fine.
-        // If transaction_time is timestamp WITHOUT timezone and stores Moscow time, this is also fine if DB server timezone matches or connection timezone is set to Moscow.
-        const dateFrom = `${from} 00:00:00`; // Start of the day
-        const dateTo = `${to} 23:59:59`;   // End of the day
+        
+        console.log(`[GET /api/transactions/stats] SQL Date Range: from='${dateFrom}', to='${dateTo}'`);
 
         const trRes = await pool.query(
             `SELECT 
@@ -32,12 +38,12 @@ router.get('/stats', authMiddleware, async (req, res) => {
                 COALESCE(SUM(amount),0) as revenue_cents
              FROM transactions
              WHERE user_id = $1
-               AND result = '1' -- Assuming result '1' means success
+               AND result = '1' 
                AND reverse_id = 0
                AND transaction_time >= $2 
                AND transaction_time <= $3
             `,
-            [userId, dateFrom, dateTo]
+            [userId, dateFrom, dateTo] // $1=userId, $2=dateFrom, $3=dateTo
         );
         const revenue = Number(trRes.rows[0].revenue_cents) / 100;
         const salesCount = Number(trRes.rows[0].sales_count);
@@ -46,7 +52,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
             `SELECT COALESCE(SUM(amount),0) as expenses_sum 
              FROM expenses
              WHERE user_id = $1
-               AND expense_time >= $2 -- Assuming expense_time also needs this range logic
+               AND expense_time >= $2 
                AND expense_time <= $3
             `,
             [userId, dateFrom, dateTo]
@@ -62,7 +68,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
             }
         });
     } catch (err) {
-        console.error("Error in /transactions/stats:", err);
+        console.error("[GET /api/transactions/stats] Error:", err);
         res.status(500).json({ success: false, error: 'Ошибка агрегирования статистики' });
     }
 });
@@ -71,16 +77,25 @@ router.get('/stats', authMiddleware, async (req, res) => {
 router.get('/coffee-stats', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.userId;
-        let { from, to } = req.query; // Expecting YYYY-MM-DD
-        if (!from || !to) return res.status(400).json({ success: false, error: 'Укажите from/to в формате YYYY-MM-DD' });
+        let { from, to } = req.query;
+        console.log(`[GET /api/transactions/coffee-stats] UserID: ${userId}, Raw query params: from=${from}, to=${to}`);
 
-        const dateFrom = `${from} 00:00:00`;
-        const dateTo = `${to} 23:59:59`;
+        let dateFrom, dateTo;
+        if (from && to && moment(from, 'YYYY-MM-DD', true).isValid() && moment(to, 'YYYY-MM-DD', true).isValid()) {
+            dateFrom = moment.tz(from, TIMEZONE).startOf('day').format('YYYY-MM-DD HH:mm:ss');
+            dateTo = moment.tz(to, TIMEZONE).endOf('day').format('YYYY-MM-DD HH:mm:ss');
+        } else {
+             console.log(`[GET /api/transactions/coffee-stats] Invalid or missing date params, defaulting to current month in ${TIMEZONE}`);
+            const todayMoscow = moment().tz(TIMEZONE);
+            dateFrom = todayMoscow.clone().startOf('month').format('YYYY-MM-DD HH:mm:ss');
+            dateTo = todayMoscow.endOf('month').format('YYYY-MM-DD HH:mm:ss');
+        }
+        console.log(`[GET /api/transactions/coffee-stats] SQL Date Range: from='${dateFrom}', to='${dateTo}'`);
 
         const result = await pool.query(`
             SELECT 
                 coffee_shop_id,
-                MAX(terminal_comment) AS terminal_comment, -- This still might pick an arbitrary comment if many exist
+                MAX(terminal_comment) AS terminal_comment,
                 COUNT(*) FILTER (WHERE result = '1' AND reverse_id = 0) as sales_count,
                 COALESCE(SUM(amount) FILTER (WHERE result = '1' AND reverse_id = 0),0)/100 as revenue
             FROM transactions
@@ -91,40 +106,54 @@ router.get('/coffee-stats', authMiddleware, async (req, res) => {
         `, [userId, dateFrom, dateTo]);
         res.json({ success: true, stats: result.rows });
     } catch (err) {
-        console.error("Error in /transactions/coffee-stats:", err);
+        console.error("[GET /api/transactions/coffee-stats] Error:", err);
         res.status(500).json({ success: false, error: 'Ошибка агрегации по кофеточкам' });
     }
 });
 
-
-// Get all transactions (legacy or for detailed view) - also apply date fix
+// Get all transactions (legacy or for detailed view)
 router.get('/', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.userId;
-        // Optional: Add from/to query params here as well if needed for pagination or filtering
         const result = await pool.query(
             'SELECT * FROM transactions WHERE user_id = $1 ORDER BY transaction_time DESC',
             [userId]
         );
         res.json({ success: true, transactions: result.rows });
     } catch (err) {
-        console.error("Error in GET /transactions:", err);
+        console.error("[GET /api/transactions/] Error:", err);
         res.status(500).json({ success: false, error: 'Ошибка сервера при получении транзакций' });
     }
 });
 
-// POST transaction - likely for admin/testing, no date changes needed here unless specific logic
+// POST transaction (example for manual addition)
 router.post('/', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.userId;
-        const { /* ... all transaction fields ... */ } = req.body;
-        // ... existing insert logic ...
-        // For brevity, not re-listing the full insert, assume it's correct.
-        // Just ensure transaction_time is handled consistently if it's manually set.
-        const resultDb = await pool.query( /* ... your insert query ... */ ); // Example
-        res.json({ success: true, transaction: resultDb.rows[0] });
+        // Assuming all necessary fields are in req.body
+        // Add proper validation and field extraction here
+        const {
+            coffee_shop_id, amount, transaction_time, result: tr_result, // renamed result to avoid conflict
+            reverse_id, terminal_comment, card_number, status,
+            bonus, left_sum, left_bonus, machine_item_id
+        } = req.body;
+
+        const resultDb = await pool.query(
+            `INSERT INTO transactions (
+                user_id, coffee_shop_id, amount, transaction_time, result, reverse_id, 
+                terminal_comment, card_number, status, bonus, left_sum, left_bonus, machine_item_id, last_updated_at
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW()
+            ) RETURNING *`,
+            [
+                userId, coffee_shop_id, amount, transaction_time, tr_result,
+                reverse_id, terminal_comment, card_number, status,
+                bonus, left_sum, left_bonus, machine_item_id
+            ]
+        );
+        res.status(201).json({ success: true, transaction: resultDb.rows[0] });
     } catch (err) {
-        console.error("Error in POST /transactions:", err);
+        console.error("[POST /api/transactions/] Error:", err);
         res.status(500).json({ success: false, error: 'Ошибка сервера при добавлении транзакции' });
     }
 });
