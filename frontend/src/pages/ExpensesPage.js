@@ -10,8 +10,8 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState([]);
   const [eForm, setEForm] = useState({ amount: '', expense_time: todayISO, comment: '' });
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(''); // Для ошибок загрузки/удаления списка
-  const [submitError, setSubmitError] = useState(''); // Для ошибок формы добавления
+  const [error, setError] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expenseToDeleteId, setExpenseToDeleteId] = useState(null);
@@ -20,10 +20,7 @@ export default function ExpensesPage() {
     setIsLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await apiClient.get('/expenses', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiClient.get('/expenses');
       if (res.data.success) {
         setExpenses(res.data.expenses.sort((a, b) => new Date(b.expense_time) - new Date(a.expense_time) || b.id - a.id));
       } else {
@@ -69,12 +66,12 @@ export default function ExpensesPage() {
     };
 
     try {
-      const res = await apiClient.post('/expenses', payload)
+      const res = await apiClient.post('/expenses', payload);
     
       if (res.data.success && res.data.expense) {
         setExpenses(prev => [res.data.expense, ...prev].sort((a,b) => new Date(b.expense_time) - new Date(a.expense_time) || b.id - a.id));
         setEForm({ amount: '', expense_time: todayISO, comment: '' });
-        if (document.activeElement && typeof document.activeElement.blur === 'function') { // Предотвращаем zoom-in
+        if (document.activeElement && typeof document.activeElement.blur === 'function') { 
           document.activeElement.blur();
         }
       } else {
@@ -95,10 +92,7 @@ export default function ExpensesPage() {
     if (expenseToDeleteId === null) return;
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await apiClient.delete(`/expenses/${expenseToDeleteId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await apiClient.delete(`/expenses/${expenseToDeleteId}`);
       if (res.data.success) {
         setExpenses(prevExpenses => prevExpenses.filter(e => e.id !== expenseToDeleteId));
       } else {
@@ -127,13 +121,13 @@ export default function ExpensesPage() {
         onCancel={cancelDeleteExpense}
         confirmText="Удалить"
         cancelText="Отмена"
+        confirmButtonClass="danger" // Указываем класс для красной кнопки
       />
-      <div className="page-container" style={{flexDirection: 'column'}}>
+      <div className="page-container expenses-page-layout" style={{flexDirection: 'column'}}> 
         <div className="main-content-area" style={{width: '100%'}}>
-          <h2 style={{ marginBottom: '20px', color: '#eee' }}>Учет расходов</h2>
+          <h2 style={{ marginBottom: '20px', color: '#eee', textAlign: 'center' }}>Учет расходов</h2>
 
           <form onSubmit={handleAddExpense} className="expense-form-container">
-            {/* Ряд для Суммы и Даты */}
             <div className="expense-form-row">
               <div className="expense-form-field">
                 <label htmlFor="exp-amount-page" className="expense-form-label">Сумма (₽) <span style={{color: 'tomato'}}>*</span></label>
@@ -164,7 +158,6 @@ export default function ExpensesPage() {
               </div>
             </div>
 
-            {/* Поле Комментарий */}
             <div className="expense-form-field-fullwidth">
               <label htmlFor="exp-comment-page" className="expense-form-label">Комментарий</label>
               <input
@@ -186,8 +179,8 @@ export default function ExpensesPage() {
             {submitError && <div className="expense-form-error">{submitError}</div>}
           </form>
 
-          {isLoading && <p style={{color: '#888', textAlign: 'center', marginTop: '20px'}}>Загрузка расходов...</p>}
-          {error && <p style={{color: 'salmon', textAlign: 'center', marginTop: '20px'}}>{error}</p>}
+          {isLoading && <p className="page-loading-container"><span>Загрузка расходов...</span></p>}
+          {error && <p className="error-message" style={{textAlign: 'center'}}>{error}</p>}
           
           {!isLoading && !error && (
             <div className="expenses-table-container">
@@ -197,7 +190,7 @@ export default function ExpensesPage() {
                     <th className="expenses-table-header th-amount">Сумма</th>
                     <th className="expenses-table-header th-date">Дата</th>
                     <th className="expenses-table-header th-comment">Комментарий</th>
-                    <th className="expenses-table-header th-action"></th> {/* Для кнопки удаления */}
+                    <th className="expenses-table-header th-action"></th>
                   </tr>
                 </thead>
                 <tbody>

@@ -1,11 +1,10 @@
 // src/pages/Dashboard.js
 import React, { useState, useEffect } from 'react';
-import Navbar from '../components/Navbar'; // Предполагается, что Navbar существует
+import Navbar from '../components/Navbar';
 import FinancesPage from './FinancesPage';
 import ExpensesPage from './ExpensesPage';
 import ProfilePage from './ProfilePage';
-import StockPage from './StockPage';
-// import { PERIODS } from '../constants'; // Если вынесли PERIODS в constants.js
+import StockPage from './StockPage'; // Предполагаем, что этот компонент существует
 
 const TABS = [
   { id: 'finances', label: 'ФИНАНСЫ', component: FinancesPage },
@@ -14,24 +13,20 @@ const TABS = [
   { id: 'profile', label: 'ПРОФИЛЬ', component: ProfilePage },
 ];
 
-export default function Dashboard() {
-  // Начальная вкладка из URL hash или 'finances' по умолчанию
+export default function Dashboard({ setIsAuth }) { // Добавил setIsAuth, если Navbar его использует для выхода
   const getInitialTab = () => {
     const hash = window.location.hash.replace('#', '');
-    // Проверяем, существует ли вкладка с таким id
     const foundTab = TABS.find(t => t.id === hash);
     return foundTab ? hash : TABS[0].id;
   };
 
   const [activeTabId, setActiveTabId] = useState(getInitialTab);
 
-  // Обновляем URL hash при смене вкладки
   const handleTabChange = (tabId) => {
     setActiveTabId(tabId);
     window.location.hash = tabId;
   };
 
-  // Слушаем изменения hash в URL (например, при использовании кнопок "назад/вперед" в браузере)
   useEffect(() => {
     const handleHashChange = () => {
       setActiveTabId(getInitialTab());
@@ -40,45 +35,35 @@ export default function Dashboard() {
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, []); // Пустой массив зависимостей, getInitialTab не меняется
+  }, []); // getInitialTab не меняется, поэтому зависимости пустые
 
   const ActivePageComponent = TABS.find(t => t.id === activeTabId)?.component;
 
+  const handleLogout = () => {
+    localStorage.clear();
+    // Вместо прямого window.location.href, лучше использовать setIsAuth,
+    // чтобы App.js обработал перенаправление на страницу входа/AppEntryPage
+    if (setIsAuth) {
+        setIsAuth(false); 
+    } else {
+        // Fallback, если setIsAuth не передан (хотя должен быть из App.js)
+        window.location.href = '/app-entry?reason=logout'; 
+    }
+  };
+
   return (
-    <div style={{ minHeight: '100vh', background: '#23272f', color: '#c6c6c6' }}>
-      <Navbar onLogout={() => { 
-        localStorage.clear(); // Очищаем localStorage при выходе
-        window.location.href = '/login'; // Предполагается, что у тебя есть роутинг на /login
-       }} />
-      {/* Добавлен класс dashboard-content-wrapper для адаптивных стилей */}
-      <div 
-        className="dashboard-content-wrapper" 
-        style={{ 
-          maxWidth: 1180, 
-          margin: '30px auto', 
-          background: '#20232a', 
-          borderRadius: 20, 
-          padding: '24px 36px', 
-          boxShadow: '0 8px 32px #00000033' 
-        }}
-      >
-        {/* Добавлен класс tabs-container для адаптивных стилей */}
-        <div 
-          className="tabs-container"
-          style={{ 
-            display: 'flex', 
-            gap: 8, 
-            marginBottom: 24, 
-            borderBottom: '1px solid #303548', 
-            paddingBottom: 16 
-          }}
-        >
+    // Этот div теперь .dashboard-layout из index.css
+    <div className="dashboard-layout">
+      <Navbar onLogout={handleLogout} />
+      {/* Этот div теперь .dashboard-content-wrapper из index.css */}
+      <div className="dashboard-content-wrapper">
+        {/* Этот div теперь .tabs-container из index.css */}
+        <div className="tabs-container">
           {TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
-              // Классы для стилизации из index.css
-              className={activeTabId === tab.id ? 'tab-btn active' : 'tab-btn'} 
+              className={activeTabId === tab.id ? 'tab-btn active' : 'tab-btn'}
             >
               {tab.label}
             </button>
@@ -86,8 +71,8 @@ export default function Dashboard() {
         </div>
 
         {/* Рендерим активный компонент страницы */}
+        {/* Страницы (FinancesPage и др.) будут использовать класс .page-container */}
         {ActivePageComponent && <ActivePageComponent />}
-
       </div>
     </div>
   );

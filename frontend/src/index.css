@@ -1,343 +1,402 @@
 /* src/index.css */
 /* Общие стили для всего документа */
-body {
+html, body {
+  height: 100%;
   margin: 0;
+  overscroll-behavior-y: contain; 
+  background-color: #23272f; /* Устанавливаем фон здесь */
+}
+
+body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #23272f; /* */
-  color: #c6c6c6; /* */
+  color: #c6c6c6;
+  min-height: 100vh; /* Для случаев, когда контента мало */
+  display: flex; /* Чтобы #root мог растягиваться */
+  flex-direction: column; /* Чтобы #root мог растягиваться */
+}
+
+#root {
+  min-height: 100vh;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1; /* Занимает все доступное пространство в body */
+}
+
+/* Если у вас есть корневой компонент .App */
+.App { 
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Стили для основного контейнера Dashboard */
+.dashboard-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* Или min-height, если есть контент вне этого блока */
+  background-color: #23272f; /* Фон всей страницы дашборда */
+  color: #c6c6c6;
+}
+
+/* Контейнер для контента дашборда (под Navbar) */
+.dashboard-content-wrapper {
+  flex-grow: 1; /* Занимает все оставшееся место после Navbar */
+  overflow-y: auto; /* Включает прокрутку для этой области */
+  padding: 16px 20px 24px 20px; /* Верхний отступ для "буфера", боковые и нижний */
+  box-sizing: border-box;
+  background: #20232a; /* Фон основной контентной области */
+  max-width: 1180px; /* Ограничение ширины контента */
+  margin: 0 auto; /* Центрирование контентной области */
+  width: 100%; /* Занимает всю доступную ширину родителя */
+  border-radius: 0; /* Убираем радиус, если это основной контейнер */
+}
+
+/* Контейнер для табов */
+.tabs-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #303548;
+  padding-bottom: 16px;
+  justify-content: center;
+  
+  position: sticky; /* "Липкие" табы */
+  top: -16px; /* Чтобы компенсировать padding-top родителя .dashboard-content-wrapper и прилипнуть к самому верху */
+  padding-top: 16px; /* Добавляем padding к самим табам, чтобы они не были слишком близко к краю */
+  background: #20232a; /* Фон для липкой шапки, чтобы контент не просвечивал */
+  z-index: 10;
+  margin-left: -20px; /* Компенсируем padding родителя */
+  margin-right: -20px; /* Компенсируем padding родителя */
+  padding-left: 20px; /* Восстанавливаем внутренний padding */
+  padding-right: 20px;
 }
 
 /* Стили для кнопок вкладок (Dashboard.js) */
 .tab-btn {
   background: none;
   border: none;
-  color: #8a9db8; /* */
-  padding: 10px 15px; /* */
-  font-size: 0.9em; /* */
-  font-weight: 600; /* */
+  color: #8a9db8;
+  padding: 10px 15px;
+  font-size: 0.9em;
+  font-weight: 600;
   cursor: pointer;
-  border-bottom: 3px solid transparent; /* */
-  transition: color 0.2s, border-color 0.2s; /* */
-  white-space: nowrap; /* */
+  border-bottom: 3px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+  white-space: nowrap;
 }
 .tab-btn:hover {
-  color: #a6bcdf; /* */
+  color: #a6bcdf;
 }
 .tab-btn.active {
-  color: #8ae6ff; /* */
-  border-bottom-color: #8ae6ff; /* */
+  color: #8ae6ff;
+  border-bottom-color: #8ae6ff;
 }
+
+/* Общий контейнер для страниц внутри вкладок */
+.page-container {
+  display: flex;
+  align-items: flex-start; /* Сохраняем для layouts с sidebar */
+  gap: 30px;
+  /* НЕ ДОЛЖЕН иметь min-height: 100vh или overflow-y: auto, если он внутри .dashboard-content-wrapper */
+}
+
+.page-container.finances-page,
+.page-container.expenses-page-layout, /* Добавим класс для ExpensesPage */
+.page-container.profile-page-layout  /* Добавим класс для ProfilePage */
+{
+  /* Стили специфичные для макета страницы, если нужны (например, direction column) */
+}
+
 
 /* Стили для кнопок выбора периода (FinancesPage.js) */
 .period-btn {
-  background-color: #2e3340; /* */
-  color: #a0b0c8; /* */
-  border: 1px solid #303548; /* */
-  padding: 9px 12px; /* */
-  border-radius: 8px; /* */
+  background-color: #2e3340;
+  color: #a0b0c8;
+  border: 1px solid #303548;
+  padding: 9px 12px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: 500; /* */
+  font-weight: 500;
   text-align: center;
-  transition: background-color 0.2s, color 0.2s, border-color 0.2s; /* */
-  font-size: 0.9em; /* */
-  width: 100%; /* */
-  box-sizing: border-box; /* */
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  font-size: 0.9em;
+  width: 100%;
+  box-sizing: border-box;
 }
 .period-btn:hover {
-  background-color: #383e4c; /* */
-  border-color: #484e5c; /* */
-  color: #c6c6c6; /* */
+  background-color: #383e4c;
+  border-color: #484e5c;
+  color: #c6c6c6;
 }
 .period-btn.active {
-  background-color: #3e67e0; /* */
-  color: #fff; /* */
-  border-color: #3e67e0; /* */
-  font-weight: 600; /* */
+  background-color: #3e67e0;
+  color: #fff;
+  border-color: #3e67e0;
+  font-weight: 600;
 }
 
 /* Стили для полей ввода даты (FinancesPage.js, ExpensesPage.js) */
-input[type="date"].period-date-input { /* Specific to period inputs */
-  background-color: #2e3340; /* */
-  color: #c6c6c6; /* */
-  border: 1px solid #303548; /* */
-  padding: 8px 10px; /* */
-  height: 38px; /* */
-  box-sizing: border-box; /* */
-  border-radius: 6px; /* */
-  font-family: inherit; /* */
-  font-size: 0.9em; /* */
-  width: 100%; /* */
+input[type="date"].period-date-input {
+  background-color: #2e3340;
+  color: #c6c6c6;
+  border: 1px solid #303548;
+  padding: 8px 10px;
+  height: 38px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.9em;
+  width: 100%;
 }
 input[type="date"].period-date-input::-webkit-calendar-picker-indicator {
-  filter: invert(0.6); /* */
+  filter: invert(0.6);
 }
 input[type="date"].period-date-input:disabled {
-  background-color: #20232a; /* */
-  opacity: 0.6; /* */
+  background-color: #20232a; /* Темнее, когда неактивно */
+  opacity: 0.6;
 }
 
-/* Стили для кнопок действий (Общее, ExpensesPage.js, ProfilePage.js) */
+/* Стили для кнопок действий */
 .action-btn {
-  background: #3e67e0; /* */
-  color: #fff; /* */
-  font-weight: 500; /* */
+  background: #3e67e0;
+  color: #fff;
+  font-weight: 500;
   border: none;
-  border-radius: 8px; /* */
-  padding: 8px 22px; /* */
-  height: 38px; /* */
-  box-sizing: border-box; /* */
+  border-radius: 8px;
+  padding: 8px 22px;
+  height: 38px;
+  box-sizing: border-box;
   cursor: pointer;
-  transition: background-color 0.2s; /* */
-  font-size: 0.95em; /* */
+  transition: background-color 0.2s;
+  font-size: 0.95em;
 }
 .action-btn:hover {
-  background: #4a75f0; /* */
+  background: #4a75f0;
+}
+.action-btn:disabled { /* Стиль для неактивной кнопки */
+  background-color: #2e3340;
+  color: #7a8b98;
+  cursor: not-allowed;
 }
 
-/* Стили для кнопки удаления (ExpensesPage.js) */
+
+/* Стили для кнопки удаления */
 .delete-btn {
   background: none;
   border: none;
   cursor: pointer;
-  color: #e06b6b; /* */
-  font-size: 18px; /* */
-  line-height: 1; /* */
-  padding: 0; /* */
+  color: #e06b6b;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
 }
 .delete-btn:hover {
-  color: #ff8a8a; /* */
+  color: #ff8a8a;
 }
 
-/* === ОБЩИЕ СТИЛИ ДЛЯ ДАШБОРДА (Dashboard.js, FinancesPage.js) === */
-.dashboard-content-wrapper { /* */
-  max-width: 1180px; /* */
-  margin: 30px auto; /* */
-  background: #20232a; /* */
-  border-radius: 20px; /* */
-  padding: 24px 36px; /* */
-  box-shadow: 0 8px 32px #00000033; /* */
-}
-
-.tabs-container { /* */
-  display: flex; /* */
-  gap: 8px; /* */
-  margin-bottom: 24px; /* */
-  border-bottom: 1px solid #303548; /* */
-  padding-bottom: 16px; /* */
-  justify-content: center; /* */
-}
-
-.page-container { /* */
-  display: flex; /* */
-  align-items: flex-start; /* */
-  gap: 30px; /* */
-}
-.page-container.finances-page { /* Specific to FinancesPage layout */
-  /* Add any specific styles if needed, otherwise relies on .page-container */
-}
-.page-container.profile-page-container { /* Specific to ProfilePage layout */
-  /* Add any specific styles if needed */
-}
-.page-loading-container, .app-loading-container { /* For ProfilePage loading and App loading */
+.page-loading-container, .app-loading-container {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 200px;
   font-size: 1.1em;
   color: #a0b0c8;
+  width: 100%; 
+  flex-grow: 1; /* Чтобы занимал место, если страница пустая */
 }
 
-.main-content-area { /* */
-  flex: 2; /* */
-  min-width: 300px; /* */
-  width: 100%; /* */
-  overflow: hidden; /* */
+.main-content-area {
+  flex: 2;
+  min-width: 300px; /* Минимальная ширина для основного контента */
+  width: 100%; 
 }
 
-.sidebar-area { /* */
-  flex: 1; /* */
-  min-width: 200px; /* */
-  max-width: 250px; /* */
-  display: flex; /* */
-  flex-direction: column; /* */
+.sidebar-area {
+  flex: 1;
+  min-width: 200px;
+  max-width: 250px; /* Ограничение для сайдбара */
+  display: flex;
+  flex-direction: column;
 }
 
-.date-inputs-container { /* */
-  display: flex; /* */
-  flex-direction: column; /* */
-  gap: 10px; /* */
-  margin-bottom: 18px; /* */
-  width: 100%; /* */
+.date-inputs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+  width: 100%;
 }
 
-.date-input-item { /* */
-    display: flex; /* */
-    flex-direction: column; /* */
+.date-input-item {
+    display: flex;
+    flex-direction: column;
 }
-.date-input-item label { /* */
-    font-size: 0.9em; /* */
-    color: #ffffff; /* */
-    font-weight: 600; /* */
-    display: block; /* */
-    margin-bottom: 5px; /* */
+.date-input-item label {
+    font-size: 0.9em;
+    color: #ffffff;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 5px;
 }
 
-.period-buttons-container { /* */
-  display: flex; /* */
-  flex-direction: column; /* */
-  gap: 9px; /* */
-  width: 100%; /* */
+.period-buttons-container {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 100%;
 }
 
 /* === СТИЛИ ДЛЯ ФОРМЫ И ТАБЛИЦЫ РАСХОДОВ (ExpensesPage.js) === */
-.expense-form-container { /* */
-  display: flex; /* */
-  flex-direction: column; /* */
-  gap: 15px; /* */
-  margin-bottom: 24px; /* */
-  background: #282c34; /* */
-  padding: 20px; /* */
-  border-radius: 12px; /* */
+.expense-form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 24px;
+  background: #282c34;
+  padding: 20px;
+  border-radius: 12px;
 }
 
-.expense-form-row { /* */
-  display: flex; /* */
-  gap: 12px; /* */
-  width: 100%; /* */
-  align-items: flex-start; /* */
+.expense-form-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  align-items: flex-start;
 }
 
-.expense-form-field, .expense-form-field-fullwidth { /* */
-  display: flex; /* */
-  flex-direction: column; /* */
+.expense-form-field, .expense-form-field-fullwidth {
+  display: flex;
+  flex-direction: column;
 }
-.expense-form-field { /* */
-  flex: 1; /* */
+.expense-form-field {
+  flex: 1;
 }
-.expense-form-field-fullwidth { /* */
-  width: 100%; /* */
-}
-
-.expense-form-label { /* */
-  font-size: 0.9em; /* */
-  color: #a0b0c8; /* */
-  margin-bottom: 4px; /* */
-  display: block; /* */
-  text-align: left; /* */
+.expense-form-field-fullwidth {
+  width: 100%;
 }
 
-.expense-form-input { /* */
-  padding: 8px 10px; /* */
-  border-radius: 6px; /* */
-  background: #2e3340; /* */
-  border: 1px solid #303548; /* */
-  color: #c6c6c6; /* */
-  font-size: 0.95em; /* */
-  height: 38px; /* */
-  box-sizing: border-box; /* */
-  width: 100%; /* */
+.expense-form-label {
+  font-size: 0.9em;
+  color: #a0b0c8;
+  margin-bottom: 4px;
+  display: block;
+  text-align: left;
 }
 
-input[type="date"].expense-form-input { /* */
-  font-family: inherit; /* */
-}
-input[type="date"].expense-form-input::-webkit-calendar-picker-indicator { /* */
-  filter: invert(0.6); /* */
-}
-
-.expense-form-submit-button.action-btn { /* */
-    margin-top: 5px; /* */
-    width: auto; /* */
-    align-self: flex-start; /* */
-}
-
-.expense-form-error { /* */
-  color: salmon; /* */
-  margin-top: 10px; /* */
-  width: 100%; /* */
-  text-align: left; /* */
-  font-size: 0.9em; /* */
+.expense-form-input {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #2e3340;
+  border: 1px solid #303548;
+  color: #c6c6c6;
+  font-size: 0.95em;
+  height: 38px;
+  box-sizing: border-box;
+  width: 100%;
 }
 
-/* Стилизация таблицы расходов */
-.expenses-table-container { /* */
-  overflow-x: auto; /* */
-  background: #282c34; /* */
-  padding: 1px 15px 15px 15px; /* */
-  border-radius: 12px; /* */
-  margin-top: 20px; /* */
+input[type="date"].expense-form-input {
+  font-family: inherit;
 }
-.expenses-table { /* */
-  width: 100%; /* */
-  border-collapse: collapse; /* */
+input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
 }
-.expenses-table th, .expenses-table td { /* */
-  padding: 10px 12px; /* */
-  border-bottom: 1px solid #23272f; /* */
-  border-right: 1px solid #23272f; /* */
-  text-align: left; /* */
+
+.expense-form-submit-button.action-btn {
+    margin-top: 5px;
+    width: auto;
+    align-self: flex-start;
+}
+
+.expense-form-error {
+  color: salmon;
+  margin-top: 10px;
+  width: 100%;
+  text-align: left;
+  font-size: 0.9em;
+}
+
+.expenses-table-container {
+  overflow-x: auto; /* Только горизонтальный скролл для таблицы, если она шире */
+  background: #282c34;
+  padding: 1px 15px 15px 15px;
+  border-radius: 12px;
+  margin-top: 20px;
+}
+.expenses-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.expenses-table th, .expenses-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #23272f;
+  border-right: 1px solid #23272f;
+  text-align: left;
 }
 .expenses-table th:last-child, 
-.expenses-table td:last-child { /* */
-  border-right: none; /* */
+.expenses-table td:last-child {
+  border-right: none;
 }
-.expenses-table thead tr { /* */
-    border-bottom: 2px solid #353a40; /* */
+.expenses-table thead tr {
+    border-bottom: 2px solid #353a40;
 }
-.expenses-table th.expenses-table-header { /* */
-  color: #ffffff; /* */
-  font-weight: 600; /* */
-  white-space: nowrap; /* */
+.expenses-table th.expenses-table-header {
+  color: #ffffff;
+  font-weight: 600;
+  white-space: nowrap;
 }
-.expenses-table td.td-amount { /* */
-  color: #e0e0e0; /* */
-  font-weight: 500; /* */
-  white-space: nowrap; /* */
+.expenses-table td.td-amount {
+  color: #e0e0e0;
+  font-weight: 500;
+  white-space: nowrap;
 }
-.expenses-table td.td-date { /* */
-  color: #c6c6c6; /* */
-  white-space: nowrap; /* */
+.expenses-table td.td-date {
+  color: #c6c6c6;
+  white-space: nowrap;
 }
-.expenses-table td.td-comment { /* */
-  text-align: right; /* */
-  color: #c6c6c6; /* */
-  white-space: pre-wrap; /* */
-  word-break: break-word; /* */
+.expenses-table td.td-comment {
+  /* text-align: right; -- обычно комментарии слева */
+  color: #c6c6c6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-width: 150px; /* чтобы комментарии не сжимались слишком сильно */
 }
-.expenses-table td.td-action { /* */
-  text-align: center; /* */
-  white-space: nowrap; /* */
+.expenses-table td.td-action {
+  text-align: center;
+  white-space: nowrap;
 }
-.expenses-table .empty-expenses-row td { /* */
-    color: #888; /* */
-    padding: 20px; /* */
-    text-align: center; /* */
-    border-right: none;  /* */
+.expenses-table .empty-expenses-row td {
+    color: #888;
+    padding: 20px;
+    text-align: center;
+    border-right: none; 
 }
 
 /* Стили для FinancesPage */
-.summary-card, .coffee-stats-card { /* */
-  background: #23272f; /* Similar to dashboard-content-wrapper background for consistency */
+.summary-card, .coffee-stats-card {
+  background: #282c34; 
   padding: 18px;
   border-radius: 14px;
   margin-bottom: 24px;
 }
-.summary-card-title, .coffee-stats-title { /* */
+.summary-card-title, .coffee-stats-title {
   margin-top: 0;
   margin-bottom: 15px;
   color: #8ae6ff;
   font-weight: 600;
-  font-size: 1.1em; /* Consistent title size */
+  font-size: 1.1em; 
 }
-.summary-card-period { /* */
+.summary-card-period {
   color: #ffffff;
   font-weight: bold;
 }
-.summary-table { /* */
+.summary-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.95em;
@@ -347,24 +406,24 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator { /* */
   border-bottom: 1px solid #2a2e37;
   color: #c6c6c6;
 }
-.summary-table .value-cell { /* */
+.summary-table .value-cell {
   text-align: right;
   color: #e0e0e0;
   font-weight: 500;
 }
-.summary-table .revenue-value { /* */
-  color: #ffb300;
+.summary-table .revenue-value {
+  color: #ffb300; 
   font-weight: bold;
 }
-.summary-table .profit-row { /* */
-  background: #2a2e37;
+.summary-table .profit-row {
+  background: #2a2e37; 
 }
-.summary-table .profit-row .profit-label { /* */
+.summary-table .profit-row .profit-label {
   font-weight: 700;
   color: #fff;
   border-bottom: 1px solid #3a3e47;
 }
-.summary-table .profit-row .profit-value { /* */
+.summary-table .profit-row .profit-value {
   font-weight: 700;
   color: #4caf50;
   border-bottom: 1px solid #3a3e47;
@@ -372,39 +431,40 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator { /* */
 .summary-table tr:last-child td {
   border-bottom: none;
 }
-.table-scroll-container { /* */
+
+.table-scroll-container {
   max-height: 400px;
-  overflow-y: auto;
-  background: #23272f;
+  overflow-y: auto; /* Внутренний скролл для этой таблицы, если она длинная */
+  background: #282c34;
   border-radius: 12px;
 }
-.coffee-stats-table { /* */
+.coffee-stats-table {
   width: 100%;
   border-collapse: collapse;
 }
-.coffee-stats-table thead { /* */
+.coffee-stats-table thead {
   position: sticky;
   top: 0;
-  z-index: 1;
-  background: #1f2330; /* Darker for sticky header */
+  z-index: 1; /* Убедимся, что z-index меньше, чем у .tabs-container, если они могут пересечься */
+  background: #282c34; 
 }
-.coffee-stats-table th { /* */
+.coffee-stats-table th {
   padding: 10px 12px;
   color: #8ae6ff;
   font-weight: 600;
   text-align: left;
-  border-bottom: 1px solid #2a2e37;
+  border-bottom: 1px solid #353a40; /* Более четкая линия */
 }
-.coffee-stats-table th.text-right, .coffee-stats-table td.text-right { /* */
+.coffee-stats-table th.text-right, .coffee-stats-table td.text-right {
   text-align: right;
 }
-.coffee-stats-table tbody tr:nth-child(odd) { /* */
-  background: #262a36; 
+.coffee-stats-table tbody tr:nth-child(odd) {
+  background: #262a36; /* Немного другой оттенок для чередования */
 }
-.coffee-stats-table tbody tr:nth-child(even) { /* */
-  background: #23273a; 
+.coffee-stats-table tbody tr:nth-child(even) {
+  background: #282c34; /* Основной фон карточки */
 }
-.coffee-stats-table td { /* */
+.coffee-stats-table td {
   padding: 8px 12px;
   border-bottom: 1px solid #2a2e37;
   color: #c6c6c6;
@@ -412,12 +472,12 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator { /* */
 .coffee-stats-table tbody tr:last-child td {
   border-bottom: none;
 }
-.loading-message, .empty-data-message { /* */
+.loading-message, .empty-data-message {
   color: #888;
   padding: 20px;
   text-align: center;
 }
-.error-message { /* */
+.error-message {
   color: salmon;
   padding: 10px;
   text-align: center;
@@ -426,39 +486,40 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator { /* */
   background-color: rgba(250, 128, 114, 0.1);
   margin-bottom: 15px;
 }
-.text-center { /* */
+.text-center {
     text-align: center;
 }
 
-
-/* Стили для ProfilePage (Editable version) */
-.profile-page-container .main-content-area { /* */
-  max-width: 700px; /* Limit width for better form readability */
-  margin: 0 auto;
+/* Стили для ProfilePage */
+/* Контейнер .profile-page-layout уже должен быть внутри .dashboard-content-wrapper */
+.profile-page-layout .main-content-area { /* Уточняем для вложенности */
+  max-width: 700px; 
+  margin: 0 auto; 
+  width: 100%;
 }
-.profile-form { /* */
+.profile-form {
   background: #282c34;
   padding: 25px 30px;
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
-.profile-form h2 { /* */
+.profile-form h2 {
   color: #8ae6ff;
   margin-top: 0;
   margin-bottom: 25px;
   text-align: center;
 }
-.form-field { /* */
+.form-field {
   margin-bottom: 20px;
 }
-.form-field label { /* */
+.form-field label {
   display: block;
   color: #a0b0c8;
   margin-bottom: 6px;
   font-weight: 500;
   font-size: 0.9em;
 }
-.form-input, .profile-form input[type="text"], .profile-form input[type="date"] { /* */
+.form-input, .profile-form input[type="text"], .profile-form input[type="date"] {
   width: 100%;
   padding: 10px 12px;
   border-radius: 6px;
@@ -469,7 +530,12 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator { /* */
   box-sizing: border-box;
   height: 40px;
 }
-.tax-options-container .tax-option-btn { /* */
+.tax-options-container { /* Уже определен выше, проверим на дублирование */
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.tax-options-container .tax-option-btn {
   flex: 1;
   padding: 10px;
   background: #2e3340;
@@ -481,380 +547,408 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator { /* */
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
   font-size: 0.85em;
 }
-.tax-options-container .tax-option-btn.active { /* */
+.tax-options-container .tax-option-btn.active {
   background: #3e67e0;
   color: #fff;
   border-color: #3e67e0;
 }
-.tax-options-container .tax-option-btn.clear-btn { /* */
-  /* Specific styles if needed for the clear button */
+.tax-options-container .tax-option-btn.clear-btn {
+  /* Стили для кнопки "Не указана", если нужны особые */
 }
-.form-field-hint { /* */
+.form-field-hint {
   font-size: 0.8em;
   color: #777c8c;
   display: block;
   margin-top: 5px;
 }
-.profile-save-button { /* */
+.profile-save-button {
   width: 100%;
   padding: 12px 15px;
   margin-top: 10px;
 }
-.form-message { /* */
+.form-message {
   padding: 10px;
   margin-bottom: 15px;
   border-radius: 6px;
   font-size: 0.9em;
   text-align: center;
 }
-.form-error-message { /* */
+.form-error-message {
   background-color: rgba(250, 128, 114, 0.15);
   color: salmon;
   border: 1px solid salmon;
 }
-.form-success-message { /* */
+.form-success-message {
   background-color: rgba(76, 175, 80, 0.15);
   color: #4caf50;
   border: 1px solid #4caf50;
 }
 
+.profile-sync-status-card {
+  margin-top: 30px;
+  background: #282c34;
+  padding: 20px;
+  border-radius: 12px;
+}
+.profile-sync-status-card h3 {
+  margin-top: 0;
+  color: #8ae6ff;
+  margin-bottom: 15px;
+}
+.profile-sync-status-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.95em;
+}
+.profile-sync-status-card li {
+  margin-bottom: 8px;
+}
+
 
 /* === СТИЛИ ДЛЯ АДАПТИВНОСТИ (МОБИЛЬНЫЕ УСТРОЙСТВА) === */
 @media (max-width: 767px) {
-  .dashboard-content-wrapper { /* */
-    margin: 10px auto !important; /* */
-    padding: 15px !important; /* */
-    border-radius: 10px !important; /* */
+  .dashboard-content-wrapper {
+    padding: 16px 10px 15px 10px !important; /* Уменьшен горизонтальный padding */
+    /* min-height: 0; -- Этот стиль не нужен, flex-grow справится */
   }
 
-  .tabs-container { /* */
-    gap: 0px !important; /* */
-    padding-bottom: 10px !important; /* */
-    margin-bottom: 16px !important; /* */
-    overflow-x: auto; /* */
-    white-space: nowrap; /* */
-    -webkit-overflow-scrolling: touch; /* */
-    justify-content: flex-start; /* */
+  .tabs-container {
+    gap: 0px !important;
+    padding-bottom: 10px !important;
+    margin-bottom: 16px !important;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+    
+    /* Корректировка для sticky header на мобильных */
+    margin-left: -10px; /* Компенсируем padding родителя .dashboard-content-wrapper */
+    margin-right: -10px;
+    padding-left: 10px;
+    padding-right: 10px;
+    width: calc(100% + 20px); /* Чтобы занимал всю ширину с учетом отрицательных margin */
+    box-sizing: border-box;
+    top: -16px; /* Компенсируем padding-top .dashboard-content-wrapper */
   }
 
-  .tab-btn { /* */
-    padding: 8px 10px; /* */
-    font-size: 0.85em; /* */
+  .tab-btn {
+    padding: 8px 10px;
+    font-size: 0.85em;
   }
 
-  .page-container { /* */
-    flex-direction: column; /* */
-    gap: 20px; /* */
+  .page-container {
+    flex-direction: column;
+    gap: 20px;
   }
 
   .main-content-area,
-  .sidebar-area { /* */
-    width: 100% !important; /* */
-    min-width: auto !important; /* */
-    max-width: none !important; /* */
-    flex-grow: 0 !important; /* */
-    flex-shrink: 0 !important; /* */
-    flex-basis: auto !important; /* */
+  .sidebar-area {
+    width: 100% !important;
+    min-width: auto !important;
+    max-width: none !important;
+    flex-grow: 0 !important; /* Убираем flex-grow, т.к. они в column */
+    flex-shrink: 0 !important;
+    flex-basis: auto !important;
   }
 
-  .sidebar-area { /* */
-    order: -1; /* */
-    margin-bottom: 20px; /* */
+  .sidebar-area {
+    order: -1; 
+    margin-bottom: 15px; /* Немного уменьшим */
   }
 
-  .date-inputs-container { /* */
-    max-width: none; /* */
-    flex-direction: row; /* */
-    justify-content: space-between; /* */
-    gap: 10px; /* */
-    align-items: flex-start; /* */
-    width: 100%; /* */
-    box-sizing: border-box; /* */
+  .date-inputs-container {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: flex-start;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 15px;
   }
-  .date-inputs-container .date-input-item { /* */
-    flex: 1; /* */
-  }
-
-  .period-buttons-container { /* */
-    max-width: none; /* */
-    display: grid; /* */
-    grid-template-columns: repeat(4, 1fr); /* */
-    gap: 8px; /* */
-    margin-top: 15px; /* */
-    margin-bottom: 15px; /* */
+  .date-inputs-container .date-input-item {
+    flex: 1;
   }
 
-  .period-btn { /* */
-    padding: 8px 5px; /* */
-    font-size: 0.8em; /* */
-    white-space: normal; /* */
-    min-height: 38px; /* */
-    display: flex; /* */
-    align-items: center; /* */
-    justify-content: center; /* */
-    line-height: 1.2; /* */
+  .period-buttons-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); /* Делаем кнопки адаптивными */
+    gap: 8px;
+    margin-top: 0; /* Убираем, если .date-inputs-container уже имеет margin-bottom */
+    margin-bottom: 15px;
   }
 
-  /* Стили для формы расходов на мобильных */
-  .expense-form-container { /* */
-    padding: 15px; /* */
+  .period-btn {
+    padding: 8px 5px;
+    font-size: 0.8em;
+    white-space: normal;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
   }
-  .expense-form-row { /* */
-     flex-direction: row;  /* */
+
+  .expense-form-row {
+     flex-direction: column; 
+     gap: 15px; 
+  }
+  .expense-form-field {
+     width: 100%; 
   }
   
-  .expense-form-input,
-  input[type="date"].expense-form-input, /* */
-  .profile-form input[type="text"], 
-  .profile-form input[type="date"],
-  .auth-form-wrapper input[type="text"],
-  .auth-form-wrapper input[type="password"],
-  .auth-form-wrapper input[type="email"],
-  .auth-form-wrapper input[type="date"] {
-    font-size: 16px !important; /* Предотвращаем авто-зум на мобильных */ /* */
+  /* Предотвращаем авто-зум на iOS для всех инпутов */
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="date"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 16px !important; 
   }
 
-  table { /* */
-    font-size: 0.8em !important; /* */
+  /* Уменьшаем таблицы на мобильных */
+  table, .expenses-table, .summary-table, .coffee-stats-table {
+    font-size: 0.85em !important; /* Немного увеличим относительно предыдущего 0.8em */
   }
-  .expenses-table th, .expenses-table td { /* */
-      padding: 8px 6px !important; /* */
+  .expenses-table th, .expenses-table td,
+  .summary-table td,
+  .coffee-stats-table th, .coffee-stats-table td {
+      padding: 6px 8px !important; /* Уменьшим padding */
   }
-   .expenses-table td.td-comment { /* */
-      min-width: 100px; /* */
+   .expenses-table td.td-comment {
+      min-width: 80px; /* Уменьшим */
    }
 
-  h2 { /* */
-    font-size: 1.3em; /* */
-    margin-bottom: 16px !important; /* */
+  h2 {
+    font-size: 1.3em;
+    margin-bottom: 16px !important;
   }
-  h4 { /* */
-    font-size: 1.0em; /* */
-    margin-bottom: 10px !important; /* */
+  h4 { 
+    font-size: 1.0em;
+    margin-bottom: 10px !important;
   }
 }
 /* === КОНЕЦ СТИЛЕЙ ДЛЯ АДАПТИВНОСТИ === */
 
-/* === СТИЛИ ДЛЯ СТРАНИЦ АУТЕНТИФИКАЦИИ (Login.js, RegisterPage.js) === */
-.auth-container { /* */
-  background-color: #23272f; /* */
-  min-height: 100vh; /* */
-  display: flex; /* */
-  flex-direction: column; /* */
-  align-items: center; /* */
-  justify-content: center; /* */
-  padding: 20px; /* */
-  box-sizing: border-box; /* */
+/* === СТИЛИ ДЛЯ СТРАНИЦ АУТЕНТИФИКАЦИИ === */
+/* (остаются как были, если не требуют специфичных изменений для 100vh) */
+.auth-container { 
+  background-color: #23272f; 
+  min-height: 100vh; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: center; 
+  padding: 20px; 
+  box-sizing: border-box; 
 }
 
-.auth-form-wrapper { /* */
-  background-color: #282c34; /* */
-  padding: 30px 35px; /* */
-  border-radius: 12px; /* */
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); /* */
-  color: #e0e0e0; /* */
-  width: 100%; /* */
-  max-width: 400px; /* */
-  text-align: center; /* */
+.auth-form-wrapper { 
+  background-color: #282c34; 
+  padding: 30px 35px; 
+  border-radius: 12px; 
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); 
+  color: #e0e0e0; 
+  width: 100%; 
+  max-width: 400px; 
+  text-align: center; 
 }
-.auth-form-wrapper h1 { /* For RegisterPage main title */
-  color: #fff; /* Brighter for main title */
+.auth-form-wrapper h1 {
+  color: #fff; 
   margin-bottom: 10px;
   font-size: 1.6em;
 }
-.auth-form-wrapper h2 { /* */
-  color: #8ae6ff; /* */
-  margin-top: 0; /* */
-  margin-bottom: 25px; /* */
-  font-size: 1.5em; /* Slightly adjusted from 1.8 for RegisterPage consistency */
+.auth-form-wrapper h2 {
+  color: #8ae6ff; 
+  margin-top: 0; 
+  margin-bottom: 25px; 
+  font-size: 1.5em; 
 }
-.auth-welcome-text { /* */
+.auth-welcome-text {
   margin-bottom: 25px;
   font-size: 1em;
   color: #b0b8c8;
 }
-.auth-form { /* Form inside auth-form-wrapper */
-  /* Specific styles for form element if needed, inherits text-align:left from .auth-step-info children */
+.auth-form { 
+  /* form specific styles */
 }
 .auth-form-wrapper input[type="text"],
 .auth-form-wrapper input[type="password"],
 .auth-form-wrapper input[type="email"],
 .auth-form-wrapper input[type="date"],
-.auth-form .form-field input[type="text"], /* For RegisterPage */
-.auth-form .form-field input[type="password"], /* For RegisterPage */
-.auth-form .form-field input[type="date"] /* For RegisterPage */
+.auth-form .form-field input[type="text"], 
+.auth-form .form-field input[type="password"], 
+.auth-form .form-field input[type="date"] 
  {
-  width: 100%; /* */
-  padding: 12px 15px; /* */
-  margin-bottom: 15px; /* */
-  border-radius: 8px; /* */
-  background: #2e3340; /* */
-  border: 1px solid #303548; /* */
-  color: #c6c6c6; /* */
-  font-size: 1em; /* */
-  box-sizing: border-box; /* */
-  height: auto; /* */
+  width: 100%; 
+  padding: 12px 15px; 
+  margin-bottom: 15px; 
+  border-radius: 8px; 
+  background: #2e3340; 
+  border: 1px solid #303548; 
+  color: #c6c6c6; 
+  font-size: 1em; /* будет переопределено на 16px на мобильных */
+  box-sizing: border-box; 
+  height: auto; 
 }
 .auth-form-wrapper input[type="date"]::-webkit-calendar-picker-indicator,
-.auth-form .form-field input[type="date"]::-webkit-calendar-picker-indicator { /* */
-   filter: invert(0.6); /* */
+.auth-form .form-field input[type="date"]::-webkit-calendar-picker-indicator { 
+   filter: invert(0.6); 
 }
 
 .auth-form-wrapper button[type="submit"],
 .auth-form-wrapper .auth-button-primary,
-.auth-form .auth-button-primary { /* */
-  width: 100%; /* */
-  padding: 12px 15px; /* */
-  border: none; /* */
-  border-radius: 8px; /* */
-  background-color: #3e67e0; /* */
-  color: white; /* */
-  font-size: 1em; /* */
-  font-weight: 500; /* */
+.auth-form .auth-button-primary { 
+  width: 100%; 
+  padding: 12px 15px; 
+  border: none; 
+  border-radius: 8px; 
+  background-color: #3e67e0; 
+  color: white; 
+  font-size: 1em; 
+  font-weight: 500; 
   cursor: pointer;
-  transition: background-color 0.2s ease; /* */
-  margin-bottom: 10px; /* */
+  transition: background-color 0.2s ease; 
+  margin-bottom: 10px; 
 }
 .auth-form-wrapper button[type="submit"]:hover,
 .auth-form-wrapper .auth-button-primary:hover,
-.auth-form .auth-button-primary:hover { /* */
-  background-color: #4a75f0; /* */
+.auth-form .auth-button-primary:hover { 
+  background-color: #4a75f0; 
 }
 
-.auth-form-wrapper .auth-button-secondary { /* */
-  width: 100%; /* */
-  padding: 12px 15px; /* */
-  border-radius: 8px; /* */
-  background: none; /* */
-  border: 1px solid #3e67e0; /* */
-  color: #3e67e0; /* */
-  font-size: 1em; /* */
-  font-weight: 500; /* */
+.auth-form-wrapper .auth-button-secondary { 
+  width: 100%; 
+  padding: 12px 15px; 
+  border-radius: 8px; 
+  background: none; 
+  border: 1px solid #3e67e0; 
+  color: #3e67e0; 
+  font-size: 1em; 
+  font-weight: 500; 
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease; /* */
-  margin-bottom: 10px; /* */
+  transition: background-color 0.2s ease, color 0.2s ease; 
+  margin-bottom: 10px; 
 }
-.auth-form-wrapper .auth-button-secondary:hover { /* */
-  background-color: rgba(62, 103, 224, 0.1); /* */
-  color: #4a75f0; /* */
+.auth-form-wrapper .auth-button-secondary:hover { 
+  background-color: rgba(62, 103, 224, 0.1); 
+  color: #4a75f0; 
 }
 
 .auth-form-wrapper .auth-error,
-.auth-message.auth-error { /* */
-  color: salmon; /* */
-  margin-top: 15px; /* */
-  font-size: 0.9em; /* */
-  text-align: center; /* Ensure centered error message */
+.auth-message.auth-error { 
+  color: salmon; 
+  margin-top: 15px; 
+  font-size: 0.9em; 
+  text-align: center; 
 }
-.auth-message.auth-success { /* */
+.auth-message.auth-success { 
   color: lightgreen;
   margin-top: 15px;
   font-size: 0.9em;
   text-align: center;
 }
-.auth-step-info { /* */
-  font-weight: 500; /* */
-  margin-bottom: 10px; /* */
-  color: #c6c6c6; /* */
-  font-size: 0.95em; /* */
-  text-align: left; /* */
+.auth-step-info { 
+  font-weight: 500; 
+  margin-bottom: 10px; 
+  color: #c6c6c6; 
+  font-size: 0.95em; 
+  text-align: left; 
 }
-.auth-fine-print { /* */
-  font-size: 0.8em; /* */
-  color: #888; /* */
-  margin-top: 15px; /* */
-  margin-bottom: 10px; /* */
-  text-align: left; /* */
+.auth-fine-print { 
+  font-size: 0.8em; 
+  color: #888; 
+  margin-top: 15px; 
+  margin-bottom: 10px; 
+  text-align: left; 
 }
-.auth-form .form-field { /* For RegisterPage structure */
+.auth-form .form-field {
   margin-bottom: 15px;
   text-align: left;
 }
-.auth-form .form-field label { /* For RegisterPage */
+.auth-form .form-field label {
   display: block;
   color: #a0b0c8;
   margin-bottom: 5px;
   font-weight: 500;
 }
-.auth-form .form-field .required-asterisk { /* For RegisterPage */
+.auth-form .form-field .required-asterisk {
   color: tomato;
 }
-.auth-form .form-field-hint { /* For RegisterPage */
+.auth-form .form-field-hint {
   font-size: 0.85em;
   color: #777c8c;
   display: block;
   margin-top: 4px;
 }
 
-.tax-options-container { /* */
-  display: flex; /* */
-  gap: 10px; /* */
-  margin-bottom: 16px; /* */
-}
-.tax-options-container button,
-.tax-options-container .tax-option-btn { /* */
-  flex: 1; /* */
-  padding: 10px; /* */
-  background: #2e3340; /* */
-  color: #a0b0c8; /* */
-  border: 1px solid #303548; /* */
-  border-radius: 8px; /* */
-  font-weight: 500; /* */
+.tax-options-container button.tax-option-btn, /* Уточнение селектора */
+.tax-options-container .tax-option-btn { 
+  flex: 1; 
+  padding: 10px; 
+  background: #2e3340; 
+  color: #a0b0c8; 
+  border: 1px solid #303548; 
+  border-radius: 8px; 
+  font-weight: 500; 
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s, border-color 0.2s; /* */
-  font-size: 0.85em; /* */
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s; 
+  font-size: 0.85em; 
 }
-.tax-options-container button.active,
-.tax-options-container .tax-option-btn.active { /* */
-  background: #3e67e0; /* */
-  color: #fff; /* */
-  border-color: #3e67e0; /* */
+.tax-options-container button.tax-option-btn.active, /* Уточнение селектора */
+.tax-options-container .tax-option-btn.active { 
+  background: #3e67e0; 
+  color: #fff; 
+  border-color: #3e67e0; 
 }
-.auth-form-wrapper input[name="acquiring"] { /* */
-  width: 80px !important; /* */
-  display: inline-block; /* */
-  margin-right: 5px; /* */
+.auth-form-wrapper input[name="acquiring"] { 
+  width: 80px !important; 
+  display: inline-block; 
+  margin-right: 5px; 
 }
 
 /* App Entry Page Styles */
-.app-entry-container { /* */
+.app-entry-container { 
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  flex-grow: 1; /* Если внутри flex-контейнера App */
   padding: 20px;
   box-sizing: border-box;
   text-align: center;
   background-color: #23272f;
   color: #c6c6c6;
 }
-.app-entry-container h2 { /* */
+.app-entry-container h2 { 
   color: #8ae6ff;
   margin-bottom: 20px;
 }
-.app-entry-container p { /* */
+.app-entry-container p { 
   margin-bottom: 20px;
   max-width: 400px;
   line-height: 1.6;
 }
-.app-entry-container .action-btn { /* */
+.app-entry-container .action-btn { 
   margin-top: 10px;
 }
 
 /* App Error Container (from App.js) */
-.app-error-container { /* */
+.app-error-container { 
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  min-height: 100vh; 
+  flex-grow: 1; 
   padding: 20px;
   text-align: center;
   color: #c6c6c6;
 }
-
-.app-error-container h3 { /* */
+.app-error-container h3 { 
   color: salmon;
   margin-bottom: 15px;
 }

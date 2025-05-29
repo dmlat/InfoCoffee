@@ -12,13 +12,11 @@ function normalizeCommissionInput(input) {
   return String(input).replace(',', '.').replace(/[^0-9.]/g, '');
 }
 
-// Функция для форматирования даты и времени или возврата "нет данных"
 function formatSyncTimestamp(timestamp) {
   if (!timestamp) return 'нет данных';
   try {
     const date = new Date(timestamp);
     if (isNaN(date.getTime())) return 'некорректная дата';
-    // Формат: ДД.ММ.ГГГГ ЧЧ:мм
     return date.toLocaleString('ru-RU', { 
       day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit' 
@@ -30,8 +28,8 @@ function formatSyncTimestamp(timestamp) {
 }
 
 export default function ProfilePage() {
-  const [isLoading, setIsLoading] = useState(true); // Для загрузки основных настроек
-  const [isSaving, setIsSaving] = useState(false); // Для процесса сохранения
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -93,7 +91,7 @@ export default function ProfilePage() {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
-    setIsSaving(true); // Используем isSaving
+    setIsSaving(true);
 
     let acquiringValueToSend = null;
     if (currentAcquiringRate.trim() !== '') {
@@ -127,9 +125,7 @@ export default function ProfilePage() {
         setCurrentAcquiringRate(newSettings.acquiring !== null ? String(newSettings.acquiring) : '');
         setSetupDate(newSettings.setup_date ? formatDateForInput(new Date(newSettings.setup_date)) : '');
 
-        // Диспатчим событие, чтобы FinancesPage мог обновить расчеты, если открыт
         window.dispatchEvent(new CustomEvent('profileSettingsUpdated'));
-
       } else {
         setError(response.data.error || 'Не удалось сохранить настройки.');
       }
@@ -142,7 +138,7 @@ export default function ProfilePage() {
   };
   
   const isChanged = () => {
-    if (!initialSettings) return true; // Если начальные настройки еще не загружены, считаем, что есть изменения (чтобы кнопка не была задизейблена)
+    if (!initialSettings) return false; 
     const initialAcquiring = initialSettings.acquiring !== null ? String(initialSettings.acquiring) : '';
     const initialSetup = initialSettings.setup_date ? formatDateForInput(new Date(initialSettings.setup_date)) : '';
 
@@ -153,13 +149,15 @@ export default function ProfilePage() {
     );
   };
 
-  if (isLoading) { // Общий лоадер, пока грузятся основные настройки
-    return <div className="page-container page-loading"><span>Загрузка профиля...</span></div>;
+  if (isLoading) {
+    return <div className="page-container page-loading-container"><span>Загрузка профиля...</span></div>;
   }
   
   return (
-    <div className="page-container profile-page-container">
-      <div className="main-content-area">
+    // Если ProfilePage ВСЕГДА внутри .dashboard-content-wrapper, то класс .profile-page-container не нужен
+    // для управления высотой и скроллом. Однако, для стилизации макета он может остаться.
+    <div className="page-container profile-page-layout"> 
+      <div className="main-content-area"> 
         <form onSubmit={handleSaveChanges} className="profile-form">
           <h2>Настройки профиля</h2>
           
@@ -204,13 +202,13 @@ export default function ProfilePage() {
           
           <button 
             type="submit" className="action-btn profile-save-button" 
-            disabled={isSaving || !isChanged()} // Дизейблим если сохраняется или нет изменений
+            disabled={isSaving || !isChanged()}
           >
             {isSaving ? 'Сохранение...' : 'Сохранить изменения'}
           </button>
         </form>
 
-        <div className="profile-sync-status-card" style={{ marginTop: '30px', background: '#282c34', padding: '20px', borderRadius: '12px'}}>
+        <div className="profile-sync-status-card">
           <h3 style={{ marginTop: 0, color: '#8ae6ff', marginBottom: '15px'}}>Статус синхронизации данных</h3>
           {syncStatusLoading && <p>Загрузка статуса синхронизации...</p>}
           {syncStatusError && <div className="form-message form-error-message">{syncStatusError}</div>}
@@ -228,7 +226,6 @@ export default function ProfilePage() {
             </ul>
           )}
         </div>
-
       </div>
     </div>
   );
