@@ -3,78 +3,81 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useStatsPolling } from './useStatsPolling';
 import { PERIODS, formatDateForInput } from '../constants';
 
-export default function FinancesPage() {
-  const pageKey = 'financesPage_v5_profile_integration';
+// Стили оставим как были в твоей последней версии или в index.css
 
+export default function FinancesPage() {
+  const pageKey = 'financesPage_v6_profile_sync'; // Обновим ключ для сброса, если структура хранения меняется
+
+  // Функции getTodayRange, getInitialPeriodPreset, getInitialCustomPeriod остаются как в твоей последней версии
   const getTodayRange = useCallback(() => {
     return (PERIODS.find(p => p.label === 'СЕГОДНЯ') || PERIODS[0]).getRange();
   }, []);
 
   const getInitialPeriodPreset = useCallback(() => {
     const savedLabel = localStorage.getItem(`${pageKey}_periodLabel`);
-    return PERIODS.find(p => p.label === savedLabel) || PERIODS.find(p => p.label === 'СЕГОДНЯ') || PERIODS[0];
+    const foundPeriod = PERIODS.find(p => p.label === savedLabel);
+    return foundPeriod || PERIODS.find(p => p.label === 'СЕГОДНЯ') || PERIODS[0];
   }, [pageKey]);
 
   const getInitialCustomPeriod = useCallback(() => {
     const savedFrom = localStorage.getItem(`${pageKey}_customFrom`);
     const savedTo = localStorage.getItem(`${pageKey}_customTo`);
-    const currentInitialPreset = getInitialPeriodPreset();
     let defaultFrom, defaultTo;
-
+    const currentInitialPreset = getInitialPeriodPreset();
+    
     if (currentInitialPreset.label === 'ВАШ ПЕРИОД' && savedFrom && savedTo) {
-      defaultFrom = savedFrom;
-      defaultTo = savedTo;
-    } else {
-      const range = currentInitialPreset.getRange();
-      defaultFrom = formatDateForInput(range[0]);
-      defaultTo = formatDateForInput(range[1]);
+        defaultFrom = savedFrom;
+        defaultTo = savedTo;
+    } else { 
+        const range = currentInitialPreset.getRange();
+        if (range[0] && range[1]) {
+            defaultFrom = formatDateForInput(range[0]);
+            defaultTo = formatDateForInput(range[1]);
+        } else { 
+            const todayRange = getTodayRange();
+            defaultFrom = formatDateForInput(todayRange[0]);
+            defaultTo = formatDateForInput(todayRange[1]);
+        }
     }
     return { from: defaultFrom, to: defaultTo };
-  }, [getInitialPeriodPreset, pageKey]);
-
+  }, [getInitialPeriodPreset, pageKey, getTodayRange]);
+  
   const [currentPeriodPreset, setCurrentPeriodPreset] = useState(getInitialPeriodPreset);
   const [userInputCustomPeriod, setUserInputCustomPeriod] = useState(getInitialCustomPeriod);
   
-  // State for tax and acquiring, read from localStorage and updated on storage event
+  const [apiPeriod, setApiPeriod] = useState(() => { // Раньше было currentApiPeriod
+    const initialPreset = getInitialPeriodPreset();
+    const initialCustom = getInitialCustomPeriod();
+    if (initialPreset.label === 'ВАШ ПЕРИОД') {
+      if (initialCustom.from && initialCustom.to && new Date(initialCustom.from).getTime() && new Date(initialCustom.to).getTime()) {
+        return { dateFrom: initialCustom.from, dateTo: initialCustom.to };
+      }
+      const todayRange = getTodayRange();
+      return { dateFrom: formatDateForInput(todayRange[0]), dateTo: formatDateForInput(todayRange[1]) };
+    }
+    const range = initialPreset.getRange();
+    return { dateFrom: formatDateForInput(range[0]), dateTo: formatDateForInput(range[1]) };
+  });
+
+  // Состояния для налогов и эквайринга, теперь обновляются по событию
   const [taxSystem, setTaxSystem] = useState(localStorage.getItem('user_tax_system') || '');
   const [acquiringRate, setAcquiringRate] = useState(localStorage.getItem('user_acquiring_rate') || '0');
 
-
-  const calculatePeriodRange = useCallback((preset, customPeriod) => {
-    if (preset.label === 'ВАШ ПЕРИОД') {
-      if (customPeriod.from && customPeriod.to && new Date(customPeriod.from).getTime() && new Date(customPeriod.to).getTime()) {
-        const fromDate = new Date(customPeriod.from); fromDate.setHours(0,0,0,0);
-        const toDate = new Date(customPeriod.to); toDate.setHours(23,59,59,999);
-        return { dateFrom: formatDateForInput(fromDate), dateTo: formatDateForInput(toDate) };
-      }
-      const todayRange = getTodayRange(); // Fallback to today if custom dates are invalid
-      return { dateFrom: formatDateForInput(todayRange[0]), dateTo: formatDateForInput(todayRange[1]) };
-    }
-    const range = preset.getRange();
-    return { dateFrom: formatDateForInput(range[0]), dateTo: formatDateForInput(range[1]) };
-  }, [getTodayRange]);
-
-  const [currentApiPeriod, setCurrentApiPeriod] = useState(() => 
-    calculatePeriodRange(getInitialPeriodPreset(), getInitialCustomPeriod())
-  );
-
-  // Effect to update tax/acquiring from localStorage if they change (e.g. from ProfilePage)
+  // Эффект для обновления налогов/эквайринга из localStorage при монтировании и по событию
   useEffect(() => {
-    const handleStorageChange = () => {
+    const updateRatesFromStorage = () => {
       setTaxSystem(localStorage.getItem('user_tax_system') || '');
       setAcquiringRate(localStorage.getItem('user_acquiring_rate') || '0');
-      // Force stats re-fetch or re-calculation if parameters changed
-      // The useStatsPolling hook will refetch if currentApiPeriod changes.
-      // If only tax/acquiring change, calculations below will update automatically.
     };
-    window.addEventListener('storage', handleStorageChange);
-    // Also listen for custom events if ProfilePage dispatches one on save
-    const handleProfileUpdate = () => handleStorageChange(); // Re-read from LS
-    window.addEventListener('profileUpdated', handleProfileUpdate);
+    
+    updateRatesFromStorage(); // При монтировании
+
+    window.addEventListener('storage', updateRatesFromStorage); // Для изменений из других вкладок (менее вероятно для TWA)
+    window.addEventListener('profileSettingsUpdated', updateRatesFromStorage); // Кастомное событие из ProfilePage
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('profileUpdated', handleProfileUpdate);
+      window.removeEventListener('storage', updateRatesFromStorage);
+      window.removeEventListener('profileSettingsUpdated', updateRatesFromStorage);
     };
   }, []);
 
@@ -82,12 +85,14 @@ export default function FinancesPage() {
   useEffect(() => {
     localStorage.setItem(`${pageKey}_periodLabel`, currentPeriodPreset.label);
     if (currentPeriodPreset.label === 'ВАШ ПЕРИОД') {
-      localStorage.setItem(`${pageKey}_customFrom`, userInputCustomPeriod.from);
-      localStorage.setItem(`${pageKey}_customTo`, userInputCustomPeriod.to);
+        localStorage.setItem(`${pageKey}_customFrom`, userInputCustomPeriod.from);
+        localStorage.setItem(`${pageKey}_customTo`, userInputCustomPeriod.to);
     }
   }, [currentPeriodPreset, userInputCustomPeriod, pageKey]);
   
-  const { stats, statsLoading, coffeeStats, coffeeLoading, error: statsError } = useStatsPolling(currentApiPeriod);
+  // Передаем apiPeriod в хук useStatsPolling
+  const { stats, statsLoading, coffeeStats, coffeeLoading, error: statsError } = useStatsPolling(apiPeriod);
+
 
   const handlePeriodPresetChange = (p) => {
     setCurrentPeriodPreset(p);
@@ -95,32 +100,30 @@ export default function FinancesPage() {
     if (p.label === 'ВАШ ПЕРИОД') {
       let from = userInputCustomPeriod.from;
       let to = userInputCustomPeriod.to;
-      // If custom dates are not set or invalid, use today as default for display and API
       if (!from || !to || !new Date(from).getTime() || !new Date(to).getTime()) {
-          const todayRange = getTodayRange();
-          from = formatDateForInput(todayRange[0]);
-          to = formatDateForInput(todayRange[1]);
-          setUserInputCustomPeriod({ from, to }); // Update UI input fields
+          const todayRangeDefault = getTodayRange();
+          from = formatDateForInput(todayRangeDefault[0]);
+          to = formatDateForInput(todayRangeDefault[1]);
+          setUserInputCustomPeriod({from, to}); 
       }
       newApiDates = { dateFrom: from, dateTo: to };
     } else {
       const range = p.getRange();
       const fromDate = formatDateForInput(range[0]);
       const toDate = formatDateForInput(range[1]);
-      setUserInputCustomPeriod({ from: fromDate, to: toDate }); // Update UI input fields
+      setUserInputCustomPeriod({ from: fromDate, to: toDate });
       newApiDates = { dateFrom: fromDate, dateTo: toDate };
     }
-    setCurrentApiPeriod(newApiDates);
+    setApiPeriod(newApiDates); // Обновляем apiPeriod, что вызовет перезагрузку данных в useStatsPolling
   };
 
   const handleCustomDateChange = (field, value) => {
     const updatedInput = { ...userInputCustomPeriod, [field]: value };
     setUserInputCustomPeriod(updatedInput);
-    // If "Your Period" is active, update API period immediately
     if (currentPeriodPreset.label === 'ВАШ ПЕРИОД' && updatedInput.from && updatedInput.to) {
-       if (new Date(updatedInput.from).getTime() && new Date(updatedInput.to).getTime()) {
-           setCurrentApiPeriod({ dateFrom: updatedInput.from, dateTo: updatedInput.to });
-       }
+      if (new Date(updatedInput.from).getTime() && new Date(updatedInput.to).getTime()) {
+        setApiPeriod({ dateFrom: updatedInput.from, dateTo: updatedInput.to });
+      }
     }
   };
   
@@ -129,7 +132,7 @@ export default function FinancesPage() {
 
   const revenue = stats.revenue || 0;
   const salesCount = stats.salesCount || 0;
-  const expensesSum = stats.expensesSum || 0; // These are 'other' expenses
+  const expensesSum = stats.expensesSum || 0;
 
   let userTaxRateDisplay = 'не задана';
   let actualTaxCalculationRate = 0.00;
@@ -141,13 +144,13 @@ export default function FinancesPage() {
 
   let taxBaseForCalc = 0;
   if (taxSystem === 'income_6') {
-    userTaxRateDisplay = '6% от (Выручка - Эквайринг)';
+    userTaxRateDisplay = 'Доходы 6%'; // Обновленный текст
     actualTaxCalculationRate = 0.06;
-    taxBaseForCalc = revenueAfterAcquiring;
+    taxBaseForCalc = revenueAfterAcquiring; // Налог с выручки за вычетом эквайринга
   } else if (taxSystem === 'income_expense_15') {
-    userTaxRateDisplay = '15% от (Выручка - Эквайринг - Расходы)';
+    userTaxRateDisplay = 'Доходы - Расходы 15%'; // Обновленный текст
     actualTaxCalculationRate = 0.15;
-    taxBaseForCalc = Math.max(0, revenueAfterAcquiring - expensesSum);
+    taxBaseForCalc = Math.max(0, revenueAfterAcquiring - expensesSum); // Налог с (Выручка - Эквайринг - Прочие Расходы)
   }
   
   const taxes = +(Math.max(0, taxBaseForCalc) * actualTaxCalculationRate).toFixed(2);
@@ -169,16 +172,16 @@ export default function FinancesPage() {
             <tbody>
                 <tr><td>Продажи</td><td className="value-cell">{salesCount} шт.</td></tr>
                 <tr><td>Выручка (общая)</td><td className="value-cell revenue-value">{revenue.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td></tr>
-                <tr><td>Расходы (кроме налогов и эквайринга)</td><td className="value-cell">{expensesSum.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td></tr>
                 <tr>
                   <td>Эквайринг ({userAcquiringRatePercent > 0 ? `${userAcquiringRatePercent.toFixed(1)}%` : 'не задан'})</td>
                   <td className="value-cell">{acquiringCommissionCost.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
                 </tr>
                 <tr>
-                  <td>Выручка (после эквайринга)</td>
+                  <td>Выручка (за вычетом эквайринга)</td>
                   <td className="value-cell">{revenueAfterAcquiring.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
                 </tr>
-                 <tr>
+                <tr><td>Прочие расходы</td><td className="value-cell">{expensesSum.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td></tr>
+                <tr>
                   <td>Налоги ({userTaxRateDisplay})</td>
                   <td className="value-cell">{taxes.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
                 </tr>
@@ -192,6 +195,7 @@ export default function FinancesPage() {
             )}
         </div>
 
+        {/* Coffee Stats Card остается без изменений */}
         <div className="coffee-stats-card">
             <h4 className="coffee-stats-title">Статистика по кофейням</h4>
             {statsError && <p className="error-message">Ошибка загрузки статистики по кофейням.</p>}
@@ -226,6 +230,7 @@ export default function FinancesPage() {
         </div>
       </div>
 
+      {/* Sidebar Area остается без изменений */}
       <div className="sidebar-area">
         <div className="date-inputs-container">
             <div className="date-input-item">

@@ -203,8 +203,8 @@ export default function RegisterPage({ setIsAuth }) {
                 <label htmlFor="acquiringRate">Комиссия эквайринга, %</label>
                 <input id="acquiringRate" type="text" value={acquiringRate}
                   onChange={e => setAcquiringRate(e.target.value)}
-                  placeholder="Например: 2.1" />
-                 <small className="form-field-hint">Необязательный. Пример: 2.1 (разделитель точка)</small>
+                  placeholder="Например: 2,1" />
+                 <small className="form-field-hint">Необязательный шаг. Пример: 2,1 (через точку или запятую)</small>
               </div>
               <button type="submit" className="auth-button-primary" disabled={finalRegStatus.status === 'loading'} style={{marginTop: '20px'}}>
                 {finalRegStatus.status === 'loading' ? 'Регистрация...' : 'Завершить регистрацию'}
