@@ -1,235 +1,156 @@
-// frontend/src/pages/ProfilePage.js
-import React, { useState, useEffect, useCallback } from 'react';
-import apiClient from '../api';
-import { formatDateForInput } from '../constants';
+// backend/routes/profile.js
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
-const taxOptions = [
-  { value: 'income_6', label: 'Доходы 6%' },
-  { value: 'income_expense_15', label: 'Доходы – Расходы 15%' }
-];
+const express = require('express');
+const router = express.Router();
+const authMiddleware = require('../middleware/auth');
+const pool = require('../db');
+// moment не используется в этой версии, но может понадобиться для другого форматирования
+// const moment = require('moment-timezone');
+// const TIMEZONE = 'Europe/Moscow';
 
-function normalizeCommissionInput(input) {
-  return String(input).replace(',', '.').replace(/[^0-9.]/g, '');
-}
-
-// Функция для форматирования даты и времени или возврата "нет данных"
-function formatSyncTimestamp(timestamp) {
-  if (!timestamp) return 'нет данных';
-  try {
-    const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return 'некорректная дата';
-    // Формат: ДД.ММ.ГГГГ ЧЧ:мм
-    return date.toLocaleString('ru-RU', { 
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit' 
-    });
-  } catch (e) {
-    console.error("Error formatting sync timestamp:", e);
-    return 'ошибка форматирования';
-  }
-}
-
-export default function ProfilePage() {
-  const [isLoading, setIsLoading] = useState(true); // Для загрузки основных настроек
-  const [isSaving, setIsSaving] = useState(false); // Для процесса сохранения
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-
-  const [setupDate, setSetupDate] = useState('');
-  const [currentTaxSystem, setCurrentTaxSystem] = useState('');
-  const [currentAcquiringRate, setCurrentAcquiringRate] = useState('');
-  const [initialSettings, setInitialSettings] = useState(null);
-
-  const [syncStatus, setSyncStatus] = useState({
-    lastTransactionsUpdate: null,
-    lastReturnsUpdate: null,
-    lastButtonsUpdate: null,
-  });
-  const [syncStatusLoading, setSyncStatusLoading] = useState(true);
-  const [syncStatusError, setSyncStatusError] = useState('');
-
-  const fetchProfileData = useCallback(async () => {
-    setIsLoading(true);
-    setSyncStatusLoading(true);
-    setError('');
-    setSyncStatusError('');
-
+// --- Get User Profile Settings ---
+router.get('/settings', authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
+    console.log(`[GET /api/profile/settings] User ID: ${userId}`);
     try {
-      const settingsResponse = await apiClient.get('/profile/settings');
-      if (settingsResponse.data.success && settingsResponse.data.settings) {
-        const settings = settingsResponse.data.settings;
-        setInitialSettings(settings);
-        setSetupDate(settings.setup_date ? formatDateForInput(new Date(settings.setup_date)) : '');
-        setCurrentTaxSystem(settings.tax_system || '');
-        setCurrentAcquiringRate(settings.acquiring !== null ? String(settings.acquiring) : '');
-      } else {
-        setError(settingsResponse.data.error || 'Не удалось загрузить настройки профиля.');
-      }
+        const result = await pool.query(
+            'SELECT setup_date, tax_system, acquiring FROM users WHERE id = $1',
+            [userId]
+        );
+        if (result.rows.length === 0) {
+            console.log(`[GET /api/profile/settings] User profile not found for ID: ${userId}`);
+            return res.status(404).json({ success: false, error: 'User profile not found.' });
+        }
+        // Преобразуем числовое значение acquiring в строку для консистентности с тем, как оно сохраняется
+        const settings = {
+            ...result.rows[0],
+            acquiring: result.rows[0].acquiring !== null ? String(result.rows[0].acquiring) : null
+        };
+        console.log(`[GET /api/profile/settings] Settings found for user ID: ${userId}:`, settings);
+        res.json({ success: true, settings: settings });
     } catch (err) {
-      setError(err.response?.data?.error || 'Ошибка сети при загрузке профиля.');
-    } finally {
-      setIsLoading(false);
+        console.error("[GET /api/profile/settings] Error fetching profile settings:", err);
+        res.status(500).json({ success: false, error: 'Server error fetching profile settings.' });
+    }
+});
+
+// --- Update User Profile Settings ---
+router.post('/settings', authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
+    const { tax_system, acquiring, setup_date } = req.body;
+    console.log(`[POST /api/profile/settings] User ID: ${userId}, Body:`, req.body);
+
+    const allowedTaxSystems = ['income_6', 'income_expense_15', null, ''];
+    if (tax_system !== undefined && !allowedTaxSystems.includes(tax_system)) {
+        return res.status(400).json({ success: false, error: 'Invalid tax system value.' });
     }
 
-    try {
-      const syncResponse = await apiClient.get('/profile/sync-status');
-      if (syncResponse.data.success && syncResponse.data.syncStatus) {
-        setSyncStatus(syncResponse.data.syncStatus);
-      } else {
-        setSyncStatusError(syncResponse.data.error || 'Не удалось загрузить статус синхронизации.');
-      }
-    } catch (err) {
-      setSyncStatusError(err.response?.data?.error || 'Ошибка сети при загрузке статуса синхронизации.');
-    } finally {
-      setSyncStatusLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchProfileData();
-  }, [fetchProfileData]);
-
-  const handleSaveChanges = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccessMessage('');
-    setIsSaving(true); // Используем isSaving
-
-    let acquiringValueToSend = null;
-    if (currentAcquiringRate.trim() !== '') {
-        const normalized = normalizeCommissionInput(currentAcquiringRate);
-        if (normalized && !isNaN(parseFloat(normalized))) {
-            acquiringValueToSend = parseFloat(normalized);
-        } else {
-            setError('Комиссия эквайринга должна быть числом, например 1.6');
-            setIsSaving(false);
-            return;
+    let acquiringNum = null;
+    if (acquiring !== undefined && acquiring !== null && String(acquiring).trim() !== '') {
+        acquiringNum = parseFloat(String(acquiring).replace(',', '.'));
+        if (isNaN(acquiringNum) || acquiringNum < 0 || acquiringNum > 100) {
+            return res.status(400).json({ success: false, error: 'Invalid acquiring rate. Must be a number between 0 and 100.' });
         }
     }
     
-    const payload = {
-      tax_system: currentTaxSystem || null,
-      acquiring: acquiringValueToSend,
-      setup_date: setupDate || null
-    };
+    if (setup_date !== undefined && setup_date !== null && setup_date !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(setup_date)) {
+        return res.status(400).json({ success: false, error: 'Invalid setup date format. Use YYYY-MM-DD.' });
+    }
 
     try {
-      const response = await apiClient.post('/profile/settings', payload);
-      if (response.data.success && response.data.settings) {
-        setSuccessMessage('Настройки успешно обновлены!');
-        const newSettings = response.data.settings;
-        localStorage.setItem('user_tax_system', newSettings.tax_system || '');
-        localStorage.setItem('user_acquiring_rate', String(newSettings.acquiring || '0'));
-        localStorage.setItem('user_setup_date', newSettings.setup_date || '');
+        const updateFields = [];
+        const updateValues = [];
+        let queryIndex = 1;
+
+        if (tax_system !== undefined) {
+            updateFields.push(`tax_system = $${queryIndex++}`);
+            updateValues.push(tax_system === '' ? null : tax_system);
+        }
+        if (acquiring !== undefined) {
+            updateFields.push(`acquiring = $${queryIndex++}`);
+            updateValues.push(acquiringNum); 
+        }
+        if (setup_date !== undefined) {
+            updateFields.push(`setup_date = $${queryIndex++}`);
+            updateValues.push(setup_date === '' ? null : setup_date);
+        }
+
+        if (updateFields.length === 0) {
+            // Если ничего не пришло на обновление, можно вернуть текущие настройки или ошибку
+            // Для простоты вернем ошибку, если фронтенд не должен отправлять пустой запрос
+            return res.status(400).json({ success: false, error: 'No settings provided to update.' });
+        }
+
+        updateFields.push(`updated_at = NOW()`);
+
+        const queryText = `UPDATE users SET ${updateFields.join(', ')} WHERE id = $${queryIndex} RETURNING id, setup_date, tax_system, acquiring, updated_at`;
+        updateValues.push(userId);
         
-        setInitialSettings(newSettings);
-        setCurrentTaxSystem(newSettings.tax_system || '');
-        setCurrentAcquiringRate(newSettings.acquiring !== null ? String(newSettings.acquiring) : '');
-        setSetupDate(newSettings.setup_date ? formatDateForInput(new Date(newSettings.setup_date)) : '');
+        console.log(`[POST /api/profile/settings] Executing query: ${queryText} with values:`, updateValues);
+        const result = await pool.query(queryText, updateValues);
 
-        // Диспатчим событие, чтобы FinancesPage мог обновить расчеты, если открыт
-        window.dispatchEvent(new CustomEvent('profileSettingsUpdated'));
+        if (result.rowCount === 0) {
+            console.log(`[POST /api/profile/settings] User not found for update, ID: ${userId}`);
+            return res.status(404).json({ success: false, error: 'User not found for update.' });
+        }
+        
+        const updatedSettings = {
+            ...result.rows[0],
+            acquiring: result.rows[0].acquiring !== null ? String(result.rows[0].acquiring) : null
+        };
+        console.log(`[POST /api/profile/settings] Profile updated successfully for user ID: ${userId}:`, updatedSettings);
+        res.json({ success: true, message: 'Profile settings updated successfully.', settings: updatedSettings });
 
-      } else {
-        setError(response.data.error || 'Не удалось сохранить настройки.');
-      }
     } catch (err) {
-      setError(err.response?.data?.error || 'Ошибка сети при сохранении настроек.');
-    } finally {
-      setIsSaving(false);
-      setTimeout(() => setSuccessMessage(''), 3000);
+        console.error("[POST /api/profile/settings] Error updating profile settings:", err);
+        res.status(500).json({ success: false, error: 'Server error updating profile settings.' });
     }
-  };
-  
-  const isChanged = () => {
-    if (!initialSettings) return true; // Если начальные настройки еще не загружены, считаем, что есть изменения (чтобы кнопка не была задизейблена)
-    const initialAcquiring = initialSettings.acquiring !== null ? String(initialSettings.acquiring) : '';
-    const initialSetup = initialSettings.setup_date ? formatDateForInput(new Date(initialSettings.setup_date)) : '';
+});
 
-    return (
-      setupDate !== initialSetup ||
-      currentTaxSystem !== (initialSettings.tax_system || '') ||
-      normalizeCommissionInput(currentAcquiringRate) !== normalizeCommissionInput(initialAcquiring)
-    );
-  };
+// --- Get Sync Status ---
+router.get('/sync-status', authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
+    console.log(`[GET /api/profile/sync-status] User ID: ${userId}`);
+    try {
+        // Основные задачи импорта, которые обновляют все транзакции
+        const generalImportJobNames = [
+            '15-Min Import', 
+            'Daily Update (48h)', 
+            'Weekly Update (7d)',
+            'Manual Import (1d)', 'Manual Import (2d)', 'Manual Import (7d)', 'Manual Import (30d)', // Добавь все варианты ручного импорта
+            // Имя задачи из import_all.js, если оно логируется
+            'Initial Import' // Предположим, что startImport при регистрации логирует с таким именем или похожим
+        ];
+         // Если первоначальный импорт из auth.js имеет другое имя в worker_logs, добавь его.
+         // startImport вызываемый из auth.js использует importTransactionsForPeriod, который сам по себе не пишет в worker_logs.
+         // Логирование для startImport нужно добавить, если его нет.
+         // Для простоты, пока ориентируемся на job_name из schedule_imports.
 
-  if (isLoading) { // Общий лоадер, пока грузятся основные настройки
-    return <div className="page-container page-loading"><span>Загрузка профиля...</span></div>;
-  }
-  
-  return (
-    <div className="page-container profile-page-container">
-      <div className="main-content-area">
-        <form onSubmit={handleSaveChanges} className="profile-form">
-          <h2>Настройки профиля</h2>
-          
-          {error && <div className="form-message form-error-message">{error}</div>}
-          {successMessage && <div className="form-message form-success-message">{successMessage}</div>}
+        const lastDownloadRes = await pool.query(
+            `SELECT MAX(last_run_at) as last_successful_sync
+             FROM worker_logs 
+             WHERE user_id = $1 AND status = 'success' AND job_name LIKE ANY($2::TEXT[])`, // Используем job_name LIKE ANY для большей гибкости с ручными импортами
+            [userId, generalImportJobNames.map(name => `%${name}%`)] // Оборачиваем в % для LIKE
+        );
+        
+        // Для "Обновление возвратов" и "Обновление кнопок" пока используем ту же дату,
+        // так как все транзакции (включая эти поля) обновляются во время этих задач.
+        const lastSyncTime = lastDownloadRes.rows[0]?.last_successful_sync || null;
 
-          <div className="form-field">
-            <label htmlFor="profileSetupDate">Дата установки кофейни</label>
-            <input
-              id="profileSetupDate" type="date" value={setupDate}
-              onChange={e => setSetupDate(e.target.value)} className="form-input"
-            />
-          </div>
+        const syncStatusData = {
+            lastTransactionsUpdate: lastSyncTime,
+            lastReturnsUpdate: lastSyncTime, // Упрощенно
+            lastButtonsUpdate: lastSyncTime, // Упрощенно
+        };
+        console.log(`[GET /api/profile/sync-status] Sync status for user ID: ${userId}:`, syncStatusData);
+        res.json({ success: true, syncStatus: syncStatusData });
 
-          <div className="form-field">
-            <label>Система налогообложения</label>
-            <div className="tax-options-container">
-              {taxOptions.map(opt => (
-                <button
-                  type="button" key={opt.value}
-                  onClick={() => setCurrentTaxSystem(prev => prev === opt.value ? '' : opt.value)}
-                  className={`tax-option-btn ${currentTaxSystem === opt.value ? 'active' : ''}`}
-                >{opt.label}</button>
-              ))}
-               <button
-                  type="button" onClick={() => setCurrentTaxSystem('')}
-                  className={`tax-option-btn clear-btn ${currentTaxSystem === '' ? 'active' : ''}`}
-                  title="Сбросить систему налогообложения"
-                >Не указана</button>
-            </div>
-          </div>
+    } catch (err) {
+        console.error("[GET /api/profile/sync-status] Error fetching sync status:", err);
+        res.status(500).json({ success: false, error: 'Server error fetching sync status.' });
+    }
+});
 
-          <div className="form-field">
-            <label htmlFor="profileAcquiringRate">Комиссия эквайринга, %</label>
-            <input
-              id="profileAcquiringRate" type="text" value={currentAcquiringRate}
-              onChange={e => setCurrentAcquiringRate(e.target.value)}
-              placeholder="Например: 2.1" className="form-input"
-            />
-            <small className="form-field-hint">Например, 2.1 (разделитель точка или запятая). Оставьте пустым, если не применяется.</small>
-          </div>
-          
-          <button 
-            type="submit" className="action-btn profile-save-button" 
-            disabled={isSaving || !isChanged()} // Дизейблим если сохраняется или нет изменений
-          >
-            {isSaving ? 'Сохранение...' : 'Сохранить изменения'}
-          </button>
-        </form>
-
-        <div className="profile-sync-status-card" style={{ marginTop: '30px', background: '#282c34', padding: '20px', borderRadius: '12px'}}>
-          <h3 style={{ marginTop: 0, color: '#8ae6ff', marginBottom: '15px'}}>Статус синхронизации данных</h3>
-          {syncStatusLoading && <p>Загрузка статуса синхронизации...</p>}
-          {syncStatusError && <div className="form-message form-error-message">{syncStatusError}</div>}
-          {!syncStatusLoading && !syncStatusError && (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.95em' }}>
-              <li style={{ marginBottom: '8px' }}>
-                Последнее обновление транзакций: <strong>{formatSyncTimestamp(syncStatus.lastTransactionsUpdate)}</strong>
-              </li>
-              <li style={{ marginBottom: '8px' }}>
-                Последнее обновление возвратов: <strong>{formatSyncTimestamp(syncStatus.lastReturnsUpdate)}</strong>
-              </li>
-              <li style={{ marginBottom: '8px' }}>
-                Последнее обновление товаров (кнопок): <strong>{formatSyncTimestamp(syncStatus.lastButtonsUpdate)}</strong>
-              </li>
-            </ul>
-          )}
-        </div>
-
-      </div>
-    </div>
-  );
-}
+module.exports = router;
