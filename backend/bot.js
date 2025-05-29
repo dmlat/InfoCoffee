@@ -5,7 +5,7 @@ const TelegramBot = require('node-telegram-bot-api');
 // const db = require('./db'); // db не используется напрямую в этой версии бота
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL; // Например, https://твой_домен_фронтенда.ru
+const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL;
 
 if (!TOKEN) {
   console.error('FATAL ERROR: Telegram Bot Token (TELEGRAM_BOT_TOKEN) is not set in .env file.');
