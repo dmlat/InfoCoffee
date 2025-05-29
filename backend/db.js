@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') }); 
 const { Pool } = require('pg');
 
 // Если у тебя есть переменная DATABASE_URL — используй её, иначе бери отдельные переменные

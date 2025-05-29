@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') }); 
 const axios = require('axios');
 const pool = require('../db');
 const moment = require('moment-timezone');

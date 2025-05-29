@@ -1,5 +1,6 @@
 // backend/app.js
-require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') }); // Убедись, что .env в корне проекта VA/
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') }); 
 const express = require('express');
 const cors = require('cors');
 const pool = require('./db'); // db.js
