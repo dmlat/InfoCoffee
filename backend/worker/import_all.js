@@ -1,5 +1,5 @@
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '.env') }); 
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const pool = require('../db');
 const { startImport: startImportLegacy } = require('./vendista_import_worker');
 const moment = require('moment-timezone');
