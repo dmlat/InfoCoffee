@@ -180,7 +180,7 @@ export default function FinancesPage() {
                   <td>Выручка (за вычетом эквайринга)</td>
                   <td className="value-cell">{revenueAfterAcquiring.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
                 </tr>
-                <tr><td>Прочие расходы</td><td className="value-cell">{expensesSum.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td></tr>
+                <tr><td>Расходы</td><td className="value-cell">{expensesSum.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td></tr>
                 <tr>
                   <td>Налоги ({userTaxRateDisplay})</td>
                   <td className="value-cell">{taxes.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
