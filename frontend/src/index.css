@@ -101,14 +101,13 @@ body {
 /* Общий контейнер для страниц внутри вкладок */
 .page-container {
   display: flex;
-  align-items: flex-start; /* Сохраняем для layouts с sidebar */
-  gap: 30px;
-  /* НЕ ДОЛЖЕН иметь min-height: 100vh или overflow-y: auto, если он внутри .dashboard-content-wrapper */
+  align-items: flex-start; 
+  gap: 20px; 
 }
 
 .page-container.finances-page,
-.page-container.expenses-page-layout, /* Добавим класс для ExpensesPage */
-.page-container.profile-page-layout  /* Добавим класс для ProfilePage */
+.page-container.expenses-page-layout,
+.page-container.profile-page-layout
 {
   /* Стили специфичные для макета страницы, если нужны (например, direction column) */
 }
@@ -119,15 +118,20 @@ body {
   background-color: #2e3340;
   color: #a0b0c8;
   border: 1px solid #303548;
-  padding: 9px 12px;
+  padding: 8px 10px; 
   border-radius: 8px;
   cursor: pointer;
   font-weight: 500;
   text-align: center;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-  font-size: 0.9em;
+  font-size: clamp(0.85em, 2vw, 0.95em); /* Adjusted: min, preferred, max */
   width: 100%;
   box-sizing: border-box;
+  min-height: 38px; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  line-height: 1.2;
 }
 .period-btn:hover {
   background-color: #383e4c;
@@ -151,14 +155,14 @@ input[type="date"].period-date-input {
   box-sizing: border-box;
   border-radius: 6px;
   font-family: inherit;
-  font-size: 0.9em;
-  width: 100%;
+  font-size: 0.9em; /* Will be overridden to 16px on mobile by global rule */
+  width: 100%; /* Input takes full width of its parent field */
 }
 input[type="date"].period-date-input::-webkit-calendar-picker-indicator {
   filter: invert(0.6);
 }
 input[type="date"].period-date-input:disabled {
-  background-color: #20232a; /* Темнее, когда неактивно */
+  background-color: #20232a; 
   opacity: 0.6;
 }
 
@@ -179,12 +183,11 @@ input[type="date"].period-date-input:disabled {
 .action-btn:hover {
   background: #4a75f0;
 }
-.action-btn:disabled { /* Стиль для неактивной кнопки */
+.action-btn:disabled {
   background-color: #2e3340;
   color: #7a8b98;
   cursor: not-allowed;
 }
-
 
 /* Стили для кнопки удаления */
 .delete-btn {
@@ -208,47 +211,53 @@ input[type="date"].period-date-input:disabled {
   font-size: 1.1em;
   color: #a0b0c8;
   width: 100%; 
-  flex-grow: 1; /* Чтобы занимал место, если страница пустая */
+  flex-grow: 1; 
 }
 
 .main-content-area {
   flex: 2;
-  min-width: 300px; /* Минимальная ширина для основного контента */
+  min-width: 0; 
   width: 100%; 
 }
 
 .sidebar-area {
   flex: 1;
-  min-width: 200px;
-  max-width: 250px; /* Ограничение для сайдбара */
+  min-width: 220px; 
+  max-width: 280px; 
   display: flex;
   flex-direction: column;
+  gap: 15px; 
 }
 
+/* Date inputs container - ALWAYS ROW */
 .date-inputs-container {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 18px;
+  flex-direction: row; 
+  justify-content: space-between;
+  gap: 10px; 
   width: 100%;
+  box-sizing: border-box;
 }
 
 .date-input-item {
     display: flex;
-    flex-direction: column;
+    flex-direction: column; 
+    flex: 1; 
 }
 .date-input-item label {
     font-size: 0.9em;
-    color: #ffffff;
-    font-weight: 600;
+    color: #a0b0c8; /* Changed color to match expense form label */
+    font-weight: 600; /* Keeping font-weight, adjust if too bold */
     display: block;
     margin-bottom: 5px;
+    text-align: left; 
 }
 
+/* Period buttons container - ALWAYS GRID 4 COLS */
 .period-buttons-container {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); 
+  gap: 8px; 
   width: 100%;
 }
 
@@ -263,18 +272,30 @@ input[type="date"].period-date-input:disabled {
   border-radius: 12px;
 }
 
+/* General expense form row */
 .expense-form-row {
   display: flex;
-  gap: 12px;
+  gap: 12px; /* Default gap */
   width: 100%;
   align-items: flex-start;
 }
+
+/* Specific style for Amount and Date row to always be horizontal */
+.expense-form-row-amount-date {
+  flex-direction: row !important; /* Ensure it's always a row */
+  gap: 8px !important; /* Minimal gap */
+}
+.expense-form-row-amount-date .expense-form-field {
+  flex: 1; /* Ensure child fields (Amount, Date) take equal width */
+}
+
 
 .expense-form-field, .expense-form-field-fullwidth {
   display: flex;
   flex-direction: column;
 }
-.expense-form-field {
+/* Default behavior for fields if not in the special amount-date row */
+.expense-form-field:not(.expense-form-row-amount-date .expense-form-field) { 
   flex: 1;
 }
 .expense-form-field-fullwidth {
@@ -295,14 +316,14 @@ input[type="date"].period-date-input:disabled {
   background: #2e3340;
   border: 1px solid #303548;
   color: #c6c6c6;
-  font-size: 0.95em;
+  font-size: 0.95em; /* Will be 16px on mobile */
   height: 38px;
   box-sizing: border-box;
-  width: 100%;
+  width: 100%; /* Input takes full width of its parent field */
 }
 
 input[type="date"].expense-form-input {
-  font-family: inherit;
+  font-family: inherit; 
 }
 input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   filter: invert(0.6);
@@ -323,7 +344,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 }
 
 .expenses-table-container {
-  overflow-x: auto; /* Только горизонтальный скролл для таблицы, если она шире */
+  overflow-x: auto; 
   background: #282c34;
   padding: 1px 15px 15px 15px;
   border-radius: 12px;
@@ -361,11 +382,10 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   white-space: nowrap;
 }
 .expenses-table td.td-comment {
-  /* text-align: right; -- обычно комментарии слева */
   color: #c6c6c6;
   white-space: pre-wrap;
   word-break: break-word;
-  min-width: 150px; /* чтобы комментарии не сжимались слишком сильно */
+  min-width: 150px; 
 }
 .expenses-table td.td-action {
   text-align: center;
@@ -385,12 +405,15 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   border-radius: 14px;
   margin-bottom: 24px;
 }
-.summary-card-title, .coffee-stats-title {
+.summary-card-title, .coffee-stats-title { 
   margin-top: 0;
   margin-bottom: 15px;
   color: #8ae6ff;
   font-weight: 600;
   font-size: 1.1em; 
+}
+.coffee-stats-card { 
+  /* padding-top: 10px; */
 }
 .summary-card-period {
   color: #ffffff;
@@ -434,9 +457,9 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 
 .table-scroll-container {
   max-height: 400px;
-  overflow-y: auto; /* Внутренний скролл для этой таблицы, если она длинная */
-  background: #282c34;
-  border-radius: 12px;
+  overflow-y: auto; 
+  background: #282c34; 
+  border-radius: 0 0 12px 12px; 
 }
 .coffee-stats-table {
   width: 100%;
@@ -445,7 +468,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 .coffee-stats-table thead {
   position: sticky;
   top: 0;
-  z-index: 1; /* Убедимся, что z-index меньше, чем у .tabs-container, если они могут пересечься */
+  z-index: 1; 
   background: #282c34; 
 }
 .coffee-stats-table th {
@@ -453,16 +476,16 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   color: #8ae6ff;
   font-weight: 600;
   text-align: left;
-  border-bottom: 1px solid #353a40; /* Более четкая линия */
+  border-bottom: 1px solid #353a40;
 }
 .coffee-stats-table th.text-right, .coffee-stats-table td.text-right {
   text-align: right;
 }
 .coffee-stats-table tbody tr:nth-child(odd) {
-  background: #262a36; /* Немного другой оттенок для чередования */
+  background: #262a36; 
 }
 .coffee-stats-table tbody tr:nth-child(even) {
-  background: #282c34; /* Основной фон карточки */
+  background: #282c34; 
 }
 .coffee-stats-table td {
   padding: 8px 12px;
@@ -491,8 +514,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 }
 
 /* Стили для ProfilePage */
-/* Контейнер .profile-page-layout уже должен быть внутри .dashboard-content-wrapper */
-.profile-page-layout .main-content-area { /* Уточняем для вложенности */
+.profile-page-layout .main-content-area {
   max-width: 700px; 
   margin: 0 auto; 
   width: 100%;
@@ -526,18 +548,18 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   background: #2e3340;
   border: 1px solid #303548;
   color: #c6c6c6;
-  font-size: 1em;
+  font-size: 1em; /* will be 16px */
   box-sizing: border-box;
   height: 40px;
 }
-.tax-options-container { /* Уже определен выше, проверим на дублирование */
+.tax-options-container {
   display: flex;
   gap: 10px;
   margin-bottom: 16px;
 }
 .tax-options-container .tax-option-btn {
   flex: 1;
-  padding: 10px;
+  padding: 7px 10px; /* Reduced padding for smaller height */
   background: #2e3340;
   color: #a0b0c8;
   border: 1px solid #303548;
@@ -545,15 +567,14 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-  font-size: 0.85em;
+  font-size: 0.8em; /* Slightly reduced font size */
+  min-height: 36px; /* Ensure a minimum height */
+  line-height: 1.3;
 }
 .tax-options-container .tax-option-btn.active {
   background: #3e67e0;
   color: #fff;
   border-color: #3e67e0;
-}
-.tax-options-container .tax-option-btn.clear-btn {
-  /* Стили для кнопки "Не указана", если нужны особые */
 }
 .form-field-hint {
   font-size: 0.8em;
@@ -583,7 +604,6 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   color: #4caf50;
   border: 1px solid #4caf50;
 }
-
 .profile-sync-status-card {
   margin-top: 30px;
   background: #282c34;
@@ -609,8 +629,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 /* === СТИЛИ ДЛЯ АДАПТИВНОСТИ (МОБИЛЬНЫЕ УСТРОЙСТВА) === */
 @media (max-width: 767px) {
   .dashboard-content-wrapper {
-    padding: 16px 10px 15px 10px !important; /* Уменьшен горизонтальный padding */
-    /* min-height: 0; -- Этот стиль не нужен, flex-grow справится */
+    padding: 16px 10px 15px 10px !important; 
   }
 
   .tabs-container {
@@ -622,14 +641,13 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
     -webkit-overflow-scrolling: touch;
     justify-content: flex-start;
     
-    /* Корректировка для sticky header на мобильных */
-    margin-left: -10px; /* Компенсируем padding родителя .dashboard-content-wrapper */
+    margin-left: -10px; 
     margin-right: -10px;
     padding-left: 10px;
     padding-right: 10px;
-    width: calc(100% + 20px); /* Чтобы занимал всю ширину с учетом отрицательных margin */
+    width: calc(100% + 20px); 
     box-sizing: border-box;
-    top: -16px; /* Компенсируем padding-top .dashboard-content-wrapper */
+    top: -16px; 
   }
 
   .tab-btn {
@@ -647,78 +665,70 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
     width: 100% !important;
     min-width: auto !important;
     max-width: none !important;
-    flex-grow: 0 !important; /* Убираем flex-grow, т.к. они в column */
+    flex-grow: 0 !important; 
     flex-shrink: 0 !important;
     flex-basis: auto !important;
   }
 
   .sidebar-area {
     order: -1; 
-    margin-bottom: 15px; /* Немного уменьшим */
+    margin-bottom: 15px; 
+    gap: 12px; 
   }
 
   .date-inputs-container {
-    flex-direction: row;
-    justify-content: space-between;
-    gap: 10px;
-    align-items: flex-start;
-    width: 100%;
-    box-sizing: border-box;
-    margin-bottom: 15px;
+    gap: 8px; 
+    margin-bottom: 10px; 
   }
-  .date-inputs-container .date-input-item {
-    flex: 1;
+   .date-input-item label {
+    font-size: 0.85em; 
   }
 
   .period-buttons-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); /* Делаем кнопки адаптивными */
-    gap: 8px;
-    margin-top: 0; /* Убираем, если .date-inputs-container уже имеет margin-bottom */
-    margin-bottom: 15px;
+    gap: 6px; 
+    margin-bottom: 10px; 
   }
 
   .period-btn {
-    padding: 8px 5px;
-    font-size: 0.8em;
-    white-space: normal;
-    min-height: 38px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1.2;
+    /* font-size: clamp(0.8em, 2.5vw, 0.9em); /* More adaptive for mobile */
+    font-size: 0.85em; /* Fixed size for mobile for predictability */
+    padding: 7px 5px; /* Slightly more compact */
+    min-height: 36px; 
   }
-
-  .expense-form-row {
+  
+  /* Expense form: specific row for amount/date is handled by .expense-form-row-amount-date */
+  /* Other .expense-form-row elements will stack if this rule is active */
+  .expense-form-container .expense-form-row:not(.expense-form-row-amount-date) {
      flex-direction: column; 
      gap: 15px; 
   }
-  .expense-form-field {
+  .expense-form-container .expense-form-row:not(.expense-form-row-amount-date) .expense-form-field {
      width: 100%; 
   }
   
-  /* Предотвращаем авто-зум на iOS для всех инпутов */
+  /* Prevent auto-zoom on iOS for all inputs by ensuring font-size >= 16px */
   input[type="text"],
   input[type="password"],
   input[type="email"],
   input[type="date"],
   input[type="number"],
   textarea,
-  select {
+  select,
+  .expense-form-input, 
+  input[type="date"].period-date-input {
     font-size: 16px !important; 
   }
 
-  /* Уменьшаем таблицы на мобильных */
   table, .expenses-table, .summary-table, .coffee-stats-table {
-    font-size: 0.85em !important; /* Немного увеличим относительно предыдущего 0.8em */
+    font-size: 0.85em !important; 
   }
   .expenses-table th, .expenses-table td,
   .summary-table td,
   .coffee-stats-table th, .coffee-stats-table td {
-      padding: 6px 8px !important; /* Уменьшим padding */
+      padding: 6px 8px !important; 
   }
    .expenses-table td.td-comment {
-      min-width: 80px; /* Уменьшим */
+      min-width: 80px; 
    }
 
   h2 {
@@ -729,11 +739,16 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
     font-size: 1.0em;
     margin-bottom: 10px !important;
   }
+
+  .tax-options-container .tax-option-btn {
+    font-size: 0.75em; /* Even smaller for mobile tax buttons if needed */
+    padding: 6px 8px;
+    min-height: 34px;
+  }
 }
 /* === КОНЕЦ СТИЛЕЙ ДЛЯ АДАПТИВНОСТИ === */
 
-/* === СТИЛИ ДЛЯ СТРАНИЦ АУТЕНТИФИКАЦИИ === */
-/* (остаются как были, если не требуют специфичных изменений для 100vh) */
+/* === СТИЛИ ДЛЯ СТРАНИЦ АУТЕНТИФИКАЦИИ === (Без изменений, предполагается, что они ОК) */
 .auth-container { 
   background-color: #23272f; 
   min-height: 100vh; 
@@ -771,9 +786,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   font-size: 1em;
   color: #b0b8c8;
 }
-.auth-form { 
-  /* form specific styles */
-}
+.auth-form { }
 .auth-form-wrapper input[type="text"],
 .auth-form-wrapper input[type="password"],
 .auth-form-wrapper input[type="email"],
@@ -789,7 +802,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   background: #2e3340; 
   border: 1px solid #303548; 
   color: #c6c6c6; 
-  font-size: 1em; /* будет переопределено на 16px на мобильных */
+  font-size: 16px !important; 
   box-sizing: border-box; 
   height: auto; 
 }
@@ -884,24 +897,13 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   margin-top: 4px;
 }
 
-.tax-options-container button.tax-option-btn, /* Уточнение селектора */
+.tax-options-container button.tax-option-btn, 
 .tax-options-container .tax-option-btn { 
-  flex: 1; 
-  padding: 10px; 
-  background: #2e3340; 
-  color: #a0b0c8; 
-  border: 1px solid #303548; 
-  border-radius: 8px; 
-  font-weight: 500; 
-  cursor: pointer;
-  transition: background-color 0.2s, color 0.2s, border-color 0.2s; 
-  font-size: 0.85em; 
+  /* Стили уже обновлены выше в секции .profile-form */
 }
-.tax-options-container button.tax-option-btn.active, /* Уточнение селектора */
+.tax-options-container button.tax-option-btn.active, 
 .tax-options-container .tax-option-btn.active { 
-  background: #3e67e0; 
-  color: #fff; 
-  border-color: #3e67e0; 
+  /* Стили уже обновлены выше */
 }
 .auth-form-wrapper input[name="acquiring"] { 
   width: 80px !important; 
@@ -916,7 +918,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  flex-grow: 1; /* Если внутри flex-контейнера App */
+  flex-grow: 1;
   padding: 20px;
   box-sizing: border-box;
   text-align: center;

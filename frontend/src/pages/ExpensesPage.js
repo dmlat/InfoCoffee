@@ -1,11 +1,34 @@
 // src/pages/ExpensesPage.js
 import React, { useEffect, useState, useCallback } from 'react';
 import apiClient from '../api';
-import { formatDateForInput } from '../constants';
+import { formatDateForInput } from '../constants'; // Should return YYYY-MM-DD
 import ConfirmModal from '../components/ConfirmModal';
 
+// Helper function to format date as DD.MM.YYYY for display in tables
+const formatDateForTableDisplay = (isoOrYyyyMmDdDateString) => {
+  if (!isoOrYyyyMmDdDateString) return '';
+  try {
+    const date = new Date(isoOrYyyyMmDdDateString);
+    if (isNaN(date.getTime())) {
+        if (typeof isoOrYyyyMmDdDateString === 'string' && isoOrYyyyMmDdDateString.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
+            return isoOrYyyyMmDdDateString;
+        }
+        console.warn("Invalid date for formatDateForTableDisplay:", isoOrYyyyMmDdDateString);
+        return isoOrYyyyMmDdDateString; 
+    }
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+  } catch (err) {
+    console.error("Error formatting date for table display:", err);
+    return isoOrYyyyMmDdDateString; 
+  }
+};
+
+
 export default function ExpensesPage() {
-  const todayISO = formatDateForInput(new Date());
+  const todayISO = formatDateForInput(new Date()); // YYYY-MM-DD for input value
 
   const [expenses, setExpenses] = useState([]);
   const [eForm, setEForm] = useState({ amount: '', expense_time: todayISO, comment: '' });
@@ -54,14 +77,14 @@ export default function ExpensesPage() {
       setSubmitError('Сумма должна быть положительным числом.');
       return;
     }
-    if (!eForm.expense_time) {
+    if (!eForm.expense_time) { 
         setSubmitError('Дата расхода обязательна.');
         return;
     }
 
     const payload = {
       amount: amountNum,
-      expense_time: eForm.expense_time,
+      expense_time: eForm.expense_time, 
       comment: eForm.comment.trim() || '',
     };
 
@@ -121,15 +144,16 @@ export default function ExpensesPage() {
         onCancel={cancelDeleteExpense}
         confirmText="Удалить"
         cancelText="Отмена"
-        confirmButtonClass="danger" // Указываем класс для красной кнопки
+        confirmButtonClass="danger"
       />
       <div className="page-container expenses-page-layout" style={{flexDirection: 'column'}}> 
         <div className="main-content-area" style={{width: '100%'}}>
           <h2 style={{ marginBottom: '20px', color: '#eee', textAlign: 'center' }}>Учет расходов</h2>
 
           <form onSubmit={handleAddExpense} className="expense-form-container">
-            <div className="expense-form-row">
-              <div className="expense-form-field">
+            {/* Добавлен класс expense-form-row-amount-date */}
+            <div className="expense-form-row expense-form-row-amount-date"> 
+              <div className="expense-form-field"> 
                 <label htmlFor="exp-amount-page" className="expense-form-label">Сумма (₽) <span style={{color: 'tomato'}}>*</span></label>
                 <input
                   id="exp-amount-page"
@@ -144,21 +168,21 @@ export default function ExpensesPage() {
                   required
                 />
               </div>
-              <div className="expense-form-field">
+              <div className="expense-form-field"> 
                 <label htmlFor="exp-date-page" className="expense-form-label">Дата <span style={{color: 'tomato'}}>*</span></label>
                 <input
                   id="exp-date-page"
                   name="expense_time"
-                  value={eForm.expense_time || todayISO}
+                  value={eForm.expense_time || todayISO} 
                   onChange={handleEFormChange}
                   type="date"
-                  className="expense-form-input period-date-input"
+                  className="expense-form-input period-date-input" 
                   required
                 />
               </div>
             </div>
 
-            <div className="expense-form-field-fullwidth">
+            <div className="expense-form-field-fullwidth"> 
               <label htmlFor="exp-comment-page" className="expense-form-label">Комментарий</label>
               <input
                 id="exp-comment-page"
@@ -200,7 +224,7 @@ export default function ExpensesPage() {
                     expenses.map((row) => (
                       <tr key={row.id}>
                         <td className="td-amount">{Number(row.amount).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
-                        <td className="td-date">{formatDateForInput(new Date(row.expense_time))}</td>
+                        <td className="td-date">{formatDateForTableDisplay(row.expense_time)}</td>
                         <td className="td-comment">{row.comment}</td>
                         <td className="td-action"><button onClick={() => handleDeleteAttempt(row.id)} className="delete-btn" title="Удалить">🗑</button></td>
                       </tr>

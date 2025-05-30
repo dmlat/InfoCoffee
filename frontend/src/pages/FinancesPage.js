@@ -1,7 +1,7 @@
 // src/pages/FinancesPage.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { useStatsPolling } from './useStatsPolling'; // Предполагается, что этот хук существует
-import { PERIODS, formatDateForInput } from '../constants'; // Предполагается, что константы существуют
+import { PERIODS, formatDateForInput } from '../constants'; // formatDateForInput should return YYYY-MM-DD
 
 export default function FinancesPage() {
   const pageKey = 'financesPage_v7_custom_persist'; 
@@ -23,6 +23,7 @@ export default function FinancesPage() {
       return { from: savedFrom, to: savedTo };
     }
     const todayRange = getTodayRange();
+    // Ensure formatDateForInput returns YYYY-MM-DD for input value
     return { from: formatDateForInput(todayRange[0]), to: formatDateForInput(todayRange[1]) };
   }, [pageKey, getTodayRange]);
 
@@ -107,6 +108,7 @@ export default function FinancesPage() {
   };
 
   const handleCustomDateChange = (field, value) => {
+    // Ensure value is in YYYY-MM-DD format for state consistency if using type="date"
     if (currentPeriodPreset.label === 'ВАШ ПЕРИОД') {
       const updatedSelection = { ...userCustomPeriodSelection, [field]: value };
       setUserCustomPeriodSelection(updatedSelection);
@@ -151,8 +153,39 @@ export default function FinancesPage() {
     : 'не задан';
 
   return (
-    // Используем класс .page-container.finances-page для возможной специфичной стилизации
     <div className="page-container finances-page"> 
+      <div className="sidebar-area">
+        <div className="date-inputs-container">
+            <div className="date-input-item">
+                <label htmlFor="finances_from_date_page">Начало:</label>
+                <input
+                    id="finances_from_date_page" type="date" 
+                    value={displayDatesInInputs.from} // Should be YYYY-MM-DD
+                    onChange={e => handleCustomDateChange('from', e.target.value)}
+                    disabled={currentPeriodPreset.label !== 'ВАШ ПЕРИОД'}
+                    className="period-date-input"
+                />
+            </div>
+            <div className="date-input-item">
+                <label htmlFor="finances_to_date_page">Конец:</label>
+                <input
+                    id="finances_to_date_page" type="date" 
+                    value={displayDatesInInputs.to} // Should be YYYY-MM-DD
+                    onChange={e => handleCustomDateChange('to', e.target.value)}
+                    disabled={currentPeriodPreset.label !== 'ВАШ ПЕРИОД'}
+                    className="period-date-input"
+                />
+            </div>
+        </div>
+        <div className="period-buttons-container">
+          {PERIODS.map(p => (
+            <button key={p.label}
+              className={`period-btn ${currentPeriodPreset.label === p.label ? 'active' : ''}`}
+              onClick={() => handlePeriodPresetChange(p)}
+            >{p.label}</button>
+          ))}
+        </div>
+      </div>
       <div className="main-content-area">
         <div className="summary-card">
             <h4 className="summary-card-title">
@@ -189,7 +222,7 @@ export default function FinancesPage() {
         </div>
 
         <div className="coffee-stats-card">
-            <h4 className="coffee-stats-title">Статистика по кофейням</h4>
+            {/* <h4 className="coffee-stats-title">Статистика по кофейням</h4>  -- TITLE REMOVED -- */}
             {statsError && <p className="error-message">Ошибка загрузки статистики по кофейням.</p>}
             <div className="table-scroll-container">
                 <table className="coffee-stats-table">
@@ -219,39 +252,6 @@ export default function FinancesPage() {
                 </tbody>
                 </table>
             </div>
-        </div>
-      </div>
-
-      <div className="sidebar-area">
-        <div className="date-inputs-container">
-            <div className="date-input-item">
-                <label htmlFor="finances_from_date_page">Начало:</label>
-                <input
-                    id="finances_from_date_page" type="date" 
-                    value={displayDatesInInputs.from} 
-                    onChange={e => handleCustomDateChange('from', e.target.value)}
-                    disabled={currentPeriodPreset.label !== 'ВАШ ПЕРИОД'}
-                    className="period-date-input"
-                />
-            </div>
-            <div className="date-input-item">
-                <label htmlFor="finances_to_date_page">Конец:</label>
-                <input
-                    id="finances_to_date_page" type="date" 
-                    value={displayDatesInInputs.to} 
-                    onChange={e => handleCustomDateChange('to', e.target.value)}
-                    disabled={currentPeriodPreset.label !== 'ВАШ ПЕРИОД'}
-                    className="period-date-input"
-                />
-            </div>
-        </div>
-        <div className="period-buttons-container">
-          {PERIODS.map(p => (
-            <button key={p.label}
-              className={`period-btn ${currentPeriodPreset.label === p.label ? 'active' : ''}`}
-              onClick={() => handlePeriodPresetChange(p)}
-            >{p.label}</button>
-          ))}
         </div>
       </div>
     </div>
