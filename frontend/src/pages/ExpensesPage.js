@@ -1,34 +1,39 @@
 // src/pages/ExpensesPage.js
 import React, { useEffect, useState, useCallback } from 'react';
 import apiClient from '../api';
-import { formatDateForInput } from '../constants'; // Should return YYYY-MM-DD
+import { formatDateForInput } from '../constants';
 import ConfirmModal from '../components/ConfirmModal';
 
-// Helper function to format date as DD.MM.YYYY for display in tables
 const formatDateForTableDisplay = (isoOrYyyyMmDdDateString) => {
   if (!isoOrYyyyMmDdDateString) return '';
   try {
+    // Проверяем, не дата ли уже в формате DD.MM.YYYY (от старых записей или прямого ввода)
+    if (typeof isoOrYyyyMmDdDateString === 'string' && /^\d{2}\.\d{2}\.\d{4}$/.test(isoOrYyyyMmDdDateString)) {
+        return isoOrYyyyMmDdDateString;
+    }
     const date = new Date(isoOrYyyyMmDdDateString);
+    // Корректная обработка смещения часового пояса, если дата приходит как YYYY-MM-DD (считается как UTC полночь)
+    // Date() конструктор для YYYY-MM-DD интерпретирует ее как UTC, а toLocaleDateString использует локальный пояс.
+    // Чтобы избежать смещения на день, лучше работать с компонентами даты.
     if (isNaN(date.getTime())) {
-        if (typeof isoOrYyyyMmDdDateString === 'string' && isoOrYyyyMmDdDateString.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
-            return isoOrYyyyMmDdDateString;
-        }
         console.warn("Invalid date for formatDateForTableDisplay:", isoOrYyyyMmDdDateString);
         return isoOrYyyyMmDdDateString; 
     }
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
-    const year = date.getFullYear();
+    // Если строка уже содержит время, new Date() учтет его. Если только дата, это UTC полночь.
+    // Для YYYY-MM-DD, getDate, getMonth, getFullYear вернут правильные значения для этой UTC даты.
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Месяцы 0-индексированные
+    const year = date.getUTCFullYear();
     return `${day}.${month}.${year}`;
   } catch (err) {
-    console.error("Error formatting date for table display:", err);
-    return isoOrYyyyMmDdDateString; 
+    console.error("Error formatting date for table display:", err, "Input was:", isoOrYyyyMmDdDateString);
+    return String(isoOrYyyyMmDdDateString); // Возвращаем строку как есть в случае ошибки
   }
 };
 
 
 export default function ExpensesPage() {
-  const todayISO = formatDateForInput(new Date()); // YYYY-MM-DD for input value
+  const todayISO = formatDateForInput(new Date());
 
   const [expenses, setExpenses] = useState([]);
   const [eForm, setEForm] = useState({ amount: '', expense_time: todayISO, comment: '' });
@@ -151,33 +156,22 @@ export default function ExpensesPage() {
           <h2 style={{ marginBottom: '20px', color: '#eee', textAlign: 'center' }}>Учет расходов</h2>
 
           <form onSubmit={handleAddExpense} className="expense-form-container">
-            {/* Добавлен класс expense-form-row-amount-date */}
             <div className="expense-form-row expense-form-row-amount-date"> 
               <div className="expense-form-field"> 
                 <label htmlFor="exp-amount-page" className="expense-form-label">Сумма (₽) <span style={{color: 'tomato'}}>*</span></label>
                 <input
-                  id="exp-amount-page"
-                  name="amount"
-                  value={eForm.amount}
-                  onChange={handleEFormChange}
-                  placeholder="0.00"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  className="expense-form-input"
-                  required
+                  id="exp-amount-page" name="amount" value={eForm.amount}
+                  onChange={handleEFormChange} placeholder="0.00"
+                  type="number" min="0.01" step="0.01"
+                  className="expense-form-input" required
                 />
               </div>
               <div className="expense-form-field"> 
                 <label htmlFor="exp-date-page" className="expense-form-label">Дата <span style={{color: 'tomato'}}>*</span></label>
                 <input
-                  id="exp-date-page"
-                  name="expense_time"
-                  value={eForm.expense_time || todayISO} 
-                  onChange={handleEFormChange}
-                  type="date"
-                  className="expense-form-input period-date-input" 
-                  required
+                  id="exp-date-page" name="expense_time" value={eForm.expense_time || todayISO} 
+                  onChange={handleEFormChange} type="date"
+                  className="expense-form-input period-date-input" required
                 />
               </div>
             </div>
@@ -185,19 +179,13 @@ export default function ExpensesPage() {
             <div className="expense-form-field-fullwidth"> 
               <label htmlFor="exp-comment-page" className="expense-form-label">Комментарий</label>
               <input
-                id="exp-comment-page"
-                name="comment"
-                value={eForm.comment}
-                onChange={handleEFormChange}
-                placeholder="Например, Аренда"
+                id="exp-comment-page" name="comment" value={eForm.comment}
+                onChange={handleEFormChange} placeholder="Например, Аренда"
                 className="expense-form-input"
               />
             </div>
             
-            <button
-              type="submit"
-              className="action-btn expense-form-submit-button"
-            >
+            <button type="submit" className="action-btn expense-form-submit-button">
               Добавить
             </button>
             {submitError && <div className="expense-form-error">{submitError}</div>}
@@ -207,19 +195,20 @@ export default function ExpensesPage() {
           {error && <p className="error-message" style={{textAlign: 'center'}}>{error}</p>}
           
           {!isLoading && !error && (
-            <div className="expenses-table-container">
-              <table className="expenses-table">
+            <div className="data-table-container expenses-table-container"> {/* Используем общий класс */}
+              <table className="data-table expenses-table"> {/* Используем общий класс */}
                 <thead>
                   <tr>
-                    <th className="expenses-table-header th-amount">Сумма</th>
-                    <th className="expenses-table-header th-date">Дата</th>
-                    <th className="expenses-table-header th-comment">Комментарий</th>
-                    <th className="expenses-table-header th-action"></th>
+                    {/* Классы expenses-table-header заменены на общий th из data-table */}
+                    <th>Сумма</th>
+                    <th>Дата</th>
+                    <th>Комментарий</th>
+                    <th></th> {/* Для кнопки удаления */}
                   </tr>
                 </thead>
                 <tbody>
                   {expenses.length === 0 ? (
-                    <tr><td colSpan={4} className="empty-expenses-row">Расходов пока нет. Добавьте первый!</td></tr>
+                    <tr className="empty-data-row"><td colSpan={4}>Расходов пока нет. Добавьте первый!</td></tr>
                   ) : (
                     expenses.map((row) => (
                       <tr key={row.id}>

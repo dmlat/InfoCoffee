@@ -1,7 +1,7 @@
 // src/pages/FinancesPage.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { useStatsPolling } from './useStatsPolling'; // Предполагается, что этот хук существует
-import { PERIODS, formatDateForInput } from '../constants'; // formatDateForInput should return YYYY-MM-DD
+import { useStatsPolling } from './useStatsPolling';
+import { PERIODS, formatDateForInput } from '../constants';
 
 export default function FinancesPage() {
   const pageKey = 'financesPage_v7_custom_persist'; 
@@ -23,7 +23,6 @@ export default function FinancesPage() {
       return { from: savedFrom, to: savedTo };
     }
     const todayRange = getTodayRange();
-    // Ensure formatDateForInput returns YYYY-MM-DD for input value
     return { from: formatDateForInput(todayRange[0]), to: formatDateForInput(todayRange[1]) };
   }, [pageKey, getTodayRange]);
 
@@ -108,7 +107,6 @@ export default function FinancesPage() {
   };
 
   const handleCustomDateChange = (field, value) => {
-    // Ensure value is in YYYY-MM-DD format for state consistency if using type="date"
     if (currentPeriodPreset.label === 'ВАШ ПЕРИОД') {
       const updatedSelection = { ...userCustomPeriodSelection, [field]: value };
       setUserCustomPeriodSelection(updatedSelection);
@@ -160,7 +158,7 @@ export default function FinancesPage() {
                 <label htmlFor="finances_from_date_page">Начало:</label>
                 <input
                     id="finances_from_date_page" type="date" 
-                    value={displayDatesInInputs.from} // Should be YYYY-MM-DD
+                    value={displayDatesInInputs.from}
                     onChange={e => handleCustomDateChange('from', e.target.value)}
                     disabled={currentPeriodPreset.label !== 'ВАШ ПЕРИОД'}
                     className="period-date-input"
@@ -170,7 +168,7 @@ export default function FinancesPage() {
                 <label htmlFor="finances_to_date_page">Конец:</label>
                 <input
                     id="finances_to_date_page" type="date" 
-                    value={displayDatesInInputs.to} // Should be YYYY-MM-DD
+                    value={displayDatesInInputs.to}
                     onChange={e => handleCustomDateChange('to', e.target.value)}
                     disabled={currentPeriodPreset.label !== 'ВАШ ПЕРИОД'}
                     className="period-date-input"
@@ -222,10 +220,10 @@ export default function FinancesPage() {
         </div>
 
         <div className="coffee-stats-card">
-            {/* <h4 className="coffee-stats-title">Статистика по кофейням</h4>  -- TITLE REMOVED -- */}
+            {/* Заголовок "Статистика по кофейням" убран согласно предыдущей версии */}
             {statsError && <p className="error-message">Ошибка загрузки статистики по кофейням.</p>}
-            <div className="table-scroll-container">
-                <table className="coffee-stats-table">
+            <div className="table-scroll-container"> {/* Этот контейнер теперь data-table-container */}
+                <table className="data-table coffee-stats-table"> {/* Используем общий класс data-table */}
                 <thead>
                     <tr>
                     <th>Кофейня</th>
@@ -238,13 +236,13 @@ export default function FinancesPage() {
                     <tr><td colSpan={3} className="loading-message text-center">Загрузка кофеен...</td></tr>
                     )}
                     {!coffeeLoading && !statsError && (!coffeeStats || coffeeStats.length === 0) && (
-                    <tr><td colSpan={3} className="empty-data-message text-center">Нет данных по кофейням за период</td></tr>
+                    <tr className="empty-data-row"><td colSpan={3}>Нет данных по кофейням за период</td></tr>
                     )}
                     {!coffeeLoading && !statsError && coffeeStats && coffeeStats.length > 0 && (
                     coffeeStats.map((row, idx) => (
                         <tr key={row.coffee_shop_id || idx}>
-                        <td>{row.terminal_comment || `Кофейня ${row.coffee_shop_id}`}</td>
-                        <td className="text-right">{Number(row.revenue).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
+                        <td className="td-coffee-shop-name">{row.terminal_comment || `Кофейня ${row.coffee_shop_id}`}</td>
+                        <td className="td-revenue text-right">{Number(row.revenue).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
                         <td className="text-right">{row.sales_count}</td>
                         </tr>
                     ))
