@@ -98,25 +98,85 @@ body {
   gap: 20px; 
 }
 
-/* Стили для кнопок выбора периода */
+/* === ИЗМЕНЕНИЯ ДЛЯ КНОПОК ПЕРИОДОВ И SIDEBAR === */
+.sidebar-area {
+  flex: 1;
+  min-width: 220px; 
+  max-width: 280px; /* Максимальная ширина для сайдбара */
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* Отступ между блоком дат и блоком кнопок */
+}
+
+.date-inputs-container {
+  display: flex;
+  flex-direction: row; 
+  justify-content: space-between;
+  gap: 10px; 
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.date-input-item {
+  display: flex;
+  flex-direction: column; 
+  flex: 1; /* Поля дат занимают равную ширину */
+}
+.date-input-item label {
+  font-size: 0.85em; /* Немного уменьшен шрифт для лейблов дат */
+  color: #a0b0c8; 
+  font-weight: 500; /* Менее жирный */
+  display: block;
+  margin-bottom: 4px; /* Меньше отступ */
+  text-align: left; 
+}
+
+input[type="date"].period-date-input {
+  background-color: #2e3340;
+  color: #c6c6c6;
+  border: 1px solid #303548;
+  padding: 7px 8px; /* Уменьшен padding */
+  height: 36px; /* Уменьшена высота */
+  box-sizing: border-box;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.85em; /* Уменьшен шрифт */
+  width: 100%;
+}
+input[type="date"].period-date-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+}
+input[type="date"].period-date-input:disabled {
+  background-color: #20232a; 
+  opacity: 0.6;
+}
+
+.period-buttons-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* Всегда 4 колонки */
+  gap: 6px; 
+  width: 100%;
+}
+
 .period-btn {
   background-color: #2e3340;
   color: #a0b0c8;
   border: 1px solid #303548;
-  padding: 8px 10px; 
-  border-radius: 8px;
+  padding: 6px 5px;       
+  border-radius: 6px;     
   cursor: pointer;
   font-weight: 500;
   text-align: center;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-  font-size: clamp(0.85em, 2vw, 0.95em);
+  font-size: 0.78em;       /* Уменьшен шрифт еще немного */
   width: 100%;
   box-sizing: border-box;
-  min-height: 38px; 
+  min-height: 32px;       /* Уменьшена минимальная высота */
   display: flex; 
   align-items: center; 
   justify-content: center; 
-  line-height: 1.2;
+  line-height: 1.1;       
+  white-space: normal;    
 }
 .period-btn:hover {
   background-color: #383e4c;
@@ -129,27 +189,7 @@ body {
   border-color: #3e67e0;
   font-weight: 600;
 }
-
-/* Стили для полей ввода даты */
-input[type="date"].period-date-input {
-  background-color: #2e3340;
-  color: #c6c6c6;
-  border: 1px solid #303548;
-  padding: 8px 10px;
-  height: 38px;
-  box-sizing: border-box;
-  border-radius: 6px;
-  font-family: inherit;
-  font-size: 0.9em; 
-  width: 100%;
-}
-input[type="date"].period-date-input::-webkit-calendar-picker-indicator {
-  filter: invert(0.6);
-}
-input[type="date"].period-date-input:disabled {
-  background-color: #20232a; 
-  opacity: 0.6;
-}
+/* === КОНЕЦ ИЗМЕНЕНИЙ ДЛЯ КНОПОК ПЕРИОДОВ И SIDEBAR === */
 
 /* Стили для кнопок действий */
 .action-btn {
@@ -204,45 +244,6 @@ input[type="date"].period-date-input:disabled {
   width: 100%; 
 }
 
-.sidebar-area {
-  flex: 1;
-  min-width: 220px; 
-  max-width: 280px; 
-  display: flex;
-  flex-direction: column;
-  gap: 15px; 
-}
-
-.date-inputs-container {
-  display: flex;
-  flex-direction: row; 
-  justify-content: space-between;
-  gap: 10px; 
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.date-input-item {
-  display: flex;
-  flex-direction: column; 
-  flex: 1; 
-}
-.date-input-item label {
-  font-size: 0.9em;
-  color: #a0b0c8; 
-  font-weight: 600; 
-  display: block;
-  margin-bottom: 5px;
-  text-align: left; 
-}
-
-.period-buttons-container {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr); 
-  gap: 8px; 
-  width: 100%;
-}
-
 /* === СТИЛИ ДЛЯ ФОРМЫ РАСХОДОВ (ExpensesPage.js) === */
 .expense-form-container {
   display: flex;
@@ -254,14 +255,14 @@ input[type="date"].period-date-input:disabled {
   border-radius: 12px;
 }
 
-.expense-form-row { /* Общий для всех рядов формы */
+.expense-form-row {
   display: flex;
   gap: 12px;
   width: 100%;
   align-items: flex-start;
 }
 
-.expense-form-row-amount-date { /* Для ряда "Сумма" и "Дата", чтобы они всегда были в строку */
+.expense-form-row-amount-date {
   flex-direction: row !important; 
   gap: 10px !important; 
 }
@@ -274,7 +275,7 @@ input[type="date"].period-date-input:disabled {
   flex-direction: column;
 }
 .expense-form-field:not(.expense-form-row-amount-date .expense-form-field) { 
-  flex: 1; /* Поля будут занимать доступное место, если не в expense-form-row-amount-date */
+  flex: 1;
 }
 .expense-form-field-fullwidth {
   width: 100%;
@@ -294,7 +295,6 @@ input[type="date"].period-date-input:disabled {
   background: #2e3340;
   border: 1px solid #303548;
   color: #c6c6c6;
-  /* font-size: 0.95em; -- будет 16px на мобильных из-за общего правила */
   height: 38px;
   box-sizing: border-box;
   width: 100%;
@@ -325,7 +325,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 .data-table-container {
   overflow-x: auto; 
   background: #282c34;
-  padding: 1px 15px 15px 15px; /* Небольшой padding сверху, чтобы тень от sticky header не обрезалась */
+  padding: 1px 15px 15px 15px; 
   border-radius: 12px;
   margin-top: 20px;
 }
@@ -333,56 +333,54 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9em; /* Базовый размер шрифта для таблиц */
+  font-size: 0.88em; /* Уменьшен базовый размер шрифта для таблиц */
 }
 
 .data-table thead {
   position: sticky;
   top: 0;
-  z-index: 1; /* Ниже чем .tabs-container */
-  background: #282c34; /* Фон для липкой шапки */
+  z-index: 1; 
+  background: #282c34; 
 }
 
 .data-table th {
-  padding: 10px 12px;
-  color: #8ae6ff;    /* Цвет как у заголовков coffee-stats-table */
-  font-weight: 600;  /* Как у coffee-stats-table */
+  padding: 9px 10px; /* Уменьшен padding */
+  color: #8ae6ff;    
+  font-weight: 600;  
   text-align: left;
-  border-bottom: 1px solid #353a40; /* Линия под заголовками */
+  border-bottom: 1px solid #353a40; 
   white-space: nowrap;
 }
 
 .data-table td {
-  padding: 9px 12px; /* Немного измененный padding для строк */
-  border-bottom: 1px solid #23272f; /* Тонкая линия между строками */
-  color: #c6c6c6;
+  padding: 8px 10px; /* Уменьшен padding */
+  border-bottom: 1px solid #23272f; 
+  color: #c0c0c0; /* Слегка осветлил текст в ячейках */
   text-align: left;
 }
 
-/* Убираем правую границу у последней ячейки, если она задавалась для всех */
 .data-table th:last-child, 
 .data-table td:last-child {
   border-right: none; 
 }
 
-/* Чередование цветов строк */
 .data-table tbody tr:nth-child(odd) {
-  background: #262a36; 
+  background: #262a36; /* Фон для нечетных строк */
 }
 .data-table tbody tr:nth-child(even) {
-  background: #282c34; /* Или #23273a для большего контраста, если #282c34 - фон контейнера */
+  background: #282c34; /* Фон для четных строк (совпадает с фоном контейнера) */
 }
 
 .data-table tbody tr:last-child td {
-  border-bottom: none; /* Убираем линию у последней строки */
+  border-bottom: none; 
 }
 
-/* Специфичные стили для ячеек */
-.data-table .td-amount, .data-table .td-revenue { /* Объединяем для суммы/выручки */
+/* Специфичные стили для ячеек data-table */
+.data-table .td-amount, .data-table .td-revenue {
   color: #e0e0e0;
   font-weight: 500;
-  text-align: right; /* Суммы обычно справа */
-  white-space: nowrap;
+  text-align: right; 
+  white-space: nowrap; /* Для суммы и знака рубля */
 }
 .data-table .td-date {
   white-space: nowrap;
@@ -390,26 +388,32 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 .data-table .td-comment {
   white-space: pre-wrap;
   word-break: break-word;
-  min-width: 150px;
+  min-width: 120px; /* Немного уменьшил */
 }
 .data-table .td-action {
   text-align: center;
   white-space: nowrap;
 }
-.data-table .empty-data-row td { /* Для строки "Нет данных" */
+.data-table .empty-data-row td {
     color: #888;
     padding: 20px;
     text-align: center;
-    background-color: #282c34 !important; /* Чтобы перебить чередование */
+    background-color: #282c34 !important; 
     border-right: none; 
 }
-.data-table .td-coffee-shop-name { /* Для названия кофейни на FinancesPage */
-    white-space: normal; /* Разрешаем перенос */
-    word-break: break-word;
-    min-width: 150px; /* Минимальная ширина, чтобы текст не сжимался слишком сильно */
+.data-table .td-coffee-shop-name {
+    white-space: normal; 
+    word-break: break-word; /* Позволяем переносить название кофейни */
+    min-width: 120px; 
+    vertical-align: middle; /* Для лучшего вида при переносе */
+}
+.data-table .td-sales-count { /* Для количества продаж */
+  text-align: right;
+  white-space: nowrap;
 }
 
-/* === СТИЛИ ДЛЯ FinancesPage === */
+
+/* === СТИЛИ ДЛЯ FinancesPage (карточки и уникальная таблица) === */
 .summary-card, .coffee-stats-card {
   background: #282c34; 
   padding: 18px;
@@ -427,7 +431,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   color: #ffffff;
   font-weight: bold;
 }
-.summary-table { /* Эта таблица имеет свой уникальный стиль, не data-table */
+.summary-table { 
   width: 100%;
   border-collapse: collapse;
   font-size: 0.95em;
@@ -441,7 +445,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   text-align: right;
   color: #e0e0e0;
   font-weight: 500;
-  white-space: nowrap; /* Сумма и рубль на одной строке */
+  white-space: nowrap; 
 }
 .summary-table .revenue-value {
   color: #ffb300; 
@@ -464,23 +468,24 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   border-bottom: none;
 }
 
-.table-scroll-container { /* Используется для coffee-stats-table */
-  max-height: 400px; /* Ограничение высоты для таблицы кофеен, если она может быть длинной */
-  overflow-y: auto;
-  /* background: #282c34; -- убрано, т.к. .coffee-stats-card уже имеет фон */
-  border-radius: 0 0 12px 12px; /* Только нижние углы, если шапка карточки отдельно */
+.table-scroll-container { /* Для таблицы coffee-stats */
+  max-height: 400px;
+  overflow-y: auto; 
+  /* background: #282c34; -- убрано, фон от coffee-stats-card */
+  border-radius: 0 0 12px 12px; 
 }
 
-.coffee-stats-table { /* Это будет использовать .data-table */
+/* coffee-stats-table теперь использует общий .data-table */
+.coffee-stats-table { 
   /* Наследует стили от .data-table */
 }
-/* Специфичные для coffee-stats-table, если нужны, например, выравнивание */
 .coffee-stats-table th.text-right, 
 .coffee-stats-table td.text-right {
   text-align: right;
 }
+/* Чередование строк уже есть в .data-table */
 
-.loading-message, .empty-data-message { /* Общие сообщения */
+.loading-message, .empty-data-message { 
   color: #888;
   padding: 20px;
   text-align: center;
@@ -533,7 +538,6 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   background: #2e3340;
   border: 1px solid #303548;
   color: #c6c6c6;
-  /* font-size: 1em; -- будет 16px на мобильных */
   box-sizing: border-box;
   height: 40px;
 }
@@ -639,7 +643,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
     font-size: 0.85em;
   }
 
-  .page-container { /* На мобильных основной и сайдбар друг под другом */
+  .page-container { 
     flex-direction: column;
     gap: 20px;
   }
@@ -654,40 +658,51 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
     flex-basis: auto !important;
   }
 
-  .sidebar-area { /* Сайдбар (с датами/кнопками) будет сверху */
+  .sidebar-area { 
     order: -1; 
     margin-bottom: 15px; 
     gap: 12px; 
   }
 
-  .date-inputs-container { /* Инпуты дат остаются в строку */
+  .date-inputs-container { 
     gap: 8px; 
     margin-bottom: 10px; 
   }
   .date-input-item label {
     font-size: 0.85em; 
   }
+  input[type="date"].period-date-input { /* Уменьшим для мобильных */
+    font-size: 0.85em; /* Будет переопределено на 16px глобальным правилом ниже! */
+    padding: 7px 8px;
+    height: 36px;
+  }
 
-  .period-buttons-container { /* Кнопки периодов в грид */
-    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+
+  .period-buttons-container { 
+    grid-template-columns: repeat(4, 1fr); /* 4 колонки для мобильных по умолчанию */
     gap: 6px; 
     margin-bottom: 10px; 
   }
+   @media (max-width: 390px) { /* Если экран очень узкий, делаем 2 колонки */
+     .period-buttons-container {
+       grid-template-columns: repeat(2, 1fr);
+     }
+   }
 
   .period-btn {
-    font-size: 0.85em; 
-    padding: 7px 5px; 
-    min-height: 36px; 
+    font-size: 0.78em; 
+    padding: 6px 4px; 
+    min-height: 32px; 
+    line-height: 1.1;
   }
   
-  .expense-form-row:not(.expense-form-row-amount-date) { /* Остальные поля формы расходов - в колонку */
+  .expense-form-row:not(.expense-form-row-amount-date) { 
      flex-direction: column; 
      gap: 15px; 
   }
   .expense-form-row:not(.expense-form-row-amount-date) .expense-form-field {
      width: 100%; 
   }
-   /* Для expense-form-row-amount-date оставляем flex-direction: row !important из общих стилей */
   
   input[type="text"],
   input[type="password"],
@@ -696,33 +711,30 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   input[type="number"],
   textarea,
   select,
-  .expense-form-input, 
-  input[type="date"].period-date-input {
-    font-size: 16px !important; /* Предотвращаем авто-зум на iOS */
+  .expense-form-input { /* Добавил .expense-form-input сюда явно */
+    font-size: 16px !important; 
   }
 
-  /* Уменьшаем таблицы на мобильных */
   .data-table {
-    font-size: 0.85em !important; 
+    font-size: 0.82em !important; /* Еще немного уменьшим шрифт таблиц на мобильных */
   }
   .data-table th, .data-table td,
-  .summary-table td { /* summary-table не использует .data-table, но тоже уменьшим */
-      padding: 6px 8px !important; 
+  .summary-table td { 
+      padding: 5px 6px !important; 
   }
-   .data-table td.td-comment { /* Уменьшаем min-width для комментариев */
-      min-width: 80px; 
+   .data-table td.td-comment {
+      min-width: 70px; 
    }
    .data-table .td-coffee-shop-name {
-      min-width: 100px; /* Для названий кофеен */
+      min-width: 90px; 
    }
 
-
-  h2 { /* Общие заголовки страниц */
+  h2 { 
     font-size: 1.3em;
     margin-bottom: 16px !important;
   }
-  h4, .summary-card-title, .coffee-stats-title, .profile-form h2 { /* Заголовки карточек и форм */
-    font-size: 1.1em !important; /* Единообразный размер для подзаголовков */
+  h4, .summary-card-title, .coffee-stats-title, .profile-form h2 { 
+    font-size: 1.1em !important; 
     margin-bottom: 12px !important;
   }
   .profile-sync-status-card h3 {
@@ -730,7 +742,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   }
 
   .tax-options-container .tax-option-btn {
-    font-size: 0.78em; /* Еще немного меньше для кнопок налогов */
+    font-size: 0.75em; 
     padding: 6px 5px;
     min-height: 34px;
   }
@@ -791,7 +803,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   background: #2e3340; 
   border: 1px solid #303548; 
   color: #c6c6c6; 
-  font-size: 16px !important; /* Уже было, подтверждаем */
+  font-size: 16px !important;
   box-sizing: border-box; 
   height: auto; 
 }
@@ -888,11 +900,11 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 
 .tax-options-container button.tax-option-btn,
 .tax-options-container .tax-option-btn { 
-   /* Обновлено выше в секции ProfilePage */
+   /* Стили уже есть выше */
 }
 .tax-options-container button.tax-option-btn.active,
 .tax-options-container .tax-option-btn.active { 
-  /* Обновлено выше */
+  /* Стили уже есть выше */
 }
 .auth-form-wrapper input[name="acquiring"] { 
   width: 80px !important; 

@@ -1,7 +1,7 @@
 // src/pages/FinancesPage.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { useStatsPolling } from './useStatsPolling';
-import { PERIODS, formatDateForInput } from '../constants';
+import { useStatsPolling } from './useStatsPolling'; 
+import { PERIODS, formatDateForInput } from '../constants'; 
 
 export default function FinancesPage() {
   const pageKey = 'financesPage_v7_custom_persist'; 
@@ -220,10 +220,10 @@ export default function FinancesPage() {
         </div>
 
         <div className="coffee-stats-card">
-            {/* Заголовок "Статистика по кофейням" убран согласно предыдущей версии */}
+            {/* Заголовок "Статистика по кофейням" был убран из FinancesPage.js, оставляем так */}
             {statsError && <p className="error-message">Ошибка загрузки статистики по кофейням.</p>}
-            <div className="table-scroll-container"> {/* Этот контейнер теперь data-table-container */}
-                <table className="data-table coffee-stats-table"> {/* Используем общий класс data-table */}
+            <div className="data-table-container table-scroll-container"> {/* Используем data-table-container */}
+                <table className="data-table coffee-stats-table"> 
                 <thead>
                     <tr>
                     <th>Кофейня</th>
@@ -241,9 +241,11 @@ export default function FinancesPage() {
                     {!coffeeLoading && !statsError && coffeeStats && coffeeStats.length > 0 && (
                     coffeeStats.map((row, idx) => (
                         <tr key={row.coffee_shop_id || idx}>
+                        {/* Класс для переноса названия кофейни */}
                         <td className="td-coffee-shop-name">{row.terminal_comment || `Кофейня ${row.coffee_shop_id}`}</td>
+                        {/* Класс для выручки и количества продаж */}
                         <td className="td-revenue text-right">{Number(row.revenue).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
-                        <td className="text-right">{row.sales_count}</td>
+                        <td className="td-sales-count text-right">{row.sales_count}</td>
                         </tr>
                     ))
                     )}

@@ -7,30 +7,21 @@ import ConfirmModal from '../components/ConfirmModal';
 const formatDateForTableDisplay = (isoOrYyyyMmDdDateString) => {
   if (!isoOrYyyyMmDdDateString) return '';
   try {
-    // Проверяем, не дата ли уже в формате DD.MM.YYYY (от старых записей или прямого ввода)
     if (typeof isoOrYyyyMmDdDateString === 'string' && /^\d{2}\.\d{2}\.\d{4}$/.test(isoOrYyyyMmDdDateString)) {
         return isoOrYyyyMmDdDateString;
     }
     const date = new Date(isoOrYyyyMmDdDateString);
-    // Корректная обработка смещения часового пояса, если дата приходит как YYYY-MM-DD (считается как UTC полночь)
-    // Date() конструктор для YYYY-MM-DD интерпретирует ее как UTC, а toLocaleDateString использует локальный пояс.
-    // Чтобы избежать смещения на день, лучше работать с компонентами даты.
     if (isNaN(date.getTime())) {
-        console.warn("Invalid date for formatDateForTableDisplay:", isoOrYyyyMmDdDateString);
         return isoOrYyyyMmDdDateString; 
     }
-    // Если строка уже содержит время, new Date() учтет его. Если только дата, это UTC полночь.
-    // Для YYYY-MM-DD, getDate, getMonth, getFullYear вернут правильные значения для этой UTC даты.
     const day = String(date.getUTCDate()).padStart(2, '0');
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Месяцы 0-индексированные
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
     const year = date.getUTCFullYear();
     return `${day}.${month}.${year}`;
   } catch (err) {
-    console.error("Error formatting date for table display:", err, "Input was:", isoOrYyyyMmDdDateString);
-    return String(isoOrYyyyMmDdDateString); // Возвращаем строку как есть в случае ошибки
+    return String(isoOrYyyyMmDdDateString); 
   }
 };
-
 
 export default function ExpensesPage() {
   const todayISO = formatDateForInput(new Date());
@@ -56,7 +47,6 @@ export default function ExpensesPage() {
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Ошибка сети при загрузке расходов.');
-      console.error("Ошибка загрузки расходов:", err);
     } finally {
       setIsLoading(false);
     }
@@ -107,7 +97,6 @@ export default function ExpensesPage() {
       }
     } catch (err) {
       setSubmitError(err.response?.data?.error || 'Ошибка сети при добавлении расхода.');
-      console.error("Ошибка добавления расхода:", err);
     }
   };
 
@@ -128,7 +117,6 @@ export default function ExpensesPage() {
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Ошибка сети при удалении расхода.');
-      console.error("Ошибка удаления расхода:", err);
     } finally {
       setIsModalOpen(false);
       setExpenseToDeleteId(null);
@@ -195,15 +183,14 @@ export default function ExpensesPage() {
           {error && <p className="error-message" style={{textAlign: 'center'}}>{error}</p>}
           
           {!isLoading && !error && (
-            <div className="data-table-container expenses-table-container"> {/* Используем общий класс */}
-              <table className="data-table expenses-table"> {/* Используем общий класс */}
+            <div className="data-table-container expenses-table-container">
+              <table className="data-table expenses-table"> 
                 <thead>
                   <tr>
-                    {/* Классы expenses-table-header заменены на общий th из data-table */}
                     <th>Сумма</th>
                     <th>Дата</th>
                     <th>Комментарий</th>
-                    <th></th> {/* Для кнопки удаления */}
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
