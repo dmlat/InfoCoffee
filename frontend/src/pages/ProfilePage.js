@@ -27,7 +27,7 @@ function formatSyncTimestamp(timestamp) {
   }
 }
 
-export default function ProfilePage() {
+export default function ProfilePage() { // удален onLogout из props
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -154,8 +154,6 @@ export default function ProfilePage() {
   }
   
   return (
-    // Если ProfilePage ВСЕГДА внутри .dashboard-content-wrapper, то класс .profile-page-container не нужен
-    // для управления высотой и скроллом. Однако, для стилизации макета он может остаться.
     <div className="page-container profile-page-layout"> 
       <div className="main-content-area"> 
         <form onSubmit={handleSaveChanges} className="profile-form">
@@ -226,6 +224,9 @@ export default function ProfilePage() {
             </ul>
           )}
         </div>
+
+        {/* Logout Button REMOVED from here */}
+
       </div>
     </div>
   );

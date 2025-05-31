@@ -1,10 +1,9 @@
 // src/pages/Dashboard.js
-import React, { useState, useEffect } from 'react';
-import Navbar from '../components/Navbar';
+import React, { useState, useEffect, useCallback } from 'react';
 import FinancesPage from './FinancesPage';
 import ExpensesPage from './ExpensesPage';
 import ProfilePage from './ProfilePage';
-import StockPage from './StockPage'; // Предполагаем, что этот компонент существует
+import StockPage from './StockPage'; 
 
 const TABS = [
   { id: 'finances', label: 'ФИНАНСЫ', component: FinancesPage },
@@ -13,12 +12,12 @@ const TABS = [
   { id: 'profile', label: 'ПРОФИЛЬ', component: ProfilePage },
 ];
 
-export default function Dashboard({ setIsAuth }) { // Добавил setIsAuth, если Navbar его использует для выхода
-  const getInitialTab = () => {
+export default function Dashboard({ setIsAuth }) {
+  const getInitialTab = useCallback(() => {
     const hash = window.location.hash.replace('#', '');
     const foundTab = TABS.find(t => t.id === hash);
     return foundTab ? hash : TABS[0].id;
-  };
+  }, []);
 
   const [activeTabId, setActiveTabId] = useState(getInitialTab);
 
@@ -35,29 +34,13 @@ export default function Dashboard({ setIsAuth }) { // Добавил setIsAuth, 
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, []); // getInitialTab не меняется, поэтому зависимости пустые
+  }, [getInitialTab]);
 
   const ActivePageComponent = TABS.find(t => t.id === activeTabId)?.component;
 
-  const handleLogout = () => {
-    localStorage.clear();
-    // Вместо прямого window.location.href, лучше использовать setIsAuth,
-    // чтобы App.js обработал перенаправление на страницу входа/AppEntryPage
-    if (setIsAuth) {
-        setIsAuth(false); 
-    } else {
-        // Fallback, если setIsAuth не передан (хотя должен быть из App.js)
-        window.location.href = '/app-entry?reason=logout'; 
-    }
-  };
-
   return (
-    // Этот div теперь .dashboard-layout из index.css
     <div className="dashboard-layout">
-      <Navbar onLogout={handleLogout} />
-      {/* Этот div теперь .dashboard-content-wrapper из index.css */}
       <div className="dashboard-content-wrapper">
-        {/* Этот div теперь .tabs-container из index.css */}
         <div className="tabs-container">
           {TABS.map(tab => (
             <button
@@ -69,10 +52,8 @@ export default function Dashboard({ setIsAuth }) { // Добавил setIsAuth, 
             </button>
           ))}
         </div>
-
-        {/* Рендерим активный компонент страницы */}
-        {/* Страницы (FinancesPage и др.) будут использовать класс .page-container */}
-        {ActivePageComponent && <ActivePageComponent />}
+        
+        {ActivePageComponent && <ActivePageComponent />} 
       </div>
     </div>
   );
