@@ -1,26 +1,31 @@
+// backend/worker/schedule_imports.js
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const cron = require('node-cron');
 const pool = require('../db');
 const { importTransactionsForPeriod } = require('./vendista_import_worker');
 const moment = require('moment-timezone');
-const crypto = require('crypto'); // Добавлено для дешифрования
+const crypto = require('crypto');
+const { sendErrorToAdmin } = require('../utils/adminErrorNotifier'); // Импорт уведомителя
 
 const TIMEZONE = 'Europe/Moscow';
-const importingUsers = new Set();
+const USER_PROCESSING_DELAY_MS = 10000; // 10 секунд задержки между обработкой разных пользователей
+const MAX_CONCURRENT_IP_IMPORTS = 2; // Ограничение на количество одновременных импортов с нашего IP
+
+let activeIpImports = 0; // Счетчик активных импортов с нашего IP
+const importQueue = []; // Очередь для пользователей, ожидающих импорта
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 const ALGORITHM = 'aes-256-cbc';
-const IV_LENGTH = 16;
 
 if (!ENCRYPTION_KEY) {
-    console.error("[FATAL ERROR in schedule_imports.js] ENCRYPTION_KEY is not defined in .env file. Worker cannot decrypt tokens.");
-    process.exit(1); // Завершаем работу, если ключ шифрования отсутствует
+    console.error("[FATAL ERROR in schedule_imports.js] ENCRYPTION_KEY is not defined. Worker cannot decrypt.");
+    process.exit(1);
 }
 
-// Функция дешифрования (аналогична той, что в auth.js)
 function decrypt(text) {
-    if (!ENCRYPTION_KEY) { // Дополнительная проверка, хотя уже есть глобальная
+    // ... (функция decrypt остается такой же, как в предыдущей версии файла)
+    if (!ENCRYPTION_KEY) {
         console.error('ENCRYPTION_KEY is not set. Cannot decrypt.');
         throw new Error('Encryption key not set for decrypt function.');
     }
@@ -54,59 +59,83 @@ async function logJobStatus(userId, jobName, status, result, errorMessage = null
       errorMessage
     ]);
   } catch (logErr) {
-    console.error(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Ошибка записи лога для User ${userId}: ${logErr.message}`);
+    const logTime = moment().tz(TIMEZONE).format();
+    console.error(`[Cron ${logTime}] [${jobName}] Ошибка записи лога для User ${userId}: ${logErr.message}`);
   }
 }
 
-async function scheduleSafeImport(params, jobName) { // params should include plain vendistaApiToken
-  if (importingUsers.has(params.user_id)) {
-    const message = `Пропуск для User ${params.user_id}: предыдущий импорт еще не завершен.`;
-    console.log(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] ${message}`);
-    await logJobStatus(params.user_id, jobName, 'skipped_due_to_lock', null, message);
-    return;
-  }
-
-  importingUsers.add(params.user_id);
-  console.log(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Запуск для User ${params.user_id} с ${params.dateFrom} по ${params.dateTo}`);
-  let importResult;
-  try {
-    // `params.vendistaApiToken` здесь уже должен быть дешифрован
-    importResult = await importTransactionsForPeriod(params);
-    if (importResult.success) {
-      await logJobStatus(params.user_id, jobName, 'success', importResult);
-    } else {
-      await logJobStatus(params.user_id, jobName, 'failure', importResult, importResult.error);
-       if (importResult.error && importResult.error.toLowerCase().includes('token')) {
-            console.error(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] User ${params.user_id} Vendista token might be invalid (after decryption).`);
-       }
+async function processImportQueue() {
+    if (activeIpImports >= MAX_CONCURRENT_IP_IMPORTS || importQueue.length === 0) {
+        return;
     }
-  } catch (e) {
-    console.error(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Ошибка для User ${params.user_id}: ${e.message}`);
-    await logJobStatus(params.user_id, jobName, 'failure', null, e.message);
-  } finally {
-    importingUsers.delete(params.user_id);
-    console.log(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Завершение для User ${params.user_id}`);
-  }
+
+    activeIpImports++;
+    const { params, jobName } = importQueue.shift();
+    const logTime = moment().tz(TIMEZONE).format();
+    
+    console.log(`[Cron ${logTime}] [${jobName}] Извлечение из очереди для User ${params.user_id}. Активных импортов: ${activeIpImports}. В очереди: ${importQueue.length}`);
+
+    try {
+        const importResult = await importTransactionsForPeriod(params);
+        if (importResult.success) {
+            await logJobStatus(params.user_id, jobName, 'success', importResult);
+        } else {
+            await logJobStatus(params.user_id, jobName, 'failure', importResult, importResult.error);
+            if (importResult.error && importResult.error.toLowerCase().includes('token')) {
+                console.error(`[Cron ${logTime}] [${jobName}] User ${params.user_id} Vendista token might be invalid (after decryption).`);
+                // Уведомление уже должно отправляться из importTransactionsForPeriod
+            }
+        }
+    } catch (e) {
+        console.error(`[Cron ${logTime}] [${jobName}] КРИТИЧЕСКАЯ Ошибка для User ${params.user_id}: ${e.message}`);
+        await logJobStatus(params.user_id, jobName, 'critical_failure', null, e.message);
+        await sendErrorToAdmin({
+            userId: params.user_id,
+            errorContext: `Critical scheduleSafeImport ${jobName} for User ${params.user_id}`,
+            errorMessage: e.message,
+            errorStack: e.stack
+        });
+    } finally {
+        activeIpImports--;
+        console.log(`[Cron ${logTime}] [${jobName}] Завершение для User ${params.user_id}. Активных импортов: ${activeIpImports}.`);
+        // Задержка перед обработкой следующего из очереди, если он есть
+        if (importQueue.length > 0) {
+             setTimeout(processImportQueue, USER_PROCESSING_DELAY_MS);
+        } else {
+            processImportQueue(); // Проверить, не появились ли новые задачи, пока этот выполнялся
+        }
+    }
 }
+
+function addToImportQueue(params, jobName) {
+    importQueue.push({ params, jobName });
+    console.log(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] User ${params.user_id} добавлен в очередь. Всего в очереди: ${importQueue.length}`);
+    processImportQueue(); // Попытаться запустить обработку очереди
+}
+
 
 async function runScheduledJob(jobName, dateSubtractArgs, fetchAllPages) {
-  console.log(`[Cron ${moment().tz(TIMEZONE).format()}] Запуск ${jobName}...`);
+  const logTime = moment().tz(TIMEZONE).format();
+  console.log(`[Cron ${logTime}] Запуск джоба: ${jobName}...`);
   try {
-    const usersRes = await pool.query('SELECT id, vendista_api_token FROM users WHERE vendista_api_token IS NOT NULL');
+    const usersRes = await pool.query('SELECT id, vendista_api_token, first_name, user_name, telegram_id FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL');
     if (usersRes.rows.length === 0) {
-      console.log(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Нет пользователей для импорта.`);
+      console.log(`[Cron ${logTime}] [${jobName}] Нет пользователей для импорта.`);
       return;
     }
 
     const dateTo = moment().tz(TIMEZONE).format('YYYY-MM-DD');
     const dateFrom = moment().tz(TIMEZONE).subtract(...dateSubtractArgs).format('YYYY-MM-DD');
 
-    for (const user of usersRes.rows) {
+    // Сортируем пользователей по user_id для более предсказуемого порядка добавления в очередь
+    const sortedUsers = usersRes.rows.sort((a, b) => a.id - b.id);
+
+    for (const user of sortedUsers) {
       const encryptedToken = user.vendista_api_token;
       let plainVendistaToken;
 
       if (!encryptedToken) {
-          console.warn(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] User ${user.id} не имеет vendista_api_token. Пропуск.`);
+          console.warn(`[Cron ${logTime}] [${jobName}] User ${user.id} не имеет vendista_api_token. Пропуск.`);
           await logJobStatus(user.id, jobName, 'skipped_no_token', null, 'User has no vendista_api_token in DB');
           continue;
       }
@@ -114,47 +143,75 @@ async function runScheduledJob(jobName, dateSubtractArgs, fetchAllPages) {
       try {
         plainVendistaToken = decrypt(encryptedToken);
         if (!plainVendistaToken) {
-            console.error(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Не удалось дешифровать токен для User ${user.id}. Пропуск.`);
+            console.error(`[Cron ${logTime}] [${jobName}] Не удалось дешифровать токен для User ${user.id}. Пропуск.`);
             await logJobStatus(user.id, jobName, 'failure', null, 'Token decryption failed');
+            await sendErrorToAdmin({
+                userId: user.id,
+                telegramId: user.telegram_id,
+                userFirstName: user.first_name,
+                userUsername: user.user_name,
+                errorContext: `Token Decryption in ${jobName} for User ${user.id}`,
+                errorMessage: "Token decryption failed prior to import."
+            });
             continue;
         }
       } catch (decryptionError) {
-        console.error(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Ошибка дешифрования токена для User ${user.id}: ${decryptionError.message}. Пропуск.`);
+        console.error(`[Cron ${logTime}] [${jobName}] Ошибка дешифрования токена для User ${user.id}: ${decryptionError.message}. Пропуск.`);
         await logJobStatus(user.id, jobName, 'failure', null, `Token decryption error: ${decryptionError.message}`);
+        await sendErrorToAdmin({
+            userId: user.id,
+            telegramId: user.telegram_id,
+            userFirstName: user.first_name,
+            userUsername: user.user_name,
+            errorContext: `Token Decryption Error in ${jobName} for User ${user.id}`,
+            errorMessage: decryptionError.message,
+            errorStack: decryptionError.stack
+        });
         continue;
       }
 
-      await scheduleSafeImport({
+      addToImportQueue({
         user_id: user.id,
-        vendistaApiToken: plainVendistaToken, // Используем дешифрованный токен
-        dateFrom,
-        dateTo,
-        fetchAllPages
+        vendistaApiToken: plainVendistaToken,
+        dateFrom, dateTo, fetchAllPages,
+        // Передаем доп. инфо для логов и уведомлений
+        user_telegram_id: user.telegram_id,
+        user_first_name: user.first_name,
+        user_user_name: user.user_name
       }, jobName);
     }
   } catch (e) {
-    console.error(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] Глобальная ошибка: ${e.message}`);
+    console.error(`[Cron ${logTime}] [${jobName}] Глобальная ошибка: ${e.message}`);
+    await sendErrorToAdmin({
+        errorContext: `Global error in scheduled job: ${jobName}`,
+        errorMessage: e.message,
+        errorStack: e.stack
+    });
   }
 }
 
-// --- ЗАДАЧА 1: Каждые 15 минут (вчерашний + сегодняшний день, только первая страница) ---
+// --- ЗАДАЧИ CRON ---
+// Каждые 15 минут (вчерашний + сегодняшний день, только первая страница)
 cron.schedule('*/15 * * * *', () => runScheduledJob('15-Min Import', [1, 'days'], false), { scheduled: true, timezone: TIMEZONE });
 console.log('15-минутный планировщик импорта транзакций запущен.');
 
-// --- ЗАДАЧА 2: Ежедневно (Пн-Сб) в 23:00 МСК (последние 2 дня, все страницы) ---
-cron.schedule('0 23 * * 1-6', () => runScheduledJob('Daily Update (48h)', [2, 'days'], true), { scheduled: true, timezone: TIMEZONE });
-console.log('Ежедневный (48ч, Пн-Сб) планировщик запущен на 23:00 МСК.');
+// Ежедневно (Пн-Сб) в 23:05 МСК (последние 3 дня, все страницы) - сдвинул на 5 минут и увеличил окно на 1 день
+cron.schedule('5 23 * * 1-6', () => runScheduledJob('Daily Update (72h)', [3, 'days'], true), { scheduled: true, timezone: TIMEZONE });
+console.log('Ежедневный (72ч, Пн-Сб) планировщик запущен на 23:05 МСК.');
 
-// --- ЗАДАЧА 3: Еженедельно (Вс) в 23:00 МСК (последние 7 дней, все страницы) ---
-cron.schedule('0 23 * * 0', () => runScheduledJob('Weekly Update (7d)', [7, 'days'], true), { scheduled: true, timezone: TIMEZONE });
-console.log('Еженедельный (7д, Вс) планировщик запущен на 23:00 МСК.');
+// Еженедельно (Вс) в 23:10 МСК (последние 8 дней, все страницы) - сдвинул на 10 минут и увеличил окно на 1 день
+cron.schedule('10 23 * * 0', () => runScheduledJob('Weekly Update (8d)', [8, 'days'], true), { scheduled: true, timezone: TIMEZONE });
+console.log('Еженедельный (8д, Вс) планировщик запущен на 23:10 МСК.');
 
+
+// ... (остальная часть файла с manualImportLastNDays и if (require.main === module) остается без изменений)
 
 async function manualImportLastNDays(days, specificUserId = null) {
     const jobName = `Manual Import (${days}d)${specificUserId ? ` for User ${specificUserId}` : ''}`;
-    console.log(`[Manual Trigger ${moment().tz(TIMEZONE).format()}] Запуск ${jobName}...`);
+    const logTime = moment().tz(TIMEZONE).format();
+    console.log(`[Manual Trigger ${logTime}] Запуск ${jobName}...`);
     try {
-        let queryText = 'SELECT id, vendista_api_token FROM users WHERE vendista_api_token IS NOT NULL';
+        let queryText = 'SELECT id, vendista_api_token, first_name, user_name, telegram_id FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL';
         const queryParams = [];
         if (specificUserId) {
             queryText += ' AND id = $1';
@@ -174,7 +231,7 @@ async function manualImportLastNDays(days, specificUserId = null) {
             let plainVendistaToken;
 
             if (!encryptedToken) {
-                console.warn(`[Manual Trigger] [${jobName}] User ${user.id} не имеет vendista_api_token. Пропуск.`);
+                console.warn(`[Manual Trigger ${logTime}] [${jobName}] User ${user.id} не имеет vendista_api_token. Пропуск.`);
                 await logJobStatus(user.id, jobName, 'skipped_no_token', null, 'User has no vendista_api_token in DB');
                 continue;
             }
@@ -182,25 +239,33 @@ async function manualImportLastNDays(days, specificUserId = null) {
             try {
                 plainVendistaToken = decrypt(encryptedToken);
                 if (!plainVendistaToken) {
-                    console.error(`[Manual Trigger] [${jobName}] Не удалось дешифровать токен для User ${user.id}. Пропуск.`);
+                    const errMsg = `Не удалось дешифровать токен для User ${user.id}.`;
+                    console.error(`[Manual Trigger ${logTime}] [${jobName}] ${errMsg} Пропуск.`);
                     await logJobStatus(user.id, jobName, 'failure', null, 'Token decryption failed');
+                    await sendErrorToAdmin({ userId: user.id, telegramId: user.telegram_id, userFirstName: user.first_name, userUsername: user.user_name, errorContext: `Manual Import Token Decryption for User ${user.id}`, errorMessage: errMsg });
                     continue;
                 }
             } catch (decryptionError) {
-                console.error(`[Manual Trigger] [${jobName}] Ошибка дешифрования токена для User ${user.id}: ${decryptionError.message}. Пропуск.`);
+                const errMsg = `Ошибка дешифрования токена для User ${user.id}: ${decryptionError.message}.`;
+                console.error(`[Manual Trigger ${logTime}] [${jobName}] ${errMsg} Пропуск.`);
                 await logJobStatus(user.id, jobName, 'failure', null, `Token decryption error: ${decryptionError.message}`);
+                await sendErrorToAdmin({ userId: user.id, telegramId: user.telegram_id, userFirstName: user.first_name, userUsername: user.user_name, errorContext: `Manual Import Token Decryption Error for User ${user.id}`, errorMessage: decryptionError.message, errorStack: decryptionError.stack });
                 continue;
             }
 
-            await scheduleSafeImport({
+            addToImportQueue({
                 user_id: user.id,
-                vendistaApiToken: plainVendistaToken, // Используем дешифрованный токен
-                dateFrom, dateTo, fetchAllPages: true
+                vendistaApiToken: plainVendistaToken,
+                dateFrom, dateTo, fetchAllPages: true,
+                user_telegram_id: user.telegram_id,
+                user_first_name: user.first_name,
+                user_user_name: user.user_name
             }, jobName);
         }
-        console.log(`[Manual Trigger] ${jobName} завершен.`);
+        console.log(`[Manual Trigger ${logTime}] ${jobName} задачи добавлены в очередь.`);
     } catch (e) {
-        console.error(`[Manual Trigger] Ошибка в ${jobName}: ${e.message}`);
+        console.error(`[Manual Trigger ${logTime}] Ошибка в ${jobName}: ${e.message}`);
+        await sendErrorToAdmin({ errorContext: `Global error in manual import: ${jobName}`, errorMessage: e.message, errorStack: e.stack });
     }
 }
 
@@ -214,7 +279,11 @@ if (require.main === module) {
 
         if (!isNaN(daysToImport) && daysToImport > 0) {
             manualImportLastNDays(daysToImport, userIdToImport)
-                .then(() => { console.log('Ручной импорт завершен.'); process.exit(0); })
+                .then(() => { 
+                    console.log('Ручной импорт завершен (задачи добавлены в очередь). Для полного завершения дождитесь обработки очереди.');
+                    // Не выходим сразу, даем очереди шанс обработаться
+                    // process.exit(0); 
+                })
                 .catch(e => { console.error('Критическая ошибка при ручном импорте:', e); process.exit(1); });
         } else {
             console.log("Для ручного импорта укажите количество дней, например: manualImport:7 или manualImport:7:123 (для userID 123)");
@@ -223,8 +292,7 @@ if (require.main === module) {
     } else {
         console.log('Файл schedule_imports.js запущен, cron-задачи настроены.');
         console.log('Для ручного импорта: node backend/worker/schedule_imports.js manualImport:DAYS[:USER_ID]');
-        // Не завершаем процесс, если он запущен без аргументов, чтобы cron-задачи продолжали работать
     }
 }
 
-module.exports = { manualImportLastNDays }; // Экспортируем, если нужно вызывать из другого места
+module.exports = { manualImportLastNDays };
