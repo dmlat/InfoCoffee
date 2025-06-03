@@ -7,17 +7,16 @@ const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const pool = require('../db');
 const moment = require('moment-timezone');
+const { sendErrorToAdmin } = require('../utils/adminErrorNotifier'); // <--- НОВЫЙ ИМПОРТ
 
-const TIMEZONE = 'Europe/Moscow'; // Или твоя целевая таймзона
+const TIMEZONE = 'Europe/Moscow';
 
 // --- Aggregating endpoint for Dashboard ---
 router.get('/stats', authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
+    let { from, to } = req.query;
     try {
-        const userId = req.user.userId;
-        let { from, to } = req.query; // Ожидаем строки YYYY-MM-DD от фронтенда (useStatsPolling)
-
         console.log(`[GET /api/transactions/stats] UserID: ${userId}, Raw query params: from=${from}, to=${to}`);
-
         let dateFrom, dateTo;
 
         if (from && to && moment(from, 'YYYY-MM-DD', true).isValid() && moment(to, 'YYYY-MM-DD', true).isValid()) {
@@ -27,7 +26,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
             console.log(`[GET /api/transactions/stats] Invalid or missing date params, defaulting to current month in ${TIMEZONE}`);
             const todayMoscow = moment().tz(TIMEZONE);
             dateFrom = todayMoscow.clone().startOf('month').format('YYYY-MM-DD HH:mm:ss');
-            dateTo = todayMoscow.endOf('month').format('YYYY-MM-DD HH:mm:ss'); // Используем конец текущего дня месяца
+            dateTo = todayMoscow.endOf('month').format('YYYY-MM-DD HH:mm:ss');
         }
         
         console.log(`[GET /api/transactions/stats] SQL Date Range: from='${dateFrom}', to='${dateTo}'`);
@@ -37,13 +36,9 @@ router.get('/stats', authMiddleware, async (req, res) => {
                 COUNT(*) as sales_count, 
                 COALESCE(SUM(amount),0) as revenue_cents
              FROM transactions
-             WHERE user_id = $1
-               AND result = '1' 
-               AND reverse_id = 0
-               AND transaction_time >= $2 
-               AND transaction_time <= $3
-            `,
-            [userId, dateFrom, dateTo] // $1=userId, $2=dateFrom, $3=dateTo
+             WHERE user_id = $1 AND result = '1' AND reverse_id = 0
+               AND transaction_time >= $2 AND transaction_time <= $3`,
+            [userId, dateFrom, dateTo]
         );
         const revenue = Number(trRes.rows[0].revenue_cents) / 100;
         const salesCount = Number(trRes.rows[0].sales_count);
@@ -51,41 +46,40 @@ router.get('/stats', authMiddleware, async (req, res) => {
         const expRes = await pool.query(
             `SELECT COALESCE(SUM(amount),0) as expenses_sum 
              FROM expenses
-             WHERE user_id = $1
-               AND expense_time >= $2 
-               AND expense_time <= $3
-            `,
+             WHERE user_id = $1 AND expense_time >= $2 AND expense_time <= $3`,
             [userId, dateFrom, dateTo]
         );
         const expensesSum = Number(expRes.rows[0].expenses_sum);
 
         res.json({
             success: true,
-            stats: {
-                revenue,
-                salesCount,
-                expensesSum
-            }
+            stats: { revenue, salesCount, expensesSum }
         });
     } catch (err) {
-        console.error("[GET /api/transactions/stats] Error:", err);
+        console.error(`[GET /api/transactions/stats] UserID: ${userId} - Error:`, err);
+        sendErrorToAdmin({
+            userId: userId,
+            errorContext: `GET /api/transactions/stats - UserID: ${userId}`,
+            errorMessage: err.message,
+            errorStack: err.stack,
+            additionalInfo: { query: req.query }
+        }).catch(notifyErr => console.error("Failed to send admin notification from GET /api/transactions/stats:", notifyErr));
         res.status(500).json({ success: false, error: 'Ошибка агрегирования статистики' });
     }
 });
 
 // Stats-endpoint by coffee shops
 router.get('/coffee-stats', authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
+    let { from, to } = req.query;
     try {
-        const userId = req.user.userId;
-        let { from, to } = req.query;
         console.log(`[GET /api/transactions/coffee-stats] UserID: ${userId}, Raw query params: from=${from}, to=${to}`);
-
         let dateFrom, dateTo;
         if (from && to && moment(from, 'YYYY-MM-DD', true).isValid() && moment(to, 'YYYY-MM-DD', true).isValid()) {
             dateFrom = moment.tz(from, TIMEZONE).startOf('day').format('YYYY-MM-DD HH:mm:ss');
             dateTo = moment.tz(to, TIMEZONE).endOf('day').format('YYYY-MM-DD HH:mm:ss');
         } else {
-             console.log(`[GET /api/transactions/coffee-stats] Invalid or missing date params, defaulting to current month in ${TIMEZONE}`);
+            console.log(`[GET /api/transactions/coffee-stats] Invalid or missing date params, defaulting to current month in ${TIMEZONE}`);
             const todayMoscow = moment().tz(TIMEZONE);
             dateFrom = todayMoscow.clone().startOf('month').format('YYYY-MM-DD HH:mm:ss');
             dateTo = todayMoscow.endOf('month').format('YYYY-MM-DD HH:mm:ss');
@@ -106,34 +100,45 @@ router.get('/coffee-stats', authMiddleware, async (req, res) => {
         `, [userId, dateFrom, dateTo]);
         res.json({ success: true, stats: result.rows });
     } catch (err) {
-        console.error("[GET /api/transactions/coffee-stats] Error:", err);
+        console.error(`[GET /api/transactions/coffee-stats] UserID: ${userId} - Error:`, err);
+        sendErrorToAdmin({
+            userId: userId,
+            errorContext: `GET /api/transactions/coffee-stats - UserID: ${userId}`,
+            errorMessage: err.message,
+            errorStack: err.stack,
+            additionalInfo: { query: req.query }
+        }).catch(notifyErr => console.error("Failed to send admin notification from GET /api/transactions/coffee-stats:", notifyErr));
         res.status(500).json({ success: false, error: 'Ошибка агрегации по кофеточкам' });
     }
 });
 
 // Get all transactions (legacy or for detailed view)
 router.get('/', authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
     try {
-        const userId = req.user.userId;
         const result = await pool.query(
             'SELECT * FROM transactions WHERE user_id = $1 ORDER BY transaction_time DESC',
             [userId]
         );
         res.json({ success: true, transactions: result.rows });
     } catch (err) {
-        console.error("[GET /api/transactions/] Error:", err);
+        console.error(`[GET /api/transactions/] UserID: ${userId} - Error:`, err);
+        sendErrorToAdmin({
+            userId: userId,
+            errorContext: `GET /api/transactions/ - UserID: ${userId}`,
+            errorMessage: err.message,
+            errorStack: err.stack
+        }).catch(notifyErr => console.error("Failed to send admin notification from GET /api/transactions/:", notifyErr));
         res.status(500).json({ success: false, error: 'Ошибка сервера при получении транзакций' });
     }
 });
 
 // POST transaction (example for manual addition)
 router.post('/', authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
     try {
-        const userId = req.user.userId;
-        // Assuming all necessary fields are in req.body
-        // Add proper validation and field extraction here
         const {
-            coffee_shop_id, amount, transaction_time, result: tr_result, // renamed result to avoid conflict
+            coffee_shop_id, amount, transaction_time, result: tr_result, 
             reverse_id, terminal_comment, card_number, status,
             bonus, left_sum, left_bonus, machine_item_id
         } = req.body;
@@ -153,7 +158,14 @@ router.post('/', authMiddleware, async (req, res) => {
         );
         res.status(201).json({ success: true, transaction: resultDb.rows[0] });
     } catch (err) {
-        console.error("[POST /api/transactions/] Error:", err);
+        console.error(`[POST /api/transactions/] UserID: ${userId} - Error:`, err);
+        sendErrorToAdmin({
+            userId: userId,
+            errorContext: `POST /api/transactions/ - UserID: ${userId}`,
+            errorMessage: err.message,
+            errorStack: err.stack,
+            additionalInfo: { body: req.body }
+        }).catch(notifyErr => console.error("Failed to send admin notification from POST /api/transactions/:", notifyErr));
         res.status(500).json({ success: false, error: 'Ошибка сервера при добавлении транзакции' });
     }
 });

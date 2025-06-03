@@ -8,6 +8,7 @@ const pool = require('../db'); // Это наш объект { query: Function, 
 const axios = require('axios');
 const crypto = require('crypto');
 const { startImport } = require('../worker/vendista_import_worker');
+const { sendErrorToAdmin } = require('../utils/adminErrorNotifier'); // <--- НОВЫЙ ИМПОРТ
 
 const router = express.Router();
 
@@ -18,12 +19,11 @@ const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 
 if (!JWT_SECRET || !TELEGRAM_BOT_TOKEN || !ENCRYPTION_KEY) {
     console.error("FATAL ERROR: JWT_SECRET, TELEGRAM_BOT_TOKEN, or ENCRYPTION_KEY is not defined in .env file.");
-    // Раскомментируйте, если хотите прерывать запуск при отсутствии ключей
     // process.exit(1); 
 }
 
 const ALGORITHM = 'aes-256-cbc';
-const IV_LENGTH = 16; // Длина вектора инициализации для AES-256-CBC - 16 байт
+const IV_LENGTH = 16; 
 
 function encrypt(text) {
     if (!ENCRYPTION_KEY) {
@@ -38,7 +38,7 @@ function encrypt(text) {
     return iv.toString('hex') + ':' + encrypted;
 }
 
-function decrypt(text) { // Эта функция используется для проверки и потенциально в других местах
+function decrypt(text) { 
     if (!ENCRYPTION_KEY) {
         console.error('ENCRYPTION_KEY is not set. Cannot decrypt.');
         throw new Error('Encryption key not set.');
@@ -63,8 +63,8 @@ function decrypt(text) { // Эта функция используется дл�
 }
 
 const validateTelegramInitData = (initDataString) => {
+    // ... (код validateTelegramInitData остается без изменений)
     if (!TELEGRAM_BOT_TOKEN) {
-        // В реальном проде этот режим должен быть отключен или TELEGRAM_BOT_TOKEN должен быть всегда.
         console.warn('[Auth Validate] TELEGRAM_BOT_TOKEN not configured. Critical for validation. Skipping hash check (DEV ONLY).');
         try {
             const params = new URLSearchParams(initDataString);
@@ -85,7 +85,6 @@ const validateTelegramInitData = (initDataString) => {
         params.delete('hash');
         
         const dataCheckArr = [];
-        // Telegram требует сортировки ключей перед генерацией строки
         const sortedKeys = Array.from(params.keys()).sort();
         sortedKeys.forEach(key => {
             dataCheckArr.push(`${key}=${params.get(key)}`);
@@ -117,9 +116,24 @@ router.post('/telegram-handshake', async (req, res) => {
     }
 
     const validationResult = validateTelegramInitData(initData);
+    let telegramUserForError = null;
+    if (validationResult.data) {
+        telegramUserForError = validationResult.data;
+    }
+
+
     if (!validationResult.valid || !validationResult.data?.id) {
+        const errorMsg = `Invalid Telegram data: ${validationResult.error || 'Unknown validation error'}`;
         console.warn('[POST /api/auth/telegram-handshake] Failed: Invalid Telegram data.', validationResult.error || 'Unknown validation error');
-        return res.status(403).json({ success: false, error: `Invalid Telegram data: ${validationResult.error || 'Unknown validation error'}` });
+        sendErrorToAdmin({
+            telegramId: telegramUserForError?.id,
+            userFirstName: telegramUserForError?.first_name,
+            userUsername: telegramUserForError?.username,
+            errorContext: 'Telegram Handshake Validation',
+            errorMessage: errorMsg,
+            additionalInfo: { initDataProvided: !!initData }
+        }).catch(notifyErr => console.error("Failed to send admin notification from telegram-handshake validation:", notifyErr));
+        return res.status(403).json({ success: false, error: errorMsg });
     }
 
     const telegramUser = validationResult.data;
@@ -127,12 +141,11 @@ router.post('/telegram-handshake', async (req, res) => {
     console.log(`[POST /api/auth/telegram-handshake] Validated Telegram ID: ${telegram_id}`);
 
     try {
-        const userResult = await pool.query('SELECT id, vendista_api_token, setup_date, tax_system, acquiring FROM users WHERE telegram_id = $1', [telegram_id]);
+        const userResult = await pool.query('SELECT id, vendista_api_token, setup_date, tax_system, acquiring, first_name, user_name FROM users WHERE telegram_id = $1', [telegram_id]);
 
         if (userResult.rows.length > 0) {
             const user = userResult.rows[0];
             console.log(`[POST /api/auth/telegram-handshake] User found with ID: ${user.id}`);
-            // Проверяем наличие токена Vendista (он может быть зашифрован, но главное - он есть)
             if (user.vendista_api_token) {
                 console.log(`[POST /api/auth/telegram-handshake] User ${user.id} is fully registered. Action: login_success`);
                 const appToken = jwt.sign({ userId: user.id, telegramId: telegram_id.toString() }, JWT_SECRET, { expiresIn: '12h' });
@@ -143,8 +156,8 @@ router.post('/telegram-handshake', async (req, res) => {
                     user: {
                         userId: user.id,
                         telegramId: telegram_id.toString(),
-                        firstName: telegramUser.first_name,
-                        username: telegramUser.username,
+                        firstName: user.first_name || telegramUser.first_name, // Данные из БД, если есть, иначе из initData
+                        username: user.user_name || telegramUser.username,     // Данные из БД, если есть, иначе из initData
                         setup_date: user.setup_date,
                         tax_system: user.tax_system,
                         acquiring: user.acquiring !== null ? String(user.acquiring) : null,
@@ -155,9 +168,9 @@ router.post('/telegram-handshake', async (req, res) => {
                 res.json({
                     success: true,
                     action: 'registration_incomplete',
-                    telegram_id: telegram_id.toString(), // Важно передавать telegram_id для продолжения регистрации
-                    firstName: telegramUser.first_name,
-                    username: telegramUser.username,
+                    telegram_id: telegram_id.toString(), 
+                    firstName: user.first_name || telegramUser.first_name,
+                    username: user.user_name || telegramUser.username,
                 });
             }
         } else {
@@ -165,13 +178,21 @@ router.post('/telegram-handshake', async (req, res) => {
             res.json({
                 success: true,
                 action: 'registration_required',
-                telegram_id: telegram_id.toString(), // Важно передавать telegram_id для начала регистрации
+                telegram_id: telegram_id.toString(),
                 firstName: telegramUser.first_name,
                 username: telegramUser.username,
             });
         }
     } catch (err) {
         console.error("[POST /api/auth/telegram-handshake] Database/server error:", err);
+        sendErrorToAdmin({
+            telegramId: telegram_id,
+            userFirstName: telegramUser?.first_name,
+            userUsername: telegramUser?.username,
+            errorContext: 'Telegram Handshake DB/Server',
+            errorMessage: err.message,
+            errorStack: err.stack
+        }).catch(notifyErr => console.error("Failed to send admin notification from telegram-handshake DB error:", notifyErr));
         res.status(500).json({ success: false, error: 'Server error during handshake.' });
     }
 });
@@ -188,17 +209,23 @@ router.post('/validate-vendista', async (req, res) => {
         console.log(`[POST /api/auth/validate-vendista] Requesting Vendista token from ${VENDISTA_API_URL}/token`);
         const tokenResp = await axios.get(`${VENDISTA_API_URL}/token`, {
             params: { login: vendista_login, password: vendista_password },
-            timeout: 15000 // 15 секунд таймаут
+            timeout: 15000 
         });
 
         if (tokenResp.data && tokenResp.data.token) {
             const vendista_api_token = tokenResp.data.token;
             console.log(`[POST /api/auth/validate-vendista] Vendista token obtained for TG ID: ${telegram_id}`);
-            // Отправляем нешифрованный токен на фронтенд, шифрование произойдет перед сохранением в /complete-registration
             res.json({ success: true, vendista_api_token_plain: vendista_api_token });
         } else {
+            const errorMsg = tokenResp.data.error || 'Неверные учетные данные Vendista или не удалось получить токен.';
             console.warn(`[POST /api/auth/validate-vendista] Failed to get Vendista token for TG ID: ${telegram_id}. Response:`, tokenResp.data);
-            res.status(401).json({ success: false, error: tokenResp.data.error || 'Неверные учетные данные Vendista или не удалось получить токен.' });
+            sendErrorToAdmin({
+                telegramId: telegram_id,
+                errorContext: `Validate Vendista API for TG ID: ${telegram_id}`,
+                errorMessage: errorMsg,
+                additionalInfo: { vendistaResponse: tokenResp.data }
+            }).catch(notifyErr => console.error("Failed to send admin notification from validate-vendista API error:", notifyErr));
+            res.status(401).json({ success: false, error: errorMsg });
         }
     } catch (err) {
         console.error("[POST /api/auth/validate-vendista] Error:", err.response?.data || err.message);
@@ -210,6 +237,13 @@ router.post('/validate-vendista', async (req, res) => {
         } else if (err.code === 'ECONNABORTED') {
             errorMessage = 'Тайм-аут при подключении к Vendista.';
         }
+        sendErrorToAdmin({
+            telegramId: telegram_id,
+            errorContext: `Validate Vendista Network/Server for TG ID: ${telegram_id}`,
+            errorMessage: errorMessage,
+            errorStack: err.stack,
+            additionalInfo: { responseData: err.response?.data, errorCode: err.code }
+        }).catch(notifyErr => console.error("Failed to send admin notification from validate-vendista catch:", notifyErr));
         res.status(err.response?.status || 500).json({ success: false, error: errorMessage });
     }
 });
@@ -227,6 +261,14 @@ router.post('/complete-registration', async (req, res) => {
         encryptedVendistaToken = encrypt(vendista_api_token_plain);
     } catch (encErr) {
         console.error("[POST /api/auth/complete-registration] Encryption error:", encErr);
+        sendErrorToAdmin({ // <--- Уведомление об ошибке шифрования
+            telegramId: telegram_id,
+            userFirstName: firstName,
+            userUsername: username,
+            errorContext: `Complete Registration - Encryption for TG ID: ${telegram_id}`,
+            errorMessage: encErr.message,
+            errorStack: encErr.stack
+        }).catch(notifyErr => console.error("Failed to send admin notification from encryption error:", notifyErr));
         return res.status(500).json({ success: false, error: 'Ошибка шифрования токена на сервере.' });
     }
     
@@ -243,6 +285,7 @@ router.post('/complete-registration', async (req, res) => {
             userId = userQueryResult.rows[0].id;
             userAction = 'updated';
             console.log(`[POST /api/auth/complete-registration] Updating existing user ID: ${userId} for TG ID: ${telegram_id}`);
+            // Теперь first_name и user_name есть в таблице, и этот запрос должен работать
             await client.query(
                 `UPDATE users SET vendista_api_token = $1, setup_date = $2, tax_system = $3, acquiring = $4, updated_at = NOW(), first_name = $6, user_name = $7
                  WHERE id = $5`,
@@ -251,6 +294,7 @@ router.post('/complete-registration', async (req, res) => {
         } else {
             userAction = 'created';
             console.log(`[POST /api/auth/complete-registration] Inserting new user for TG ID: ${telegram_id}`);
+            // Теперь first_name и user_name есть в таблице, и этот запрос должен работать
             const insertResult = await client.query(
                 `INSERT INTO users (telegram_id, vendista_api_token, setup_date, tax_system, acquiring, first_name, user_name, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) RETURNING id`,
@@ -262,23 +306,33 @@ router.post('/complete-registration', async (req, res) => {
         await client.query('COMMIT');
 
         console.log(`[POST /api/auth/complete-registration] Initiating first import for user ID: ${userId}`);
-        // Важно передавать НЕШИФРОВАННЫЙ токен в startImport
         startImport({
             user_id: userId,
             vendistaApiToken: vendista_api_token_plain, 
             first_coffee_date: setup_date
-        }).catch(importError => console.error(`[POST /api/auth/complete-registration] Initial import failed for user ${userId}:`, importError.message, importError.stack));
+        }).catch(importError => {
+            console.error(`[POST /api/auth/complete-registration] Initial import failed for user ${userId}:`, importError.message, importError.stack);
+            sendErrorToAdmin({ // <--- Уведомление об ошибке импорта
+                userId: userId,
+                telegramId: telegram_id,
+                userFirstName: firstName,
+                userUsername: username,
+                errorContext: `Initial Import after registration for User ID: ${userId}`,
+                errorMessage: importError.message,
+                errorStack: importError.stack
+            }).catch(notifyErr => console.error("Failed to send admin notification for initial import error:", notifyErr));
+        });
 
         const appToken = jwt.sign({ userId: userId, telegramId: telegram_id.toString() }, JWT_SECRET, { expiresIn: '12h' });
 
         res.status(userAction === 'created' ? 201 : 200).json({
             success: true,
             token: appToken,
-            user: { // Возвращаем данные пользователя для обновления на клиенте
+            user: { 
                 userId: userId,
                 telegramId: telegram_id.toString(),
-                firstName: firstName,
-                username: username,
+                firstName: firstName, 
+                username: username,   
                 setup_date: setup_date,
                 tax_system: tax_system,
                 acquiring: acquiringValue !== null ? String(acquiringValue) : null,
@@ -287,6 +341,16 @@ router.post('/complete-registration', async (req, res) => {
     } catch (err) {
         await client.query('ROLLBACK');
         console.error("[POST /api/auth/complete-registration] Error during DB transaction:", err);
+        sendErrorToAdmin({ // <--- Уведомление об ошибке транзакции БД
+            telegramId: telegram_id,
+            userFirstName: firstName,
+            userUsername: username,
+            errorContext: `Complete Registration DB Transaction for TG ID: ${telegram_id}`,
+            errorMessage: err.message,
+            errorStack: err.stack,
+            additionalInfo: { code: err.code, constraint: err.constraint }
+        }).catch(notifyErr => console.error("Failed to send admin notification for DB transaction error:", notifyErr));
+
         if (err.code === '23505' && err.constraint === 'users_telegram_id_unique') {
             return res.status(409).json({ success: false, error: 'Этот Telegram аккаунт уже зарегистрирован.' });
         }
@@ -305,9 +369,22 @@ router.post('/refresh-app-token', async (req, res) => {
     }
 
     const validationResult = validateTelegramInitData(initData);
+    let telegramUserForErrorRefresh = null;
+    if (validationResult.data) {
+        telegramUserForErrorRefresh = validationResult.data;
+    }
+
     if (!validationResult.valid || !validationResult.data?.id) {
+        const errorMsg = `Invalid Telegram data for refresh: ${validationResult.error || 'Unknown'}`;
         console.warn('[POST /api/auth/refresh-app-token] Failed: Invalid Telegram initData for refresh.', validationResult.error);
-        return res.status(401).json({ success: false, error: `Invalid Telegram data for refresh: ${validationResult.error || 'Unknown'}` });
+        sendErrorToAdmin({
+            telegramId: telegramUserForErrorRefresh?.id,
+            userFirstName: telegramUserForErrorRefresh?.first_name,
+            userUsername: telegramUserForErrorRefresh?.username,
+            errorContext: 'Refresh App Token Validation',
+            errorMessage: errorMsg
+        }).catch(notifyErr => console.error("Failed to send admin notification from refresh token validation:", notifyErr));
+        return res.status(401).json({ success: false, error: errorMsg });
     }
     
     const telegramUser = validationResult.data;
@@ -321,15 +398,31 @@ router.post('/refresh-app-token', async (req, res) => {
         );
 
         if (userRes.rows.length === 0) {
+            const errorMsg = 'Пользователь не найден. Пожалуйста, войдите снова.';
             console.warn(`[POST /api/auth/refresh-app-token] User not found for TG ID: ${telegram_id}. Cannot refresh token.`);
-            return res.status(401).json({ success: false, error: 'Пользователь не найден. Пожалуйста, войдите снова.' });
+            sendErrorToAdmin({
+                telegramId: telegram_id,
+                userFirstName: telegramUser.first_name,
+                userUsername: telegramUser.username,
+                errorContext: 'Refresh App Token - User Not Found',
+                errorMessage: errorMsg
+            }).catch(notifyErr => console.error("Failed to send admin notification for refresh token user not found:", notifyErr));
+            return res.status(401).json({ success: false, error: errorMsg });
         }
         
         const user = userRes.rows[0];
-        // Проверяем, что у пользователя есть токен Vendista (даже если он зашифрован, он должен быть в БД)
         if (!user.vendista_api_token) {
+            const errorMsg = 'Настройка аккаунта не завершена. Невозможно обновить токен.';
             console.warn(`[POST /api/auth/refresh-app-token] User ${user.id} (TG: ${telegram_id}) missing Vendista API token. Cannot refresh.`);
-            return res.status(401).json({ success: false, error: 'Настройка аккаунта не завершена. Невозможно обновить токен.' });
+             sendErrorToAdmin({
+                userId: user.id,
+                telegramId: telegram_id,
+                userFirstName: user.first_name || telegramUser.first_name,
+                userUsername: user.user_name || telegramUser.username,
+                errorContext: 'Refresh App Token - Vendista Token Missing',
+                errorMessage: errorMsg
+            }).catch(notifyErr => console.error("Failed to send admin notification for refresh token missing vendista token:", notifyErr));
+            return res.status(401).json({ success: false, error: errorMsg });
         }
         
         const newAppToken = jwt.sign({ userId: user.id, telegramId: telegram_id.toString() }, JWT_SECRET, { expiresIn: '12h' });
@@ -341,8 +434,8 @@ router.post('/refresh-app-token', async (req, res) => {
             user: { 
                 userId: user.id,
                 telegramId: telegram_id.toString(),
-                firstName: telegramUser.first_name, // Используем свежие данные из initData если они поменялись
-                username: telegramUser.username,   // Используем свежие данные из initData
+                firstName: user.first_name || telegramUser.first_name, 
+                username: user.user_name || telegramUser.username,   
                 setup_date: user.setup_date,
                 tax_system: user.tax_system,
                 acquiring: user.acquiring !== null ? String(user.acquiring) : null,
@@ -350,6 +443,14 @@ router.post('/refresh-app-token', async (req, res) => {
         });
     } catch (err) {
         console.error("[POST /api/auth/refresh-app-token] Error during token refresh:", err);
+        sendErrorToAdmin({
+            telegramId: telegram_id,
+            userFirstName: telegramUser?.first_name,
+            userUsername: telegramUser?.username,
+            errorContext: 'Refresh App Token - Server Error',
+            errorMessage: err.message,
+            errorStack: err.stack
+        }).catch(notifyErr => console.error("Failed to send admin notification for refresh token server error:", notifyErr));
         res.status(500).json({ success: false, error: 'Внутренняя ошибка сервера при обновлении токена.' });
     }
 });
