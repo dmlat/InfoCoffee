@@ -56,51 +56,58 @@ body {
   border-radius: 0; 
 }
 
-/* === СТИЛИ ДЛЯ НОВОЙ ДВУХРЯДНОЙ НАВИГАЦИИ (на основе старого .tabs-container) === */
-.tabs-sticky-wrapper { /* Новый главный контейнер для навигации, заменяет .tabs-container */
+/* frontend/src/index.css */
+
+/* ... (все стили до .tabs-sticky-wrapper остаются как есть) ... */
+
+/* === СТИЛИ ДЛЯ НОВОЙ ДВУХРЯДНОЙ НАВИГАЦИИ === */
+.tabs-sticky-wrapper {
   display: flex;
-  flex-direction: column; /* Располагаем ряды друг под другом */
-  gap: 8px; /* Отступ между рядами кнопок */
-  margin-bottom: 24px; /* Отступ снизу от навигации до основного контента */
-  border-bottom: 1px solid #303548; /* Линия под всей навигацией */
+  flex-direction: column;
+  gap: 10px; /* Увеличен отступ между рядами кнопок */
+  margin-bottom: 24px; 
+  border-bottom: 1px solid #303548;
   
   position: sticky; 
-  top: -16px; /* Компенсирует padding-top родителя (.dashboard-content-wrapper) для прилипания к верху экрана */
-  padding-top: 16px; /* Внутренний отступ для контента, компенсирующий top: -16px */
+  top: -16px; 
+  padding-top: 16px; /* Компенсация для top: -16px */
+  padding-bottom: 10px; /* Небольшой отступ снизу внутри контейнера навигации */
   
-  background: #20232a; /* Фон области навигации */
+  background: #20232a; 
   z-index: 10;
   
-  /* Эти стили растягивают фон .tabs-sticky-wrapper на всю ширину .dashboard-content-wrapper, 
-     учитывая его padding (20px слева/справа) */
   margin-left: -20px; 
   margin-right: -20px; 
-  padding-left: 20px; /* Внутренний отступ для содержимого (рядов кнопок), чтобы они выравнивались с остальным контентом */
-  padding-right: 20px; /* Внутренний отступ для содержимого */
+  padding-left: 20px; 
+  padding-right: 20px;
   box-sizing: border-box;
 }
 
-.tabs-row-layout { /* Контейнер для каждого ряда кнопок */
+.tabs-row-layout {
   display: flex;
-  justify-content: center; /* Центрируем кнопки в ряду */
-  gap: 8px; /* Отступ между кнопками в ряду */
+  justify-content: center; 
+  gap: 12px; /* Увеличен отступ между кнопками в ряду */
   width: 100%;
 }
 
-.tab-btn { /* Стили для самих кнопок навигации */
+.tab-btn {
   background: none;
   border: none;
   color: #8a9db8;
-  padding: 10px 15px; /* Можно немного уменьшить padding для компактности, если нужно */
-  font-size: 0.9em;
+  padding: 12px 15px; /* Немного увеличен padding для "крупности" */
+  font-size: 0.95em; /* Немного увеличен шрифт */
   font-weight: 600;
   cursor: pointer;
   border-bottom: 3px solid transparent;
   transition: color 0.2s, border-color 0.2s;
   white-space: nowrap;
+  text-align: center; /* Добавлено для лучшего центрирования текста */
 
-  flex: 1; /* Кнопки в ряду будут занимать равное пространство */
-  max-width: calc(100% / 3 - 6px); /* Для 3х кнопок в ряду с учетом gap (8px * 2 / 3 ~ 5.33px, округлим до 6px для безопасности) */
+  flex: 1; 
+  /* max-width рассчитывается так, чтобы 3 кнопки поместились с новым gap:
+     (100% / 3) - (gap_между_двумя_кнопками * 2 / 3_кнопки) 
+     (100% / 3) - (12px * 2 / 3) = (100% / 3) - 8px */
+  max-width: calc(33.333% - 8px); 
   box-sizing: border-box;
 }
 
@@ -175,31 +182,34 @@ input[type="date"].period-date-input:disabled {
 
 .period-buttons-container {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px; 
+  /* 2 ряда по 4 кнопки: grid-template-columns определяет колонки, ряды формируются автоматически */
+  grid-template-columns: repeat(4, 1fr); /* 4 кнопки в ряд */
+  gap: 8px; /* Увеличен gap для лучшего разделения */
   width: 100%;
+  margin-bottom: 8px; /* Добавим небольшой отступ, если есть элементы ниже */
 }
 
 .period-btn {
   background-color: #2e3340;
   color: #a0b0c8;
   border: 1px solid #303548;
-  padding: 6px 5px;       
+  padding: 8px 6px; /* Немного увеличен вертикальный padding */     
   border-radius: 6px;     
   cursor: pointer;
   font-weight: 500;
   text-align: center;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-  font-size: 0.78em;
-  width: 100%;
+  font-size: 0.8em; /* Можно чуть увеличить, если нужно, было 0.78em */
+  width: 100%; /* Кнопка займет всю ширину ячейки грида */
   box-sizing: border-box;
-  min-height: 32px;
+  min-height: 36px; /* Увеличена минимальная высота */
   display: flex; 
   align-items: center; 
   justify-content: center; 
-  line-height: 1.1;       
+  line-height: 1.2;       
   white-space: normal;    
 }
+
 .period-btn:hover {
   background-color: #383e4c;
   border-color: #484e5c;
@@ -630,10 +640,10 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
     padding: 16px 10px 15px 10px !important; 
   }
 
-  .tabs-sticky-wrapper { /* Бывший .tabs-container для мобильных */
-    gap: 4px !important; /* Уменьшаем отступ между рядами */
-    padding-top: 10px !important; /* Уменьшаем верхний отступ */
-    padding-bottom: 10px !important;
+  .tabs-sticky-wrapper {
+    gap: 6px !important; 
+    padding-top: 10px !important; 
+    padding-bottom: 8px !important; /* Скорректирован отступ */
     margin-bottom: 16px !important;
     
     /* Компенсация паддингов родителя для растягивания фона */
@@ -646,17 +656,12 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   }
 
   .tabs-row-layout {
-    gap: 6px; /* Уменьшаем отступ между кнопками на мобильных */
-    /* Если кнопки не помещаются, можно добавить скролл для ряда: */
-    /* overflow-x: auto; */
-    /* -webkit-overflow-scrolling: touch; */
-    /* justify-content: flex-start; */ /* Если скролл */
+    gap: 6px; 
   }
 
-  .tab-btn { /* Специфично для кнопок в новой навигации на мобильных */
-    padding: 8px 5px; 
-    font-size: 0.80em;
-    /* max-width рассчитывается автоматически через flex:1 и gap */
+  .tab-btn {
+    padding: 10px 5px;
+    font-size: 0.82em;
   }
 
   .page-container { 
@@ -694,11 +699,10 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   }
 
   .period-buttons-container { 
-    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); /* Более гибко */
+    /* grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); /* Можно вернуть для большей гибкости */
+    /* Если оставляем 4 в ряд, то они будут уже */
     gap: 6px; 
-    margin-bottom: 10px; 
   }
-   /* @media (max-width: 390px) - уже не нужно, auto-fit справится */
 
   .period-btn {
     font-size: 0.75em; 
