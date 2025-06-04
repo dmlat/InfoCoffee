@@ -59,37 +59,54 @@ body {
 /* === СТИЛИ ДЛЯ НОВОЙ ДВУХРЯДНОЙ НАВИГАЦИИ === */
 .tabs-sticky-wrapper {
   display: flex;
-  flex-direction: column;
-  align-items: center; /* Центрирует ВЕСЬ контент внутри контейнера (в т.ч. .tabs-row-layout и любые дополнительные элементы) (меняемый) */
-  gap: 8px; /* Вертикальный отступ между элементами внутри контейнера (меняемый) */
-  margin-bottom: 24px; /* Отступ снизу от контейнера до следующего блока (меняемый) */
+  flex-direction: column; 
+  align-items: center; /* Центрируем дочерние .tabs-row-layout */
+  gap: 8px; 
+  margin-bottom: 24px; /* Отступ снизу от всей навигации */
   border-bottom: 1px solid #303548;
-
-  position: sticky;
-  top: 0; /* Прилипает к верху родителя (.dashboard-content-wrapper) (меняемый) */
-  padding-top: 6px; /* МЕНЬШИЙ верхний отступ внутри контейнера (меняемый) */
-  padding-bottom: 0; /* Теперь здесь 0, а отступ снизу обеспечит .tabs-bottom-spacer (см. ниже) */
-  background: #20232a; /* Фон контейнера (меняемый) */
+  
+  position: sticky; 
+  /* top: 0; сделает так, что верхняя граница .tabs-sticky-wrapper будет прилипать 
+    к верху .dashboard-content-wrapper (который имеет padding-top: 16px).
+    Это создаст отступ 16px от верха экрана до начала фона навигации.
+    padding-top самого .tabs-sticky-wrapper добавит еще отступ до первого ряда кнопок.
+  */
+  top: 0; 
+  padding-top: 10px; /* Отступ сверху внутри контейнера навигации до первого ряда кнопок */
+  padding-bottom: 12px; /* Увеличен отступ снизу внутри контейнера навигации после второго ряда */
+  
+  background: #20232a; 
   z-index: 10;
-
+  
+  /* УБИРАЕМ margin-left/right и padding-left/right для растягивания.
+     Теперь контейнер будет естественной ширины своего содержимого (или 100% родителя, если задано),
+     но align-items: center на нем будет центрировать .tabs-row-layout, если он имеет max-width. */
   box-sizing: border-box;
-  width: 100%; /* Занимает всю ширину родителя (меняемый) */
+  width: 100%; /* Занимает всю ширину .dashboard-content-wrapper */
 }
 
 .tabs-row-layout {
   display: flex;
-  justify-content: center; /* Центрирует сами табы по горизонтали (меняемый, можно 'space-between' или 'flex-start') */
-  gap: 10px; /* Горизонтальный gap между табами (меняемый) */
-  width: 100%; /* Занимает всю ширину контейнера (меняемый) */
-  max-width: 600px; /* Ограничение ширины ряда табов на больших экранах (меняемый или убери для полной ширины) */
+  /* justify-content: space-between; /* Если кнопки не flex:1, это распределит их равномерно */
+  /* С flex:1 на кнопках, justify-content: center лучше подойдет для центрирования группы кнопок */
+  justify-content: center; 
+  gap: 12px; /* Отступ между кнопками в ряду, немного увеличен */
+  width: 100%; 
+  /* Ограничиваем максимальную ширину ряда кнопок, чтобы они не растягивались бесконечно.
+     Это значение должно быть меньше или равно max-width родителя .dashboard-content-wrapper (1180px)
+     и учитывать боковые отступы самого .tabs-sticky-wrapper (если они есть, но сейчас их нет).
+     Это позволит ряду кнопок центрироваться, если его содержимое меньше этой ширины. */
+  max-width: 700px; /* Например, максимальная ширина для ряда кнопок. Подбери по вкусу. */
+                   /* Если хочешь, чтобы кнопки всегда растягивались до краев .dashboard-content-wrapper (с учетом его padding),
+                      то убери этот max-width или сделай его равным ширине контента. */
 }
 
 .tab-btn {
   background: none;
   border: none;
   color: #8a9db8;
-  padding: 10px 12px; /* Внутренние отступы кнопки (меняемый) */
-  font-size: 0.92em;  /* Размер шрифта (меняемый) */
+  padding: 10px 15px; /* Увеличены паддинги для "крупности" */
+  font-size: 0.95em;  /* Увеличен шрифт */
   font-weight: 600;
   cursor: pointer;
   border-bottom: 3px solid transparent;
@@ -97,10 +114,11 @@ body {
   white-space: nowrap;
   text-align: center;
 
-  flex-grow: 1; /* Кнопки растягиваются (меняемый) */
-  flex-shrink: 1; /* Кнопки могут сжиматься (меняемый) */
-  flex-basis: 0; /* Исходная ширина (оставь 0 для равномерного распределения) */
-  min-width: 80px; /* Минимальная ширина кнопки (меняемый) */
+  flex-grow: 1; 
+  flex-shrink: 1; 
+  flex-basis: 0; 
+  /* max-width убран, чтобы кнопки равномерно делили пространство в .tabs-row-layout */
+  min-width: 90px; /* Минимальная ширина кнопки, чтобы текст влезал */
   box-sizing: border-box;
 }
 
@@ -112,13 +130,6 @@ body {
   color: #8ae6ff;
   border-bottom-color: #8ae6ff;
 }
-
-/* Спейсер для нижнего отступа под табами (аналог padding-bottom:6px) */
-.tabs-bottom-spacer {
-  height: 6px; /* Отступ снизу — подбери под свой padding-top (меняемый) */
-  width: 100%;
-}
-
 /* === КОНЕЦ СТИЛЕЙ ДЛЯ НОВОЙ НАВИГАЦИИ === */
 
 .page-container {
@@ -636,27 +647,36 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 }
 
 @media (max-width: 767px) {
+  .dashboard-content-wrapper {
+    padding: 16px 10px 15px 10px !important; 
+  }
+
   .tabs-sticky-wrapper {
-    gap: 6px !important; /* Меньший вертикальный отступ между элементами (меняемый) */
-    padding-top: 4px !important; /* Ещё меньший верхний отступ (меняемый) */
-    padding-bottom: 0 !important; /* Отступ снизу всегда через .tabs-bottom-spacer */
-    margin-bottom: 16px !important; /* Меньше внешний отступ снизу (меняемый) */
-    top: 0;
+    gap: 6px !important; 
+    padding-top: 8px !important; 
+    padding-bottom: 8px !important; 
+    margin-bottom: 16px !important;
+    top: 0; /* Как и для десктопа, прилипает к верху .dashboard-content-wrapper */
+    /* Убраны margin-left/right и padding-left/right, которые были в предыдущей мобильной версии,
+       т.к. .tabs-sticky-wrapper теперь не должен растягиваться за пределы родителя. */
   }
 
   .tabs-row-layout {
-    gap: 8px; /* Меньше gap между табами (меняемый) */
-    max-width: 100%; /* На мобильных весь ряд занимает всю ширину (меняемый) */
+    gap: 8px; /* Отступ между кнопками для мобильных */
+    max-width: 100%; /* На мобильных ряд кнопок занимает всю доступную ширину */
+    justify-content: center; /* Убедимся, что кнопки центрированы, если их меньше 3х в ряду */
   }
 
   .tab-btn {
-    padding: 8px 6px; /* Меньше padding для мобильных (меняемый) */
-    font-size: 0.82em; /* Меньше шрифт (меняемый) */
-    min-width: 70px; /* Минимальная ширина кнопки на мобилках (меняемый) */
+    padding: 9px 8px; /* Скорректирован padding для мобильных */
+    font-size: 0.85em; /* Скорректирован шрифт для мобильных */
+    min-width: 0; /* Позволяем кнопкам быть уже, если нужно, flex-basis:0 сделает свое дело */
+    /* flex-grow, flex-shrink, flex-basis остаются для равномерного распределения */
   }
 
-  .tabs-bottom-spacer {
-    height: 4px; /* Меньший отступ под табами (меняемый) */
+  .page-container { 
+    flex-direction: column;
+    gap: 20px;
   }
 
   .main-content-area,
