@@ -1,4 +1,4 @@
-/* src/index.css */
+/* frontend/src/index.css */
 /* Общие стили для всего документа */
 html, body {
   height: 100%;
@@ -17,6 +17,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden; /* Предотвращаем горизонтальный скролл всей страницы */
 }
 
 #root {
@@ -40,11 +41,13 @@ body {
   height: 100vh; 
   background-color: #23272f; 
   color: #c6c6c6;
+  /* overflow-x: hidden; /* Можно и сюда, если body недостаточно */
 }
 
 .dashboard-content-wrapper {
   flex-grow: 1; 
   overflow-y: auto; 
+  overflow-x: hidden; /* Важно для предотвращения "выползания" контента */
   padding: 16px 20px 24px 20px; 
   box-sizing: border-box;
   background: #20232a; 
@@ -54,39 +57,55 @@ body {
   border-radius: 0; 
 }
 
-.tabs-container {
+/* Стили для новой двухрядной навигации */
+.tabs-navigation-container {
   display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
+  flex-direction: column;
+  gap: 6px; /* Отступ между рядами кнопок */
+  margin-bottom: 20px; /* Отступ снизу от навигации */
   border-bottom: 1px solid #303548;
-  padding-bottom: 16px;
-  justify-content: center;
-  position: sticky; 
-  top: -16px; 
-  padding-top: 16px; 
+  
+  position: sticky;
+  top: -16px; /* Компенсирует padding-top родителя (.dashboard-content-wrapper) */
+  padding-top: 16px; /* Внутренний отступ для контента, компенсирующий top: -16px */
   background: #20232a; 
   z-index: 10;
+  
+  /* Растягиваем фон на всю ширину .dashboard-content-wrapper, учитывая его padding */
   margin-left: -20px; 
   margin-right: -20px; 
   padding-left: 20px; 
   padding-right: 20px;
+  box-sizing: border-box; /* Убедимся, что padding не выходит за пределы */
+}
+
+.tabs-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px; 
+  width: 100%;
 }
 
 .tab-btn {
   background: none;
   border: none;
   color: #8a9db8;
-  padding: 10px 15px;
-  font-size: 0.9em;
+  padding: 8px 10px; /* Уменьшен padding для компактности */
+  font-size: 0.85em; /* Уменьшен шрифт */
   font-weight: 600;
   cursor: pointer;
   border-bottom: 3px solid transparent;
   transition: color 0.2s, border-color 0.2s;
   white-space: nowrap;
+  flex: 1; 
+  max-width: calc(100% / 3 - 6px); 
+  box-sizing: border-box;
 }
+
 .tab-btn:hover {
   color: #a6bcdf;
 }
+
 .tab-btn.active {
   color: #8ae6ff;
   border-bottom-color: #8ae6ff;
@@ -98,14 +117,13 @@ body {
   gap: 20px; 
 }
 
-/* === ИЗМЕНЕНИЯ ДЛЯ КНОПОК ПЕРИОДОВ И SIDEBAR === */
 .sidebar-area {
   flex: 1;
   min-width: 220px; 
-  max-width: 280px; /* Максимальная ширина для сайдбара */
+  max-width: 280px;
   display: flex;
   flex-direction: column;
-  gap: 12px; /* Отступ между блоком дат и блоком кнопок */
+  gap: 12px;
 }
 
 .date-inputs-container {
@@ -120,14 +138,15 @@ body {
 .date-input-item {
   display: flex;
   flex-direction: column; 
-  flex: 1; /* Поля дат занимают равную ширину */
+  flex: 1;
 }
+
 .date-input-item label {
-  font-size: 0.85em; /* Немного уменьшен шрифт для лейблов дат */
+  font-size: 0.85em;
   color: #a0b0c8; 
-  font-weight: 500; /* Менее жирный */
+  font-weight: 500;
   display: block;
-  margin-bottom: 4px; /* Меньше отступ */
+  margin-bottom: 4px;
   text-align: left; 
 }
 
@@ -135,12 +154,12 @@ input[type="date"].period-date-input {
   background-color: #2e3340;
   color: #c6c6c6;
   border: 1px solid #303548;
-  padding: 7px 8px; /* Уменьшен padding */
-  height: 36px; /* Уменьшена высота */
+  padding: 7px 8px;
+  height: 36px;
   box-sizing: border-box;
   border-radius: 6px;
   font-family: inherit;
-  font-size: 0.85em; /* Уменьшен шрифт */
+  font-size: 0.85em;
   width: 100%;
 }
 input[type="date"].period-date-input::-webkit-calendar-picker-indicator {
@@ -153,7 +172,7 @@ input[type="date"].period-date-input:disabled {
 
 .period-buttons-container {
   display: grid;
-  grid-template-columns: repeat(4, 1fr); /* Всегда 4 колонки */
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px; 
   width: 100%;
 }
@@ -168,10 +187,10 @@ input[type="date"].period-date-input:disabled {
   font-weight: 500;
   text-align: center;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-  font-size: 0.78em;       /* Уменьшен шрифт еще немного */
+  font-size: 0.78em;
   width: 100%;
   box-sizing: border-box;
-  min-height: 32px;       /* Уменьшена минимальная высота */
+  min-height: 32px;
   display: flex; 
   align-items: center; 
   justify-content: center; 
@@ -189,9 +208,7 @@ input[type="date"].period-date-input:disabled {
   border-color: #3e67e0;
   font-weight: 600;
 }
-/* === КОНЕЦ ИЗМЕНЕНИЙ ДЛЯ КНОПОК ПЕРИОДОВ И SIDEBAR === */
 
-/* Стили для кнопок действий */
 .action-btn {
   background: #3e67e0;
   color: #fff;
@@ -244,7 +261,6 @@ input[type="date"].period-date-input:disabled {
   width: 100%; 
 }
 
-/* === СТИЛИ ДЛЯ ФОРМЫ РАСХОДОВ (ExpensesPage.js) === */
 .expense-form-container {
   display: flex;
   flex-direction: column;
@@ -321,7 +337,6 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   font-size: 0.9em;
 }
 
-/* === ОБЩИЕ СТИЛИ ДЛЯ ТАБЛИЦ (ExpensesPage, FinancesPage) === */
 .data-table-container {
   overflow-x: auto; 
   background: #282c34;
@@ -333,7 +348,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88em; /* Уменьшен базовый размер шрифта для таблиц */
+  font-size: 0.88em;
 }
 
 .data-table thead {
@@ -344,7 +359,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 }
 
 .data-table th {
-  padding: 9px 10px; /* Уменьшен padding */
+  padding: 9px 10px;
   color: #8ae6ff;    
   font-weight: 600;  
   text-align: left;
@@ -353,9 +368,9 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 }
 
 .data-table td {
-  padding: 8px 10px; /* Уменьшен padding */
+  padding: 8px 10px;
   border-bottom: 1px solid #23272f; 
-  color: #c0c0c0; /* Слегка осветлил текст в ячейках */
+  color: #c0c0c0;
   text-align: left;
 }
 
@@ -365,22 +380,21 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 }
 
 .data-table tbody tr:nth-child(odd) {
-  background: #262a36; /* Фон для нечетных строк */
+  background: #262a36;
 }
 .data-table tbody tr:nth-child(even) {
-  background: #282c34; /* Фон для четных строк (совпадает с фоном контейнера) */
+  background: #282c34;
 }
 
 .data-table tbody tr:last-child td {
   border-bottom: none; 
 }
 
-/* Специфичные стили для ячеек data-table */
 .data-table .td-amount, .data-table .td-revenue {
   color: #e0e0e0;
   font-weight: 500;
   text-align: right; 
-  white-space: nowrap; /* Для суммы и знака рубля */
+  white-space: nowrap;
 }
 .data-table .td-date {
   white-space: nowrap;
@@ -388,7 +402,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 .data-table .td-comment {
   white-space: pre-wrap;
   word-break: break-word;
-  min-width: 120px; /* Немного уменьшил */
+  min-width: 120px;
 }
 .data-table .td-action {
   text-align: center;
@@ -403,17 +417,15 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 }
 .data-table .td-coffee-shop-name {
     white-space: normal; 
-    word-break: break-word; /* Позволяем переносить название кофейни */
+    word-break: break-word;
     min-width: 120px; 
-    vertical-align: middle; /* Для лучшего вида при переносе */
+    vertical-align: middle;
 }
-.data-table .td-sales-count { /* Для количества продаж */
+.data-table .td-sales-count {
   text-align: right;
   white-space: nowrap;
 }
 
-
-/* === СТИЛИ ДЛЯ FinancesPage (карточки и уникальная таблица) === */
 .summary-card, .coffee-stats-card {
   background: #282c34; 
   padding: 18px;
@@ -468,14 +480,12 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   border-bottom: none;
 }
 
-.table-scroll-container { /* Для таблицы coffee-stats */
+.table-scroll-container {
   max-height: 400px;
   overflow-y: auto; 
-  /* background: #282c34; -- убрано, фон от coffee-stats-card */
   border-radius: 0 0 12px 12px; 
 }
 
-/* coffee-stats-table теперь использует общий .data-table */
 .coffee-stats-table { 
   /* Наследует стили от .data-table */
 }
@@ -483,7 +493,6 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 .coffee-stats-table td.text-right {
   text-align: right;
 }
-/* Чередование строк уже есть в .data-table */
 
 .loading-message, .empty-data-message { 
   color: #888;
@@ -503,7 +512,6 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
     text-align: center;
 }
 
-/* === СТИЛИ ДЛЯ ProfilePage === */
 .profile-page-layout .main-content-area {
   max-width: 700px; 
   margin: 0 auto; 
@@ -614,33 +622,30 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   margin-bottom: 8px;
 }
 
-
-/* === СТИЛИ ДЛЯ АДАПТИВНОСТИ (МОБИЛЬНЫЕ УСТРОЙСТВА) === */
 @media (max-width: 767px) {
   .dashboard-content-wrapper {
     padding: 16px 10px 15px 10px !important; 
   }
 
-  .tabs-container {
-    gap: 0px !important;
-    padding-bottom: 10px !important;
-    margin-bottom: 16px !important;
-    overflow-x: auto;
-    white-space: nowrap;
-    -webkit-overflow-scrolling: touch;
-    justify-content: flex-start;
-    margin-left: -10px; 
-    margin-right: -10px;
-    padding-left: 10px;
-    padding-right: 10px;
-    width: calc(100% + 20px); 
-    box-sizing: border-box;
-    top: -16px; 
+  .tabs-navigation-container {
+    padding-top: 10px; /* Уменьшаем верхний отступ контейнера табов */
+    top: 0; /* Прилипает к верху .dashboard-content-wrapper */
+    /* margin-left/right остаются 0, padding-left/right тоже 0, т.к. родитель уже имеет padding */
+    /* Для скроллинга кнопок, если их станет много в ряду */
+    /* overflow-x: auto; */ /* Это для каждого .tabs-row, если нужно */
+    /* white-space: nowrap; */ /* Это для каждого .tabs-row, если нужно */
+  }
+  .tabs-navigation-container .tabs-row {
+    gap: 6px;
+    /* Если кнопки не помещаются, и мы хотим их скроллить: */
+    /* overflow-x: auto; */
+    /* -webkit-overflow-scrolling: touch; */
+    /* justify-content: flex-start; */ /* Если скролл */
   }
 
-  .tab-btn {
-    padding: 8px 10px;
-    font-size: 0.85em;
+  .tabs-navigation-container .tab-btn {
+    font-size: 0.8em;
+    padding: 8px 5px; 
   }
 
   .page-container { 
@@ -671,26 +676,25 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   .date-input-item label {
     font-size: 0.85em; 
   }
-  input[type="date"].period-date-input { /* Уменьшим для мобильных */
-    font-size: 0.85em; /* Будет переопределено на 16px глобальным правилом ниже! */
-    padding: 7px 8px;
-    height: 36px;
+  input[type="date"].period-date-input {
+    font-size: 16px !important; 
+    padding: 7px 8px; 
+    height: 38px; 
   }
 
-
   .period-buttons-container { 
-    grid-template-columns: repeat(4, 1fr); /* 4 колонки для мобильных по умолчанию */
+    grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
     gap: 6px; 
     margin-bottom: 10px; 
   }
-   @media (max-width: 390px) { /* Если экран очень узкий, делаем 2 колонки */
+   @media (max-width: 390px) {
      .period-buttons-container {
-       grid-template-columns: repeat(2, 1fr);
+       grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
      }
    }
 
   .period-btn {
-    font-size: 0.78em; 
+    font-size: 0.75em; 
     padding: 6px 4px; 
     min-height: 32px; 
     line-height: 1.1;
@@ -711,12 +715,12 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   input[type="number"],
   textarea,
   select,
-  .expense-form-input { /* Добавил .expense-form-input сюда явно */
+  .expense-form-input {
     font-size: 16px !important; 
   }
 
   .data-table {
-    font-size: 0.82em !important; /* Еще немного уменьшим шрифт таблиц на мобильных */
+    font-size: 0.82em !important;
   }
   .data-table th, .data-table td,
   .summary-table td { 
@@ -747,9 +751,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
     min-height: 34px;
   }
 }
-/* === КОНЕЦ СТИЛЕЙ ДЛЯ АДАПТИВНОСТИ === */
 
-/* === СТИЛИ ДЛЯ СТРАНИЦ АУТЕНТИФИКАЦИИ === */
 .auth-container { 
   background-color: #23272f; 
   min-height: 100vh; 
@@ -794,8 +796,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 .auth-form-wrapper input[type="date"],
 .auth-form .form-field input[type="text"], 
 .auth-form .form-field input[type="password"], 
-.auth-form .form-field input[type="date"] 
- {
+.auth-form .form-field input[type="date"] {
   width: 100%; 
   padding: 12px 15px; 
   margin-bottom: 15px; 
@@ -912,7 +913,6 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   margin-right: 5px; 
 }
 
-/* App Entry Page Styles */
 .app-entry-container { 
   display: flex;
   flex-direction: column;
@@ -939,7 +939,6 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   margin-top: 10px;
 }
 
-/* App Error Container (from App.js) */
 .app-error-container { 
   display: flex;
   flex-direction: column;
@@ -955,81 +954,3 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   color: salmon;
   margin-bottom: 15px;
 }
-
-/* ДОБАВИТЬ В КОНЕЦ ФАЙЛА frontend/src/index.css */
-
-/* Стили для контейнера навигации */
-.tabs-navigation-container {
-  display: flex;
-  flex-direction: column; /* Располагаем ряды друг под другом */
-  gap: 8px; /* Отступ между рядами кнопок */
-  margin-bottom: 24px;
-  padding-bottom: 16px; /* Отступ снизу до контента */
-  border-bottom: 1px solid #303548; /* Линия под всей навигацией */
-  
-  /* Стили для прилипания, как у старого .tabs-container */
-  position: sticky; 
-  top: -16px; /* Компенсируем padding родителя, чтобы прилипало к верху видимой области */
-  padding-top: 16px; 
-  background: #20232a; /* Фон области навигации */
-  z-index: 10;
-  margin-left: -20px; /* Компенсируем padding родителя .dashboard-content-wrapper */
-  margin-right: -20px; /* Компенсируем padding родителя .dashboard-content-wrapper */
-  padding-left: 20px; 
-  padding-right: 20px;
-}
-
-.tabs-row {
-  display: flex;
-  justify-content: center; /* Центрируем кнопки в ряду */
-  gap: 8px; /* Отступ между кнопками в ряду */
-  width: 100%;
-}
-
-/* Обновляем стили для кнопок, чтобы они занимали доступную ширину и были одинаковыми */
-.tabs-row .tab-btn {
-  flex: 1; /* Кнопки в ряду будут занимать равное пространство */
-  max-width: calc((100% / 3) - (8px * 2 / 3)); /* Для 3х кнопок в ряду с учетом gap */
-  /* Общие стили кнопки остаются из существующих .tab-btn */
-}
-
-/* Адаптация для мобильных устройств, если нужно будет сделать кнопки меньше или в другую компоновку */
-@media (max-width: 767px) {
-  .tabs-navigation-container {
-    gap: 6px; /* Уменьшаем отступ между рядами на мобильных */
-    padding-bottom: 10px !important; /* Убедимся, что !important из старых стилей не мешает */
-    margin-bottom: 16px !important;
-    top: -16px; /* Уже есть */
-    
-    /* Настройки для горизонтального скроллинга, если ряды не помещаются */
-    /* Если кнопки в рядах будут слишком широкими, можно добавить:
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    justify-content: flex-start; 
-    */
-  }
-
-  .tabs-row {
-    /* Если на мобильных нужно, чтобы кнопки в ряду не растягивались, а скроллились,
-       то можно будет добавить overflow-x: auto для .tabs-row и убрать flex: 1 у кнопок
-       Но текущая задача - 2 ряда по 3 кнопки, они должны поместиться */
-    gap: 6px; /* Уменьшаем отступ между кнопками на мобильных */
-  }
-
-  .tabs-row .tab-btn {
-    font-size: 0.80em; /* Еще немного уменьшим шрифт для мобильных, если нужно */
-    padding: 8px 5px; /* Адаптируем padding */
-    /* max-width остается, чтобы кнопки были примерно равной ширины */
-  }
-}
-
-/* Убираем старый .tabs-container, если он больше не нужен в такой структуре,
-   ИЛИ если .tabs-navigation-container его полностью заменяет.
-   В данном случае, .tabs-navigation-container полностью заменяет .tabs-container
-   для новой структуры. Если старый .tabs-container где-то еще используется,
-   оставьте его, но для навигации теперь .tabs-navigation-container.
-   Если .tabs-container использовался ТОЛЬКО для навигации, его можно закомментировать или удалить,
-   предварительно убедившись, что все нужные стили перенесены/адаптированы для .tabs-navigation-container.
-   Я оставил старые стили .tabs-container в вашем файле, т.к. они могут влиять на другие элементы,
-   но новая навигация будет использовать .tabs-navigation-container и .tabs-row.
-*/
