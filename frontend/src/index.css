@@ -955,3 +955,81 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   color: salmon;
   margin-bottom: 15px;
 }
+
+/* ДОБАВИТЬ В КОНЕЦ ФАЙЛА frontend/src/index.css */
+
+/* Стили для контейнера навигации */
+.tabs-navigation-container {
+  display: flex;
+  flex-direction: column; /* Располагаем ряды друг под другом */
+  gap: 8px; /* Отступ между рядами кнопок */
+  margin-bottom: 24px;
+  padding-bottom: 16px; /* Отступ снизу до контента */
+  border-bottom: 1px solid #303548; /* Линия под всей навигацией */
+  
+  /* Стили для прилипания, как у старого .tabs-container */
+  position: sticky; 
+  top: -16px; /* Компенсируем padding родителя, чтобы прилипало к верху видимой области */
+  padding-top: 16px; 
+  background: #20232a; /* Фон области навигации */
+  z-index: 10;
+  margin-left: -20px; /* Компенсируем padding родителя .dashboard-content-wrapper */
+  margin-right: -20px; /* Компенсируем padding родителя .dashboard-content-wrapper */
+  padding-left: 20px; 
+  padding-right: 20px;
+}
+
+.tabs-row {
+  display: flex;
+  justify-content: center; /* Центрируем кнопки в ряду */
+  gap: 8px; /* Отступ между кнопками в ряду */
+  width: 100%;
+}
+
+/* Обновляем стили для кнопок, чтобы они занимали доступную ширину и были одинаковыми */
+.tabs-row .tab-btn {
+  flex: 1; /* Кнопки в ряду будут занимать равное пространство */
+  max-width: calc((100% / 3) - (8px * 2 / 3)); /* Для 3х кнопок в ряду с учетом gap */
+  /* Общие стили кнопки остаются из существующих .tab-btn */
+}
+
+/* Адаптация для мобильных устройств, если нужно будет сделать кнопки меньше или в другую компоновку */
+@media (max-width: 767px) {
+  .tabs-navigation-container {
+    gap: 6px; /* Уменьшаем отступ между рядами на мобильных */
+    padding-bottom: 10px !important; /* Убедимся, что !important из старых стилей не мешает */
+    margin-bottom: 16px !important;
+    top: -16px; /* Уже есть */
+    
+    /* Настройки для горизонтального скроллинга, если ряды не помещаются */
+    /* Если кнопки в рядах будут слишком широкими, можно добавить:
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start; 
+    */
+  }
+
+  .tabs-row {
+    /* Если на мобильных нужно, чтобы кнопки в ряду не растягивались, а скроллились,
+       то можно будет добавить overflow-x: auto для .tabs-row и убрать flex: 1 у кнопок
+       Но текущая задача - 2 ряда по 3 кнопки, они должны поместиться */
+    gap: 6px; /* Уменьшаем отступ между кнопками на мобильных */
+  }
+
+  .tabs-row .tab-btn {
+    font-size: 0.80em; /* Еще немного уменьшим шрифт для мобильных, если нужно */
+    padding: 8px 5px; /* Адаптируем padding */
+    /* max-width остается, чтобы кнопки были примерно равной ширины */
+  }
+}
+
+/* Убираем старый .tabs-container, если он больше не нужен в такой структуре,
+   ИЛИ если .tabs-navigation-container его полностью заменяет.
+   В данном случае, .tabs-navigation-container полностью заменяет .tabs-container
+   для новой структуры. Если старый .tabs-container где-то еще используется,
+   оставьте его, но для навигации теперь .tabs-navigation-container.
+   Если .tabs-container использовался ТОЛЬКО для навигации, его можно закомментировать или удалить,
+   предварительно убедившись, что все нужные стили перенесены/адаптированы для .tabs-navigation-container.
+   Я оставил старые стили .tabs-container в вашем файле, т.к. они могут влиять на другие элементы,
+   но новая навигация будет использовать .tabs-navigation-container и .tabs-row.
+*/
