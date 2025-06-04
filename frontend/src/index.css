@@ -17,7 +17,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden; /* Предотвращаем горизонтальный скролл всей страницы */
+  overflow-x: hidden; /* ПРЕДОТВРАЩАЕМ ГОРИЗОНТАЛЬНЫЙ СКРОЛЛ ВСЕЙ СТРАНИЦЫ */
 }
 
 #root {
@@ -41,13 +41,12 @@ body {
   height: 100vh; 
   background-color: #23272f; 
   color: #c6c6c6;
-  /* overflow-x: hidden; /* Можно и сюда, если body недостаточно */
 }
 
 .dashboard-content-wrapper {
   flex-grow: 1; 
   overflow-y: auto; 
-  overflow-x: hidden; /* Важно для предотвращения "выползания" контента */
+  /* overflow-x: hidden; Убрано отсюда, т.к. есть на body */
   padding: 16px 20px 24px 20px; 
   box-sizing: border-box;
   background: #20232a; 
@@ -57,48 +56,51 @@ body {
   border-radius: 0; 
 }
 
-/* Стили для новой двухрядной навигации */
-.tabs-navigation-container {
+/* === СТИЛИ ДЛЯ НОВОЙ ДВУХРЯДНОЙ НАВИГАЦИИ (на основе старого .tabs-container) === */
+.tabs-sticky-wrapper { /* Новый главный контейнер для навигации, заменяет .tabs-container */
   display: flex;
-  flex-direction: column;
-  gap: 6px; /* Отступ между рядами кнопок */
-  margin-bottom: 20px; /* Отступ снизу от навигации */
-  border-bottom: 1px solid #303548;
+  flex-direction: column; /* Располагаем ряды друг под другом */
+  gap: 8px; /* Отступ между рядами кнопок */
+  margin-bottom: 24px; /* Отступ снизу от навигации до основного контента */
+  border-bottom: 1px solid #303548; /* Линия под всей навигацией */
   
-  position: sticky;
-  top: -16px; /* Компенсирует padding-top родителя (.dashboard-content-wrapper) */
+  position: sticky; 
+  top: -16px; /* Компенсирует padding-top родителя (.dashboard-content-wrapper) для прилипания к верху экрана */
   padding-top: 16px; /* Внутренний отступ для контента, компенсирующий top: -16px */
-  background: #20232a; 
+  
+  background: #20232a; /* Фон области навигации */
   z-index: 10;
   
-  /* Растягиваем фон на всю ширину .dashboard-content-wrapper, учитывая его padding */
+  /* Эти стили растягивают фон .tabs-sticky-wrapper на всю ширину .dashboard-content-wrapper, 
+     учитывая его padding (20px слева/справа) */
   margin-left: -20px; 
   margin-right: -20px; 
-  padding-left: 20px; 
-  padding-right: 20px;
-  box-sizing: border-box; /* Убедимся, что padding не выходит за пределы */
+  padding-left: 20px; /* Внутренний отступ для содержимого (рядов кнопок), чтобы они выравнивались с остальным контентом */
+  padding-right: 20px; /* Внутренний отступ для содержимого */
+  box-sizing: border-box;
 }
 
-.tabs-row {
+.tabs-row-layout { /* Контейнер для каждого ряда кнопок */
   display: flex;
-  justify-content: center;
-  gap: 8px; 
+  justify-content: center; /* Центрируем кнопки в ряду */
+  gap: 8px; /* Отступ между кнопками в ряду */
   width: 100%;
 }
 
-.tab-btn {
+.tab-btn { /* Стили для самих кнопок навигации */
   background: none;
   border: none;
   color: #8a9db8;
-  padding: 8px 10px; /* Уменьшен padding для компактности */
-  font-size: 0.85em; /* Уменьшен шрифт */
+  padding: 10px 15px; /* Можно немного уменьшить padding для компактности, если нужно */
+  font-size: 0.9em;
   font-weight: 600;
   cursor: pointer;
   border-bottom: 3px solid transparent;
   transition: color 0.2s, border-color 0.2s;
   white-space: nowrap;
-  flex: 1; 
-  max-width: calc(100% / 3 - 6px); 
+
+  flex: 1; /* Кнопки в ряду будут занимать равное пространство */
+  max-width: calc(100% / 3 - 6px); /* Для 3х кнопок в ряду с учетом gap (8px * 2 / 3 ~ 5.33px, округлим до 6px для безопасности) */
   box-sizing: border-box;
 }
 
@@ -110,6 +112,7 @@ body {
   color: #8ae6ff;
   border-bottom-color: #8ae6ff;
 }
+/* === КОНЕЦ СТИЛЕЙ ДЛЯ НОВОЙ НАВИГАЦИИ === */
 
 .page-container {
   display: flex;
@@ -627,25 +630,33 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
     padding: 16px 10px 15px 10px !important; 
   }
 
-  .tabs-navigation-container {
-    padding-top: 10px; /* Уменьшаем верхний отступ контейнера табов */
-    top: 0; /* Прилипает к верху .dashboard-content-wrapper */
-    /* margin-left/right остаются 0, padding-left/right тоже 0, т.к. родитель уже имеет padding */
-    /* Для скроллинга кнопок, если их станет много в ряду */
-    /* overflow-x: auto; */ /* Это для каждого .tabs-row, если нужно */
-    /* white-space: nowrap; */ /* Это для каждого .tabs-row, если нужно */
+  .tabs-sticky-wrapper { /* Бывший .tabs-container для мобильных */
+    gap: 4px !important; /* Уменьшаем отступ между рядами */
+    padding-top: 10px !important; /* Уменьшаем верхний отступ */
+    padding-bottom: 10px !important;
+    margin-bottom: 16px !important;
+    
+    /* Компенсация паддингов родителя для растягивания фона */
+    margin-left: -10px; 
+    margin-right: -10px;
+    padding-left: 10px;
+    padding-right: 10px;
+    /* width: calc(100% + 20px); /* Не нужно, если родитель и так 100% */
+    top: -16px; /* Остается для корректного прилипания */
   }
-  .tabs-navigation-container .tabs-row {
-    gap: 6px;
-    /* Если кнопки не помещаются, и мы хотим их скроллить: */
+
+  .tabs-row-layout {
+    gap: 6px; /* Уменьшаем отступ между кнопками на мобильных */
+    /* Если кнопки не помещаются, можно добавить скролл для ряда: */
     /* overflow-x: auto; */
     /* -webkit-overflow-scrolling: touch; */
     /* justify-content: flex-start; */ /* Если скролл */
   }
 
-  .tabs-navigation-container .tab-btn {
-    font-size: 0.8em;
+  .tab-btn { /* Специфично для кнопок в новой навигации на мобильных */
     padding: 8px 5px; 
+    font-size: 0.80em;
+    /* max-width рассчитывается автоматически через flex:1 и gap */
   }
 
   .page-container { 
@@ -677,21 +688,17 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
     font-size: 0.85em; 
   }
   input[type="date"].period-date-input {
-    font-size: 16px !important; 
+    font-size: 16px !important;
     padding: 7px 8px; 
     height: 38px; 
   }
 
   .period-buttons-container { 
-    grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); /* Более гибко */
     gap: 6px; 
     margin-bottom: 10px; 
   }
-   @media (max-width: 390px) {
-     .period-buttons-container {
-       grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
-     }
-   }
+   /* @media (max-width: 390px) - уже не нужно, auto-fit справится */
 
   .period-btn {
     font-size: 0.75em; 
