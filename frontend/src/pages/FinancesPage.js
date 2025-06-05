@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useStatsPolling } from './useStatsPolling'; 
 import { PERIODS, formatDateForInput } from '../constants'; 
+import './FinancesPage.css'; // Импорт стилей для этой страницы
 
 export default function FinancesPage() {
   const pageKey = 'financesPage_v7_custom_persist'; 

@@ -1,5 +1,5 @@
-/* frontend/src/index.css */
-/* Общие стили для всего документа - остаются здесь */
+/* frontend/src/styles/global.css */
+/* Общие стили для всего документа */
 html, body {
   height: 100%;
   margin: 0;
@@ -34,5 +34,3 @@ body {
   flex-direction: column;
   min-height: 100vh;
 }
-
-/* Стили для App.css (стандартные от CRA) обычно остаются в App.css */

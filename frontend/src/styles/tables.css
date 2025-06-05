@@ -1,0 +1,92 @@
+/* frontend/src/styles/tables.css */
+.data-table-container {
+  overflow-x: auto; 
+  background: #282c34;
+  padding: 1px 15px 15px 15px; 
+  border-radius: 12px;
+  margin-top: 20px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88em;
+}
+
+.data-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1; 
+  background: #282c34; 
+}
+
+.data-table th {
+  padding: 9px 10px;
+  color: #8ae6ff;    
+  font-weight: 600;  
+  text-align: left;
+  border-bottom: 1px solid #353a40; 
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #23272f; 
+  color: #c0c0c0;
+  text-align: left;
+}
+
+.data-table th:last-child, 
+.data-table td:last-child {
+  border-right: none; 
+}
+
+.data-table tbody tr:nth-child(odd) {
+  background: #262a36;
+}
+.data-table tbody tr:nth-child(even) {
+  background: #282c34;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none; 
+}
+
+.data-table .td-amount, .data-table .td-revenue {
+  color: #e0e0e0;
+  font-weight: 500;
+  text-align: right; 
+  white-space: nowrap;
+}
+.data-table .td-date {
+  white-space: nowrap;
+}
+.data-table .td-comment {
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-width: 120px;
+}
+.data-table .td-action {
+  text-align: center;
+  white-space: nowrap;
+}
+.data-table .empty-data-row td {
+    color: #888;
+    padding: 20px;
+    text-align: center;
+    background-color: #282c34 !important; 
+    border-right: none; 
+}
+
+/* Медиа-запросы для таблиц */
+@media (max-width: 767px) {
+  .data-table {
+    font-size: 0.82em !important;
+  }
+  .data-table th, .data-table td { 
+      padding: 5px 6px !important; 
+  }
+   .data-table td.td-comment {
+      min-width: 70px; 
+   }
+}

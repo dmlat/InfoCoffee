@@ -1,0 +1,198 @@
+/* frontend/src/styles/auth.css */
+.auth-container { 
+  background-color: #23272f; 
+  min-height: 100vh; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: center; 
+  padding: 20px; 
+  box-sizing: border-box; 
+}
+
+.auth-form-wrapper { 
+  background-color: #282c34; 
+  padding: 30px 35px; 
+  border-radius: 12px; 
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); 
+  color: #e0e0e0; 
+  width: 100%; 
+  max-width: 400px; 
+  text-align: center; 
+}
+.auth-form-wrapper h1 {
+  color: #fff; 
+  margin-bottom: 10px;
+  font-size: 1.6em;
+}
+.auth-form-wrapper h2 {
+  color: #8ae6ff; 
+  margin-top: 0; 
+  margin-bottom: 25px; 
+  font-size: 1.5em; 
+}
+.auth-welcome-text {
+  margin-bottom: 25px;
+  font-size: 1em;
+  color: #b0b8c8;
+}
+
+/* Стили для .auth-form и его дочерних элементов, если они отличаются от общих .form-field */
+.auth-form .form-field { /* Пример специфичного стиля для auth-form, если нужно */
+  margin-bottom: 15px;
+  text-align: left;
+}
+.auth-form .form-field label {
+  display: block;
+  color: #a0b0c8;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+.auth-form .form-field .required-asterisk {
+  color: tomato;
+}
+.auth-form .form-field-hint {
+  font-size: 0.85em;
+  color: #777c8c;
+  display: block;
+  margin-top: 4px;
+}
+
+
+.auth-form-wrapper input[type="text"],
+.auth-form-wrapper input[type="password"],
+.auth-form-wrapper input[type="email"],
+.auth-form-wrapper input[type="date"],
+.auth-form .form-field input[type="text"], 
+.auth-form .form-field input[type="password"], 
+.auth-form .form-field input[type="date"] {
+  width: 100%; 
+  padding: 12px 15px; 
+  margin-bottom: 15px; 
+  border-radius: 8px; 
+  background: #2e3340; 
+  border: 1px solid #303548; 
+  color: #c6c6c6; 
+  font-size: 16px !important; /* Важно для мобильных */
+  box-sizing: border-box; 
+  height: auto; 
+}
+.auth-form-wrapper input[type="date"]::-webkit-calendar-picker-indicator,
+.auth-form .form-field input[type="date"]::-webkit-calendar-picker-indicator { 
+   filter: invert(0.6); 
+}
+
+.auth-form-wrapper button[type="submit"],
+.auth-form-wrapper .auth-button-primary,
+.auth-form .auth-button-primary { 
+  width: 100%; 
+  padding: 12px 15px; 
+  border: none; 
+  border-radius: 8px; 
+  background-color: #3e67e0; 
+  color: white; 
+  font-size: 1em; 
+  font-weight: 500; 
+  cursor: pointer;
+  transition: background-color 0.2s ease; 
+  margin-bottom: 10px; 
+}
+.auth-form-wrapper button[type="submit"]:hover,
+.auth-form-wrapper .auth-button-primary:hover,
+.auth-form .auth-button-primary:hover { 
+  background-color: #4a75f0; 
+}
+
+.auth-form-wrapper .auth-button-secondary { 
+  width: 100%; 
+  padding: 12px 15px; 
+  border-radius: 8px; 
+  background: none; 
+  border: 1px solid #3e67e0; 
+  color: #3e67e0; 
+  font-size: 1em; 
+  font-weight: 500; 
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease; 
+  margin-bottom: 10px; 
+}
+.auth-form-wrapper .auth-button-secondary:hover { 
+  background-color: rgba(62, 103, 224, 0.1); 
+  color: #4a75f0; 
+}
+
+.auth-form-wrapper .auth-error,
+.auth-message.auth-error { /* auth-message используется в RegisterPage */
+  color: salmon; 
+  margin-top: 15px; 
+  font-size: 0.9em; 
+  text-align: center; 
+}
+.auth-message.auth-success { 
+  color: lightgreen;
+  margin-top: 15px;
+  font-size: 0.9em;
+  text-align: center;
+}
+.auth-step-info { 
+  font-weight: 500; 
+  margin-bottom: 10px; 
+  color: #c6c6c6; 
+  font-size: 0.95em; 
+  text-align: left; 
+}
+.auth-fine-print { 
+  font-size: 0.8em; 
+  color: #888; 
+  margin-top: 15px; 
+  margin-bottom: 10px; 
+  text-align: left; 
+}
+
+.auth-form-wrapper input[name="acquiring"] { 
+  width: 80px !important; 
+  display: inline-block; 
+  margin-right: 5px; 
+}
+
+.app-entry-container { 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  flex-grow: 1;
+  padding: 20px;
+  box-sizing: border-box;
+  text-align: center;
+  background-color: #23272f;
+  color: #c6c6c6;
+}
+.app-entry-container h2 { 
+  color: #8ae6ff;
+  margin-bottom: 20px;
+}
+.app-entry-container p { 
+  margin-bottom: 20px;
+  max-width: 400px;
+  line-height: 1.6;
+}
+.app-entry-container .action-btn { 
+  margin-top: 10px;
+}
+
+.app-error-container { 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh; 
+  flex-grow: 1; 
+  padding: 20px;
+  text-align: center;
+  color: #c6c6c6;
+}
+.app-error-container h3 { 
+  color: salmon;
+  margin-bottom: 15px;
+}

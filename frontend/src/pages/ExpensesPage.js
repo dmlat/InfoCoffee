@@ -3,6 +3,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import apiClient from '../api';
 import { formatDateForInput } from '../constants';
 import ConfirmModal from '../components/ConfirmModal';
+import './ExpensesPage.css'; // Импорт стилей для этой страницы
+
+// ... остальной код ExpensesPage.js
 
 const formatDateForTableDisplay = (isoOrYyyyMmDdDateString) => {
   if (!isoOrYyyyMmDdDateString) return '';

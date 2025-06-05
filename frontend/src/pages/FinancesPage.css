@@ -1,0 +1,217 @@
+/* frontend/src/pages/FinancesPage.css */
+/* .finances-page может быть добавлен к корневому div в FinancesPage.js для специфичных стилей */
+
+.sidebar-area {
+  flex: 1;
+  min-width: 220px; 
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.date-inputs-container {
+  display: flex;
+  flex-direction: row; 
+  justify-content: space-between;
+  gap: 10px; 
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.date-input-item {
+  display: flex;
+  flex-direction: column; 
+  flex: 1;
+}
+
+.date-input-item label {
+  font-size: 0.85em;
+  color: #a0b0c8; 
+  font-weight: 500;
+  display: block;
+  margin-bottom: 4px;
+  text-align: left; 
+}
+
+input[type="date"].period-date-input {
+  background-color: #2e3340;
+  color: #c6c6c6;
+  border: 1px solid #303548;
+  padding: 7px 8px;
+  height: 36px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.85em;
+  width: 100%;
+}
+input[type="date"].period-date-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+}
+input[type="date"].period-date-input:disabled {
+  background-color: #20232a; 
+  opacity: 0.6;
+}
+
+.period-buttons-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); 
+  gap: 8px; 
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.period-btn {
+  background-color: #2e3340;
+  color: #a0b0c8;
+  border: 1px solid #303548;
+  padding: 8px 6px;   
+  border-radius: 6px;     
+  cursor: pointer;
+  font-weight: 500;
+  text-align: center;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  font-size: 0.8em; 
+  width: 100%; 
+  box-sizing: border-box;
+  min-height: 36px; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  line-height: 1.2;       
+  white-space: normal;    
+}
+
+.period-btn:hover {
+  background-color: #383e4c;
+  border-color: #484e5c;
+  color: #c6c6c6;
+}
+.period-btn.active {
+  background-color: #3e67e0;
+  color: #fff;
+  border-color: #3e67e0;
+  font-weight: 600;
+}
+
+.summary-card, .coffee-stats-card {
+  background: #282c34; 
+  padding: 18px;
+  border-radius: 14px;
+  margin-bottom: 24px;
+}
+.summary-card-title, .coffee-stats-title { 
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #8ae6ff;
+  font-weight: 600;
+  font-size: 1.1em; 
+}
+.summary-card-period {
+  color: #ffffff;
+  font-weight: bold;
+}
+.summary-table { 
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+.summary-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #2a2e37;
+  color: #c6c6c6;
+}
+.summary-table .value-cell {
+  text-align: right;
+  color: #e0e0e0;
+  font-weight: 500;
+  white-space: nowrap; 
+}
+.summary-table .revenue-value {
+  color: #ffb300; 
+  font-weight: bold;
+}
+.summary-table .profit-row {
+  background: #2a2e37; 
+}
+.summary-table .profit-row .profit-label {
+  font-weight: 700;
+  color: #fff;
+  border-bottom: 1px solid #3a3e47;
+}
+.summary-table .profit-row .profit-value {
+  font-weight: 700;
+  color: #4caf50;
+  border-bottom: 1px solid #3a3e47;
+}
+.summary-table tr:last-child td {
+  border-bottom: none;
+}
+
+.table-scroll-container { /* Этот класс используется для таблицы кофеен */
+  max-height: 400px;
+  overflow-y: auto; 
+  border-radius: 0 0 12px 12px; 
+}
+
+.coffee-stats-table th.text-right, 
+.coffee-stats-table td.text-right {
+  text-align: right;
+}
+.data-table .td-coffee-shop-name { /* Уже есть в tables.css, но если нужно переопределить */
+    white-space: normal; 
+    word-break: break-word;
+    min-width: 120px; 
+    vertical-align: middle;
+}
+.data-table .td-sales-count { /* Уже есть в tables.css */
+  text-align: right;
+  white-space: nowrap;
+}
+
+
+/* Медиа-запросы для FinancesPage */
+@media (max-width: 767px) {
+  .sidebar-area { /* Переопределение из common.css или index.css, если нужно */
+    order: -1; 
+    margin-bottom: 15px; 
+    gap: 12px; 
+  }
+
+  .date-inputs-container { 
+    gap: 8px; 
+    margin-bottom: 10px; 
+  }
+  .date-input-item label {
+    font-size: 0.85em; 
+  }
+  input[type="date"].period-date-input { /* Уже есть в index.css, дублируем для специфичности если нужно */
+    font-size: 16px !important;
+    padding: 7px 8px; 
+    height: 38px; 
+  }
+
+  .period-buttons-container { 
+    gap: 6px; 
+  }
+
+  .period-btn {
+    font-size: 0.75em; 
+    padding: 6px 4px; 
+    min-height: 32px; 
+    line-height: 1.1;
+  }
+  
+  .summary-table td { /* Уже есть в index.css */
+      padding: 5px 6px !important; 
+  }
+   .data-table .td-coffee-shop-name { /* Уже есть в tables.css */
+      min-width: 90px; 
+   }
+
+  .summary-card-title, .coffee-stats-title { /* Уже есть в index.css, но специфичность может быть выше */
+    font-size: 1.1em !important; 
+    margin-bottom: 12px !important;
+  }
+}

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api';
 import { formatDateForInput } from '../constants';
+import './ProfilePage.css'; // Импорт стилей для этой страницы
 
 const taxOptions = [
   { value: 'income_6', label: 'Доходы 6%' },

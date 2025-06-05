@@ -1,0 +1,116 @@
+/* frontend/src/styles/common.css */
+.action-btn {
+  background: #3e67e0;
+  color: #fff;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 22px;
+  height: 38px;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 0.95em;
+}
+.action-btn:hover {
+  background: #4a75f0;
+}
+.action-btn:disabled {
+  background-color: #2e3340;
+  color: #7a8b98;
+  cursor: not-allowed;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #e06b6b;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+}
+.delete-btn:hover {
+  color: #ff8a8a;
+}
+
+.page-loading-container, .app-loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  font-size: 1.1em;
+  color: #a0b0c8;
+  width: 100%; 
+  flex-grow: 1; 
+}
+
+.loading-message, .empty-data-message { 
+  color: #888;
+  padding: 20px;
+  text-align: center;
+}
+
+.error-message {
+  color: salmon;
+  padding: 10px;
+  text-align: center;
+  border: 1px solid salmon;
+  border-radius: 6px;
+  background-color: rgba(250, 128, 114, 0.1);
+  margin-bottom: 15px;
+}
+
+.text-center {
+  text-align: center;
+}
+
+/* Общие стили для контейнера страницы, если они повторяются */
+.page-container {
+  display: flex;
+  align-items: flex-start; 
+  gap: 20px; 
+}
+
+.main-content-area {
+  flex: 2;
+  min-width: 0; 
+  width: 100%; 
+}
+
+/* Медиа-запросы для общих элементов, если нужны */
+@media (max-width: 767px) {
+  .page-container { 
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .main-content-area { /* Уже есть в index.css, но если выносим .page-container, то и это */
+    width: 100% !important;
+    min-width: auto !important;
+    max-width: none !important;
+    flex-grow: 0 !important; 
+    flex-shrink: 0 !important;
+    flex-basis: auto !important;
+  }
+
+  h2 { 
+    font-size: 1.3em;
+    margin-bottom: 16px !important;
+  }
+  h4 { /* Базовый стиль для h4, если он общий */
+    font-size: 1.1em !important; 
+    margin-bottom: 12px !important;
+  }
+  
+  /* Убедимся, что глобальные инпуты тоже адаптируются, если это не покрыто специфичными стилями */
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="date"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 16px !important; 
+  }
+}

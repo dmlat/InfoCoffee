@@ -1,0 +1,93 @@
+/* frontend/src/pages/ExpensesPage.css */
+
+.expense-form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 24px;
+  background: #282c34;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.expense-form-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  align-items: flex-start;
+}
+
+.expense-form-row-amount-date {
+  flex-direction: row !important; 
+  gap: 10px !important; 
+}
+.expense-form-row-amount-date .expense-form-field {
+  flex: 1; 
+}
+
+.expense-form-field, .expense-form-field-fullwidth {
+  display: flex;
+  flex-direction: column;
+}
+.expense-form-field:not(.expense-form-row-amount-date .expense-form-field) { 
+  flex: 1;
+}
+.expense-form-field-fullwidth {
+  width: 100%;
+}
+
+.expense-form-label {
+  font-size: 0.9em;
+  color: #a0b0c8;
+  margin-bottom: 4px;
+  display: block;
+  text-align: left;
+}
+
+.expense-form-input {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #2e3340;
+  border: 1px solid #303548;
+  color: #c6c6c6;
+  height: 38px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+input[type="date"].expense-form-input { /* Специфично для этой формы, если отличается от period-date-input */
+  font-family: inherit; 
+}
+input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+}
+
+.expense-form-submit-button.action-btn {
+  margin-top: 5px;
+  width: auto;
+  align-self: flex-start;
+}
+
+.expense-form-error {
+  color: salmon;
+  margin-top: 10px;
+  width: 100%;
+  text-align: left;
+  font-size: 0.9em;
+}
+
+/* Медиа-запросы для ExpensesPage */
+@media (max-width: 767px) {
+  .expense-form-row:not(.expense-form-row-amount-date) { 
+     flex-direction: column; 
+     gap: 15px; 
+  }
+  .expense-form-row:not(.expense-form-row-amount-date) .expense-form-field {
+     width: 100%; 
+  }
+  
+  input[type="date"].expense-form-input, /* Уже покрыто общим правилом, но для специфичности */
+  .expense-form-input { 
+    font-size: 16px !important; 
+  }
+}

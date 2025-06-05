@@ -3,7 +3,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import RegisterPage from './pages/RegisterPage';
 import Dashboard from './pages/Dashboard';
-import apiClient from './api'; // Предполагается, что apiClient настроен для работы с токенами
+import apiClient from './api';
+import './App.css'; // Если здесь есть специфичные стили для App
+import './styles/auth.css'; // Стили для страниц аутентификации/регистрации
 
 // Утилита для сохранения данных пользователя в localStorage
 function saveUserDataToLocalStorage(userData) {

@@ -2,10 +2,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import FinancesPage from './FinancesPage';
 import ExpensesPage from './ExpensesPage';
-import RemainsPage from './RemainsPage'; // Изменено с StockPage
-import StandsPage from './StandsPage';   // Новая страница
-import AnalyticsPage from './AnalyticsPage'; // Новая страница
+import RemainsPage from './RemainsPage';
+import StandsPage from './StandsPage';
+import AnalyticsPage from './AnalyticsPage';
 import ProfilePage from './ProfilePage';
+import '../layouts/DashboardLayout.css'; // Новый импорт стилей макета
 
 const TABS_ROW_1 = [
   { id: 'finances', label: 'ФИНАНСЫ', component: FinancesPage },
