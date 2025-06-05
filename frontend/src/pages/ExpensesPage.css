@@ -55,18 +55,38 @@
   width: 100%;
 }
 
-input[type="date"].expense-form-input { /* Специфично для этой формы, если отличается от period-date-input */
+input[type="date"].expense-form-input {
   font-family: inherit; 
 }
 input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   filter: invert(0.6);
 }
 
-.expense-form-submit-button.action-btn {
+/* --- ИЗМЕНЕНИЯ ДЛЯ КНОПКИ --- */
+.expense-form-submit-button {
   margin-top: 5px;
   width: auto;
   align-self: flex-start;
+  /* Стилизация под активную кнопку периода */
+  background: #3e67e0;
+  color: #fff;
+  border: 1px solid #3e67e0;
+  font-weight: 600;
+  font-size: 0.95em;
+  height: 38px;
+  padding: 8px 22px;
 }
+.expense-form-submit-button:hover {
+  background: #4a75f0;
+  border-color: #4a75f0;
+}
+.expense-form-submit-button:disabled {
+  background-color: #2e3340;
+  border-color: #303548;
+  color: #7a8b98;
+  cursor: not-allowed;
+}
+/* --- КОНЕЦ ИЗМЕНЕНИЙ ДЛЯ КНОПКИ --- */
 
 .expense-form-error {
   color: salmon;
@@ -75,6 +95,32 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   text-align: left;
   font-size: 0.9em;
 }
+
+/* --- НОВЫЕ СТИЛИ ДЛЯ ТАБЛИЦЫ РАСХОДОВ --- */
+/* Эти стили наследуются из общего файла tables.css, но мы можем их переопределить */
+.expenses-table-container {
+  /* Если нужны специфичные стили для контейнера */
+}
+
+.expenses-table th {
+  color: #8ae6ff; /* Цвет как у заголовка "Настройки профиля" */
+  font-weight: 500;
+  border-bottom: 1px solid #4a4f58;
+}
+
+.expenses-table td {
+  border-bottom: 1px solid #282c34;
+}
+
+.expenses-table th:first-child,
+.expenses-table td:first-child {
+  padding-left: 15px; /* Добавим отступы для красоты */
+}
+.expenses-table th:last-child,
+.expenses-table td:last-child {
+  padding-right: 15px;
+}
+/* --- КОНЕЦ НОВЫХ СТИЛЕЙ ДЛЯ ТАБЛИЦЫ --- */
 
 /* Медиа-запросы для ExpensesPage */
 @media (max-width: 767px) {
@@ -86,7 +132,6 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
      width: 100%; 
   }
   
-  input[type="date"].expense-form-input, /* Уже покрыто общим правилом, но для специфичности */
   .expense-form-input { 
     font-size: 16px !important; 
   }

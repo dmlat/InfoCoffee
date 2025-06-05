@@ -2,68 +2,71 @@
 .dashboard-layout {
   display: flex;
   flex-direction: column;
-  height: 100vh; 
-  background-color: #23272f; 
+  height: 100vh;
+  background-color: #23272f;
   color: #c6c6c6;
 }
 
 .dashboard-content-wrapper {
-  flex-grow: 1; 
-  overflow-y: auto; 
-  padding: 16px 20px 24px 20px; 
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 16px 20px 24px 20px;
   box-sizing: border-box;
-  background: #20232a; 
-  max-width: 1180px; 
-  margin: 0 auto; 
-  width: 100%; 
-  border-radius: 0; 
+  background: #20232a;
+  max-width: 1180px;
+  margin: 0 auto;
+  width: 100%;
+  border-radius: 0;
 }
 
 /* === СТИЛИ ДЛЯ ДВУХРЯДНОЙ НАВИГАЦИИ === */
-/* Контейнер для двух рядов табов, который будет "прилипать" */
-.tabs-navigation-container { /* Переименовано из .tabs-sticky-wrapper для ясности */
+.tabs-navigation-container {
   display: flex;
-  flex-direction: column; 
-  align-items: center; 
-  gap: 8px; 
-  margin-bottom: 24px; 
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
   border-bottom: 1px solid #303548;
-  
-  position: sticky; 
-  top: 0; 
-  padding-top: 10px; 
-  padding-bottom: 12px; 
-  
-  background: #20232a; 
+
+  /* Убрано position: sticky, чтобы панель не "прилипала" при скролле */
+
+  /* Уменьшаем отступы и делаем их одинаковыми */
+  padding-top: 8px;
+  padding-bottom: 8px;
+
+  background: #20232a;
   z-index: 10;
   box-sizing: border-box;
-  width: 100%; 
+  width: 100%;
+  
+  /* Прижимаем к верху */
+  margin-top: -16px;
 }
 
-.tabs-row { /* Новый класс для каждого ряда кнопок */
+.tabs-row {
   display: flex;
-  justify-content: center; 
-  gap: 12px; 
-  width: 100%; 
-  max-width: 700px; 
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 700px;
 }
 
 .tab-btn {
   background: none;
   border: none;
   color: #8a9db8;
-  padding: 10px 15px; 
-  font-size: 0.95em;  
+  padding: 10px 15px;
+  font-size: 0.95em;
   font-weight: 600;
   cursor: pointer;
   border-bottom: 3px solid transparent;
   transition: color 0.2s, border-color 0.2s;
   white-space: nowrap;
   text-align: center;
-  flex-grow: 1; 
-  flex-shrink: 1; 
-  flex-basis: 0; 
-  min-width: 90px; 
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  min-width: 90px;
   box-sizing: border-box;
 }
 
@@ -79,24 +82,25 @@
 /* Медиа-запросы для макета дашборда и табов */
 @media (max-width: 767px) {
   .dashboard-content-wrapper {
-    padding: 16px 10px 15px 10px !important; 
+    padding: 16px 10px 15px 10px !important;
   }
 
   .tabs-navigation-container {
-    gap: 6px !important; 
-    padding-top: 8px !important; 
-    padding-bottom: 8px !important; 
+    gap: 6px !important;
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
     margin-bottom: 16px !important;
+    margin-top: -16px;
   }
 
   .tabs-row {
-    gap: 8px; 
+    gap: 8px;
     max-width: 100%;
   }
 
   .tab-btn {
-    padding: 9px 8px; 
-    font-size: 0.85em; 
-    min-width: 0; 
+    padding: 9px 8px;
+    font-size: 0.85em;
+    min-width: 0;
   }
 }

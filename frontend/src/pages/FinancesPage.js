@@ -246,7 +246,7 @@ export default function FinancesPage() {
                         <td className="td-coffee-shop-name">{row.terminal_comment || `Кофейня ${row.coffee_shop_id}`}</td>
                         {/* Класс для выручки и количества продаж */}
                         <td className="td-revenue text-right">{Number(row.revenue).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
-                        <td className="td-sales-count text-right">{row.sales_count}</td>
+                        <td className="td-sales-count text-right">{Number(row.sales_count).toLocaleString('ru-RU')}</td>
                         </tr>
                     ))
                     )}

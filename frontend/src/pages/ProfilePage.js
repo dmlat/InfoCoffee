@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api';
 import { formatDateForInput } from '../constants';
-import './ProfilePage.css'; // Импорт стилей для этой страницы
+import './ProfilePage.css'; // Импортируем стили
 
 const taxOptions = [
   { value: 'income_6', label: 'Доходы 6%' },
@@ -28,7 +28,7 @@ function formatSyncTimestamp(timestamp) {
   }
 }
 
-export default function ProfilePage() { // удален onLogout из props
+export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -208,25 +208,24 @@ export default function ProfilePage() { // удален onLogout из props
         </form>
 
         <div className="profile-sync-status-card">
-          <h3 style={{ marginTop: 0, color: '#8ae6ff', marginBottom: '15px'}}>Статус синхронизации данных</h3>
+          <h3>Статус синхронизации данных</h3>
           {syncStatusLoading && <p>Загрузка статуса синхронизации...</p>}
           {syncStatusError && <div className="form-message form-error-message">{syncStatusError}</div>}
           {!syncStatusLoading && !syncStatusError && (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.95em' }}>
-              <li style={{ marginBottom: '8px' }}>
-                Последнее обновление транзакций: <strong>{formatSyncTimestamp(syncStatus.lastTransactionsUpdate)}</strong>
+            <ul>
+              {/* --- ИЗМЕНЕНЫ ТЕКСТЫ ЗАГОЛОВКОВ --- */}
+              <li >
+                Обновление транзакций: <strong>{formatSyncTimestamp(syncStatus.lastTransactionsUpdate)}</strong>
               </li>
-              <li style={{ marginBottom: '8px' }}>
-                Последнее обновление возвратов: <strong>{formatSyncTimestamp(syncStatus.lastReturnsUpdate)}</strong>
+              <li>
+                Обновление возвратов: <strong>{formatSyncTimestamp(syncStatus.lastReturnsUpdate)}</strong>
               </li>
-              <li style={{ marginBottom: '8px' }}>
-                Последнее обновление товаров (кнопок): <strong>{formatSyncTimestamp(syncStatus.lastButtonsUpdate)}</strong>
+              <li>
+                Обновление товаров: <strong>{formatSyncTimestamp(syncStatus.lastButtonsUpdate)}</strong>
               </li>
             </ul>
           )}
         </div>
-
-        {/* Logout Button REMOVED from here */}
 
       </div>
     </div>
