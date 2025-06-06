@@ -3,22 +3,21 @@
 html, body {
   height: 100%;
   margin: 0;
-  background-color: #23272f; /* Единственный источник цвета фона */
+  background-color: #23272f;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: #c6c6c6;
-  overscroll-behavior-y: contain; /* Предотвращает "оттягивание" страницы на мобильных */
+  overscroll-behavior-y: contain;
 }
 
-/* Убираем лишние обертки, применяем стили к body и #root */
 body, #root {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  overflow-x: hidden; /* Предотвращаем горизонтальный скролл */
+  overflow-x: hidden;
 }
 
 #root {
@@ -103,6 +102,7 @@ body, #root {
     margin-bottom: 12px !important;
   }
   
+  /* ИЗМЕНЕНО: Глобальное правило для всех полей ввода, чтобы предотвратить zoom */
   input[type="text"],
   input[type="password"],
   input[type="email"],
@@ -110,6 +110,6 @@ body, #root {
   input[type="number"],
   textarea,
   select {
-    font-size: 16px !important;
+    font-size: 16px !important; 
   }
 }

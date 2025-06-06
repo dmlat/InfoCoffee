@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useStatsPolling } from './useStatsPolling'; 
 import { PERIODS, formatDateForInput } from '../constants'; 
 import './FinancesPage.css';
+import '../styles/tables.css'; // Импортируем общие стили для таблиц
 
 export default function FinancesPage() {
   const pageKey = 'financesPage_v7_custom_persist'; 
@@ -222,7 +223,7 @@ export default function FinancesPage() {
 
         <div className="coffee-stats-card">
             {statsError && <p className="error-message">Ошибка загрузки статистики по кофейням.</p>}
-            <div className="data-table-container table-scroll-container">
+            <div className="table-scroll-container">
                 <table className="data-table coffee-stats-table"> 
                 <thead>
                     <tr>

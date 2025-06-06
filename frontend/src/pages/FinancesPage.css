@@ -152,13 +152,19 @@ input[type="date"].period-date-input:disabled {
 }
 
 /* --- Стили, специфичные для таблицы кофеен --- */
+
+/* ИЗМЕНЕНО: Мы убираем padding и margin у контейнера таблицы, чтобы она заполнила карточку */
+.coffee-stats-card .table-scroll-container {
+  margin: 0;
+  padding: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 .coffee-stats-table th, 
 .coffee-stats-table td {
-  padding-right: 4px; /* Уменьшаем правый отступ */
-}
-.coffee-stats-table th:first-child, 
-.coffee-stats-table td:first-child {
-  padding-left: 4px; /* Уменьшаем левый отступ */
+  padding-right: 4px; 
+  padding-left: 4px;
 }
 
 /* Выравнивание заголовков (переопределяем базовое) */

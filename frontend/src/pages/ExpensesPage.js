@@ -4,7 +4,7 @@ import apiClient from '../api';
 import { formatDateForInput } from '../constants';
 import ConfirmModal from '../components/ConfirmModal';
 import './ExpensesPage.css';
-import '../styles/tables.css'; // **ВАЖНО: Убедись, что этот импорт добавлен**
+import '../styles/tables.css';
 
 const formatDateForTableDisplay = (isoOrYyyyMmDdDateString) => {
   if (!isoOrYyyyMmDdDateString) return '';
@@ -190,10 +190,11 @@ export default function ExpensesPage() {
               <table className="data-table expenses-table"> 
                 <thead>
                   <tr>
-                    <th className="td-amount">Сумма</th>
-                    <th className="td-date">Дата</th>
-                    <th className="td-comment">Комментарий</th>
-                    <th className="td-action"></th>
+                    {/* ИЗМЕНЕНО: Добавлены классы для выравнивания по правому краю */}
+                    <th className="text-right">Сумма</th>
+                    <th className="text-right">Дата</th>
+                    <th className="text-right">Комментарий</th>
+                    <th className="td-action text-right"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -202,10 +203,11 @@ export default function ExpensesPage() {
                   ) : (
                     expenses.map((row) => (
                       <tr key={row.id}>
-                        <td className="td-amount">{Number(row.amount).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td>
-                        <td className="td-date">{formatDateForTableDisplay(row.expense_time)}</td>
-                        <td className="td-comment">{row.comment}</td>
-                        <td className="td-action">
+                        {/* ИЗМЕНЕНО: Добавлены классы для выравнивания */ }
+                        <td className="td-amount text-right">{Number(row.amount).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td>
+                        <td className="td-date text-right">{formatDateForTableDisplay(row.expense_time)}</td>
+                        <td className="td-comment text-right">{row.comment}</td>
+                        <td className="td-action text-right">
                           <button onClick={() => handleDeleteAttempt(row.id)} className="delete-btn" title="Удалить">
                             &times;
                           </button>
