@@ -9,14 +9,14 @@
   padding: 25px 30px;
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-  display: flex; /* Добавлено для управления дочерними элементами */
-  flex-direction: column; /* Добавлено для управления дочерними элементами */
+  display: flex;
+  flex-direction: column;
 }
 .profile-form h2 {
   color: #8ae6ff;
   margin-top: 0;
   margin-bottom: 25px;
-  text-align: left; /* ИЗМЕНЕНО: Выравнивание по левому краю */
+  text-align: left;
 }
 .form-field {
   margin-bottom: 20px;
@@ -36,8 +36,7 @@
   border: 1px solid #303548;
   color: #c6c6c6;
   box-sizing: border-box;
-  /* ИЗМЕНЕНО: Высота и размер шрифта как на FinancesPage */
-  height: 36px;
+  height: 38px;
   font-size: 0.9em; 
 }
 
@@ -56,7 +55,6 @@
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-  /* ИЗМЕНЕНО: Увеличен шрифт */
   font-size: 0.9em;  
   min-height: 36px; 
   line-height: 1.3;
@@ -73,7 +71,6 @@
   margin-top: 5px;
 }
 
-/* ИЗМЕНЕНО: Стили для кнопки сохранения */
 .profile-save-button {
   background: #3e67e0;
   color: #fff;
@@ -83,9 +80,9 @@
   height: 38px;
   padding: 8px 22px;
   width: auto; 
-  align-self: flex-start; /* Выравнивание по левому краю */
+  align-self: flex-start;
   margin-top: 10px;
-  border-radius: 8px; /* Добавлено скругление */
+  border-radius: 8px;
 }
 
 .profile-save-button:hover {
@@ -133,5 +130,10 @@
     font-size: 0.78em; 
     padding: 6px 5px;
     min-height: 34px;
+  }
+  
+  /* ИЗМЕНЕНО: Добавлено правило для полей ввода на этой странице */
+  .profile-form .form-input {
+    font-size: 16px !important;
   }
 }

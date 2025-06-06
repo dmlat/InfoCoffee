@@ -90,7 +90,6 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   font-size: 0.9em;
 }
 
-/* --- Уникальный стиль для кнопки удаления в этой таблице --- */
 .expenses-table .delete-btn {
   background: transparent;
   color: #fff;
@@ -107,6 +106,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   background-color: rgba(224, 107, 107, 0.15);
 }
 
+
 /* Медиа-запросы для ExpensesPage */
 @media (max-width: 767px) {
   .expense-form-row:not(.expense-form-row-amount-date) {
@@ -115,5 +115,10 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   }
   .expense-form-row:not(.expense-form-row-amount-date) .expense-form-field {
      width: 100%;
+  }
+  
+  /* ИЗМЕНЕНО: Добавлено это правило для предотвращения масштабирования */
+  .expense-form-input {
+    font-size: 16px !important;
   }
 }
