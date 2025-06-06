@@ -108,8 +108,16 @@ bot.onText(/\/app/, (msg) => {
 });
 
 bot.onText(/\/myid/, (msg) => {
-    bot.sendMessage(msg.chat.id, `Ваш Telegram ID: \`${msg.from.id}\``, { parse_mode: 'Markdown' });
-    setTimeout(() => sendMainMenu(msg.chat.id), 500);
+    const chatId = msg.chat.id;
+    const telegramId = msg.from.id;
+    bot.sendMessage(chatId, `Ваш Telegram ID:\n${telegramId}`, {
+         reply_markup: {
+            inline_keyboard: [
+                [{ text: '📲 Отправить ID', switch_inline_query: String(telegramId) }],
+                [{ text: '🔙 В меню', callback_data: 'main_menu' }]
+            ]
+        }
+    });
 });
 
 // Главный обработчик текстовых сообщений
@@ -131,7 +139,7 @@ bot.on('message', async (msg) => {
 
         if (!result.success) {
             bot.sendMessage(chatId, `❌ ${result.error || 'Неизвестная ошибка парсинга.'}`);
-            return sendMainMenu(chatId, 'Попробуйте еще раз из главного меню.');
+            return sendMainMenu(chatId);
         }
 
         if (result.needsClarification) {
@@ -209,8 +217,15 @@ bot.on('callback_query', async (query) => {
             break;
         case 'show_my_id':
             bot.deleteMessage(chatId, messageId).catch(() => {});
-            bot.sendMessage(chatId, `Ваш Telegram ID: \`${query.from.id}\``, { parse_mode: 'Markdown' });
-            sendMainMenu(chatId);
+            bot.sendMessage(chatId, `Ваш Telegram ID:\n\`${query.from.id}\``, {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '📲 Отправить ID', switch_inline_query: String(query.from.id) }],
+                        [{ text: '🔙 В меню', callback_data: 'main_menu' }]
+                    ]
+                }
+            });
             break;
         case 'show_finances_menu':
             bot.editMessageText('📊 Выберите период для отчета:', { chat_id: chatId, message_id: messageId, ...financesKeyboard });
@@ -237,10 +252,13 @@ bot.on('callback_query', async (query) => {
                     const summary = await getFinancialSummary(user.ownerUserId, from.format('YYYY-MM-DD HH:mm:ss'), to.format('YYYY-MM-DD HH:mm:ss'));
                     const reportText = `*Финансовые показатели ${periodName}:*\n\n📈 *Выручка:* ${fNum(summary.revenue)} ₽\n☕️ *Продажи:* ${summary.salesCount} шт.\n💳 *Эквайринг:* ${fNum(summary.acquiringCost)} ₽\n📉 *Расходы:* ${fNum(summary.expensesSum)} ₽\n🧾 *Налоги:* ${fNum(summary.taxCost)} ₽\n\n💰 *Чистая прибыль:* *${fNum(summary.netProfit)} ₽*`;
                     
+                    // Редактируем сообщение, добавляя под ним новые кнопки
                     bot.editMessageText(reportText, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', ...afterReportKeyboard });
                 } catch (err) {
                     console.error(`Error fetching financial summary for bot:`, err);
                     bot.answerCallbackQuery(query.id, { text: 'Ошибка получения данных.', show_alert: true });
+                    // В случае ошибки, удаляем "сломанное" меню и возвращаем главное
+                    bot.deleteMessage(chatId, messageId).catch(() => {});
                     sendMainMenu(chatId);
                 }
             } else {
