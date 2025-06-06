@@ -3,9 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import apiClient from '../api';
 import { formatDateForInput } from '../constants';
 import ConfirmModal from '../components/ConfirmModal';
-import './ExpensesPage.css'; // Импорт стилей для этой страницы
-
-// ... остальной код ExpensesPage.js
+import './ExpensesPage.css';
 
 const formatDateForTableDisplay = (isoOrYyyyMmDdDateString) => {
   if (!isoOrYyyyMmDdDateString) return '';
@@ -144,9 +142,11 @@ export default function ExpensesPage() {
       />
       <div className="page-container expenses-page-layout" style={{flexDirection: 'column'}}> 
         <div className="main-content-area" style={{width: '100%'}}>
-          <h2 style={{ marginBottom: '20px', color: '#eee', textAlign: 'center' }}>Учет расходов</h2>
-
+          
           <form onSubmit={handleAddExpense} className="expense-form-container">
+            {/* ИЗМЕНЕНО: Заголовок теперь внутри формы */}
+            <h2 className="form-title">Учёт расходов</h2>
+
             <div className="expense-form-row expense-form-row-amount-date"> 
               <div className="expense-form-field"> 
                 <label htmlFor="exp-amount-page" className="expense-form-label">Сумма (₽) <span style={{color: 'tomato'}}>*</span></label>
@@ -205,7 +205,7 @@ export default function ExpensesPage() {
                         <td className="td-amount">{Number(row.amount).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
                         <td className="td-date">{formatDateForTableDisplay(row.expense_time)}</td>
                         <td className="td-comment">{row.comment}</td>
-                        <td className="td-action"><button onClick={() => handleDeleteAttempt(row.id)} className="delete-btn" title="Удалить">🗑</button></td>
+                        <td className="td-action"><button onClick={() => handleDeleteAttempt(row.id)} className="delete-btn" title="Удалить">🗑️</button></td>
                       </tr>
                     ))
                   )}

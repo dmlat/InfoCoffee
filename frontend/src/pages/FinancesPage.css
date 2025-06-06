@@ -1,6 +1,4 @@
 /* frontend/src/pages/FinancesPage.css */
-/* .finances-page может быть добавлен к корневому div в FinancesPage.js для специфичных стилей */
-
 .sidebar-area {
   flex: 1;
   min-width: 220px; 
@@ -26,7 +24,8 @@
 }
 
 .date-input-item label {
-  font-size: 0.85em;
+  /* ИЗМЕНЕНО: шрифт как у кнопок */
+  font-size: 0.9em; 
   color: #a0b0c8; 
   font-weight: 500;
   display: block;
@@ -46,41 +45,46 @@ input[type="date"].period-date-input {
   font-size: 0.85em;
   width: 100%;
 }
+
 input[type="date"].period-date-input::-webkit-calendar-picker-indicator {
   filter: invert(0.6);
 }
+
 input[type="date"].period-date-input:disabled {
   background-color: #20232a; 
   opacity: 0.6;
 }
 
+/* ИЗМЕНЕНО: Стили для кнопок периода */
 .period-buttons-container {
   display: grid;
   grid-template-columns: repeat(4, 1fr); 
-  gap: 8px; 
+  gap: 8px; /* Отступ между кнопками */
   width: 100%;
   margin-bottom: 8px;
+  box-sizing: border-box;
+  /* Убран padding, так как кнопки теперь растягиваются на 100% и gap создает отступы */
 }
 
 .period-btn {
   background-color: #2e3340;
   color: #a0b0c8;
   border: 1px solid #303548;
-  padding: 8px 6px;   
-  border-radius: 6px;     
+  padding: 8px 6px;
+  border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
   text-align: center;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-  font-size: 0.8em; 
+  font-size: 0.9em; 
   width: 100%; 
   box-sizing: border-box;
   min-height: 36px; 
   display: flex; 
   align-items: center; 
   justify-content: center; 
-  line-height: 1.2;       
-  white-space: normal;    
+  line-height: 1.2;
+  white-space: normal;
 }
 
 .period-btn:hover {
@@ -149,31 +153,47 @@ input[type="date"].period-date-input:disabled {
   border-bottom: none;
 }
 
-.table-scroll-container { /* Этот класс используется для таблицы кофеен */
-  max-height: 400px;
-  overflow-y: auto; 
-  border-radius: 0 0 12px 12px; 
+/* --- ИЗМЕНЕНИЯ: Стили для таблицы кофеен --- */
+.coffee-stats-card .data-table-container {
+  padding: 1px 0 15px 0;
 }
 
-.coffee-stats-table th.text-right, 
-.coffee-stats-table td.text-right {
+.coffee-stats-table {
+  /* Наследует .data-table, но мы можем переопределить */
+  table-layout: auto; /* Позволяет браузеру определять ширину колонок */
+}
+
+.coffee-stats-table th {
+  color: #8ae6ff; /* Цвет заголовка как у табов */
+  font-weight: 500;
+  border-bottom: 1px solid #4a4f58;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+.coffee-stats-table td {
+  padding-left: 15px;
+  padding-right: 15px;
+  /* Чередование цветов уже есть в `tables.css`, оно применится */
+}
+
+/* Выравнивание заголовков */
+.coffee-stats-table th:first-child {
+  text-align: left;
+}
+.coffee-stats-table th {
   text-align: right;
 }
-.data-table .td-coffee-shop-name { /* Уже есть в tables.css, но если нужно переопределить */
-    white-space: normal; 
-    word-break: break-word;
-    min-width: 120px; 
-    vertical-align: middle;
-}
-.data-table .td-sales-count { /* Уже есть в tables.css */
+
+/* Стили для ячеек */
+.coffee-stats-table .td-revenue,
+.coffee-stats-table .td-sales-count {
+  white-space: nowrap; /* Запрещаем перенос */
   text-align: right;
-  white-space: nowrap;
 }
 
-
-/* Медиа-запросы для FinancesPage */
+/* Адаптация для мобильных */
 @media (max-width: 767px) {
-  .sidebar-area { /* Переопределение из common.css или index.css, если нужно */
+  .sidebar-area {
     order: -1; 
     margin-bottom: 15px; 
     gap: 12px; 
@@ -183,17 +203,10 @@ input[type="date"].period-date-input:disabled {
     gap: 8px; 
     margin-bottom: 10px; 
   }
-  .date-input-item label {
-    font-size: 0.85em; 
-  }
-  input[type="date"].period-date-input { /* Уже есть в index.css, дублируем для специфичности если нужно */
-    font-size: 16px !important;
-    padding: 7px 8px; 
-    height: 38px; 
-  }
 
   .period-buttons-container { 
     gap: 6px; 
+    padding: 0;
   }
 
   .period-btn {
@@ -203,14 +216,11 @@ input[type="date"].period-date-input:disabled {
     line-height: 1.1;
   }
   
-  .summary-table td { /* Уже есть в index.css */
+  .summary-table td {
       padding: 5px 6px !important; 
   }
-   .data-table .td-coffee-shop-name { /* Уже есть в tables.css */
-      min-width: 90px; 
-   }
 
-  .summary-card-title, .coffee-stats-title { /* Уже есть в index.css, но специфичность может быть выше */
+  .summary-card-title, .coffee-stats-title {
     font-size: 1.1em !important; 
     margin-bottom: 12px !important;
   }

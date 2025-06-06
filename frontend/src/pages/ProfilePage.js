@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api';
 import { formatDateForInput } from '../constants';
-import './ProfilePage.css'; // Импортируем стили
+import './ProfilePage.css'; // Убедись, что этот импорт на месте
 
 const taxOptions = [
   { value: 'income_6', label: 'Доходы 6%' },
@@ -214,7 +214,7 @@ export default function ProfilePage() {
           {!syncStatusLoading && !syncStatusError && (
             <ul>
               {/* --- ИЗМЕНЕНЫ ТЕКСТЫ ЗАГОЛОВКОВ --- */}
-              <li >
+              <li>
                 Обновление транзакций: <strong>{formatSyncTimestamp(syncStatus.lastTransactionsUpdate)}</strong>
               </li>
               <li>
@@ -226,7 +226,6 @@ export default function ProfilePage() {
             </ul>
           )}
         </div>
-
       </div>
     </div>
   );

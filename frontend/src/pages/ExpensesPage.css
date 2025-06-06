@@ -10,6 +10,15 @@
   border-radius: 12px;
 }
 
+/* ИЗМЕНЕНО: Стиль для заголовка внутри формы */
+.expense-form-container .form-title {
+  color: #8ae6ff;
+  font-weight: 600;
+  font-size: 1.1em;
+  margin: 0 0 10px 0;
+  text-align: left;
+}
+
 .expense-form-row {
   display: flex;
   gap: 12px;
@@ -18,18 +27,18 @@
 }
 
 .expense-form-row-amount-date {
-  flex-direction: row !important; 
-  gap: 10px !important; 
+  flex-direction: row !important;
+  gap: 10px !important;
 }
 .expense-form-row-amount-date .expense-form-field {
-  flex: 1; 
+  flex: 1;
 }
 
 .expense-form-field, .expense-form-field-fullwidth {
   display: flex;
   flex-direction: column;
 }
-.expense-form-field:not(.expense-form-row-amount-date .expense-form-field) { 
+.expense-form-field:not(.expense-form-row-amount-date .expense-form-field) {
   flex: 1;
 }
 .expense-form-field-fullwidth {
@@ -56,18 +65,17 @@
 }
 
 input[type="date"].expense-form-input {
-  font-family: inherit; 
+  font-family: inherit;
 }
 input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   filter: invert(0.6);
 }
 
-/* --- ИЗМЕНЕНИЯ ДЛЯ КНОПКИ --- */
+/* ИЗМЕНЕНО: Стили для кнопки "Добавить" */
 .expense-form-submit-button {
   margin-top: 5px;
   width: auto;
   align-self: flex-start;
-  /* Стилизация под активную кнопку периода */
   background: #3e67e0;
   color: #fff;
   border: 1px solid #3e67e0;
@@ -75,6 +83,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   font-size: 0.95em;
   height: 38px;
   padding: 8px 22px;
+  border-radius: 8px; /* Добавлено скругление углов */
 }
 .expense-form-submit-button:hover {
   background: #4a75f0;
@@ -86,7 +95,6 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   color: #7a8b98;
   cursor: not-allowed;
 }
-/* --- КОНЕЦ ИЗМЕНЕНИЙ ДЛЯ КНОПКИ --- */
 
 .expense-form-error {
   color: salmon;
@@ -96,43 +104,50 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   font-size: 0.9em;
 }
 
-/* --- НОВЫЕ СТИЛИ ДЛЯ ТАБЛИЦЫ РАСХОДОВ --- */
-/* Эти стили наследуются из общего файла tables.css, но мы можем их переопределить */
-.expenses-table-container {
-  /* Если нужны специфичные стили для контейнера */
+/* ИЗМЕНЕНО: Стили для таблицы расходов */
+.expenses-table {
+  table-layout: auto; /* Позволяет колонкам растягиваться по содержимому */
+  width: 100%;
 }
 
 .expenses-table th {
-  color: #8ae6ff; /* Цвет как у заголовка "Настройки профиля" */
+  color: #8ae6ff;
   font-weight: 500;
   border-bottom: 1px solid #4a4f58;
 }
 
-.expenses-table td {
-  border-bottom: 1px solid #282c34;
-}
+/* Выравнивание заголовков */
+.expenses-table th:first-child { text-align: left; }
+.expenses-table th:nth-child(2) { text-align: right; }
+.expenses-table th:nth-child(3) { text-align: left; } /* Комментарий слева */
+.expenses-table th:last-child { text-align: center; } /* Действия по центру */
 
-.expenses-table th:first-child,
-.expenses-table td:first-child {
-  padding-left: 15px; /* Добавим отступы для красоты */
+/* Выравнивание ячеек */
+.expenses-table td.td-amount { text-align: right; }
+.expenses-table td.td-date { text-align: left; } /* Дата слева */
+.expenses-table td.td-comment { text-align: left; }
+
+.expenses-table .delete-btn {
+  background: transparent;
+  color: #7a8b98;
+  font-size: 20px;
+  transition: color 0.2s;
 }
-.expenses-table th:last-child,
-.expenses-table td:last-child {
-  padding-right: 15px;
+.expenses-table .delete-btn:hover {
+  color: #e06b6b;
 }
-/* --- КОНЕЦ НОВЫХ СТИЛЕЙ ДЛЯ ТАБЛИЦЫ --- */
 
 /* Медиа-запросы для ExpensesPage */
 @media (max-width: 767px) {
-  .expense-form-row:not(.expense-form-row-amount-date) { 
-     flex-direction: column; 
-     gap: 15px; 
+  .expense-form-row:not(.expense-form-row-amount-date) {
+     flex-direction: column;
+     gap: 15px;
   }
   .expense-form-row:not(.expense-form-row-amount-date) .expense-form-field {
-     width: 100%; 
+     width: 100%;
   }
   
-  .expense-form-input { 
-    font-size: 16px !important; 
+  .expense-form-input {
+    font-size: 16px !important;
   }
 }

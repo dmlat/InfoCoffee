@@ -9,6 +9,8 @@
   padding: 25px 30px;
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  display: flex; /* Добавлено для управления дочерними элементами */
+  flex-direction: column; /* Добавлено для управления дочерними элементами */
 }
 .profile-form h2 {
   color: #8ae6ff;
@@ -34,7 +36,7 @@
   border: 1px solid #303548;
   color: #c6c6c6;
   box-sizing: border-box;
-  /* ИЗМЕНЕНИЕ: Высота и размер шрифта как на FinancesPage */
+  /* ИЗМЕНЕНО: Высота и размер шрифта как на FinancesPage */
   height: 36px;
   font-size: 0.9em; 
 }
@@ -54,7 +56,8 @@
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-  font-size: 0.9em;  /* ИЗМЕНЕНО: Увеличен шрифт */
+  /* ИЗМЕНЕНО: Увеличен шрифт */
+  font-size: 0.9em;  
   min-height: 36px; 
   line-height: 1.3;
 }
@@ -69,8 +72,9 @@
   display: block;
   margin-top: 5px;
 }
+
+/* ИЗМЕНЕНО: Стили для кнопки сохранения */
 .profile-save-button {
-  /* НОВЫЕ СТИЛИ: делаем кнопку похожей на активную кнопку периода */
   background: #3e67e0;
   color: #fff;
   border: 1px solid #3e67e0;
@@ -78,9 +82,10 @@
   font-size: 0.95em;
   height: 38px;
   padding: 8px 22px;
-  width: auto; /* Чтобы кнопка не растягивалась на всю ширину */
-  align-self: flex-start; /* Для выравнивания по левому краю */
+  width: auto; 
+  align-self: flex-start; /* Выравнивание по левому краю */
   margin-top: 10px;
+  border-radius: 8px; /* Добавлено скругление */
 }
 
 .profile-save-button:hover {
@@ -104,7 +109,7 @@
   margin-top: 0;
   color: #8ae6ff;
   margin-bottom: 15px;
-  text-align: left; /* Выравниваем по левому краю, как и другой заголовок */
+  text-align: left; 
 }
 .profile-sync-status-card ul {
   list-style: none;
