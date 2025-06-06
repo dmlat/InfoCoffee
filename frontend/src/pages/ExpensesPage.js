@@ -144,7 +144,6 @@ export default function ExpensesPage() {
         <div className="main-content-area" style={{width: '100%'}}>
           
           <form onSubmit={handleAddExpense} className="expense-form-container">
-            {/* ИЗМЕНЕНО: Заголовок теперь внутри формы */}
             <h2 className="form-title">Учёт расходов</h2>
 
             <div className="expense-form-row expense-form-row-amount-date"> 
@@ -190,10 +189,10 @@ export default function ExpensesPage() {
               <table className="data-table expenses-table"> 
                 <thead>
                   <tr>
-                    <th>Сумма</th>
-                    <th>Дата</th>
-                    <th>Комментарий</th>
-                    <th></th>
+                    <th className="td-amount">Сумма</th>
+                    <th className="td-date">Дата</th>
+                    <th className="td-comment">Комментарий</th>
+                    <th className="td-action"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -202,10 +201,15 @@ export default function ExpensesPage() {
                   ) : (
                     expenses.map((row) => (
                       <tr key={row.id}>
-                        <td className="td-amount">{Number(row.amount).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
+                        <td className="td-amount">{Number(row.amount).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td>
                         <td className="td-date">{formatDateForTableDisplay(row.expense_time)}</td>
                         <td className="td-comment">{row.comment}</td>
-                        <td className="td-action"><button onClick={() => handleDeleteAttempt(row.id)} className="delete-btn" title="Удалить">🗑️</button></td>
+                        <td className="td-action">
+                          {/* ИЗМЕНЕНО: иконка корзины заменена на крестик */}
+                          <button onClick={() => handleDeleteAttempt(row.id)} className="delete-btn" title="Удалить">
+                            &times;
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}

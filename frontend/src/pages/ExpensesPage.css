@@ -6,11 +6,10 @@
   gap: 15px;
   margin-bottom: 24px;
   background: #282c34;
-  padding: 20px;
+  padding: 20px 25px;
   border-radius: 12px;
 }
 
-/* ИЗМЕНЕНО: Стиль для заголовка внутри формы */
 .expense-form-container .form-title {
   color: #8ae6ff;
   font-weight: 600;
@@ -71,7 +70,6 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   filter: invert(0.6);
 }
 
-/* ИЗМЕНЕНО: Стили для кнопки "Добавить" */
 .expense-form-submit-button {
   margin-top: 5px;
   width: auto;
@@ -83,7 +81,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   font-size: 0.95em;
   height: 38px;
   padding: 8px 22px;
-  border-radius: 8px; /* Добавлено скругление углов */
+  border-radius: 8px;
 }
 .expense-form-submit-button:hover {
   background: #4a75f0;
@@ -104,38 +102,34 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   font-size: 0.9em;
 }
 
-/* ИЗМЕНЕНО: Стили для таблицы расходов */
-.expenses-table {
-  table-layout: auto; /* Позволяет колонкам растягиваться по содержимому */
-  width: 100%;
+/* --- Стили для таблицы расходов --- */
+/* Все базовые стили (цвет шапки, чередование строк, линии) теперь приходят из tables.css */
+/* Здесь мы можем оставить только уникальные переопределения, если они понадобятся. */
+
+/* Например, мы можем задать уникальное выравнивание для этой конкретной таблицы */
+.expenses-table .td-amount,
+.expenses-table .td-date {
+  /* Если нужно специфичное выравнивание, можно задать здесь. */
+  /* Сейчас используется базовое из tables.css */
 }
 
-.expenses-table th {
-  color: #8ae6ff;
-  font-weight: 500;
-  border-bottom: 1px solid #4a4f58;
-}
-
-/* Выравнивание заголовков */
-.expenses-table th:first-child { text-align: left; }
-.expenses-table th:nth-child(2) { text-align: right; }
-.expenses-table th:nth-child(3) { text-align: left; } /* Комментарий слева */
-.expenses-table th:last-child { text-align: center; } /* Действия по центру */
-
-/* Выравнивание ячеек */
-.expenses-table td.td-amount { text-align: right; }
-.expenses-table td.td-date { text-align: left; } /* Дата слева */
-.expenses-table td.td-comment { text-align: left; }
-
+/* ИЗМЕНЕНО: Стиль для кнопки-крестика */
 .expenses-table .delete-btn {
   background: transparent;
-  color: #7a8b98;
-  font-size: 20px;
-  transition: color 0.2s;
+  color: #fff; /* Белый цвет для крестика */
+  font-size: 1.5em; /* Делаем крестик крупнее */
+  font-weight: 300; /* Более тонкое начертание для "аккуратности" */
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 50%; /* Делаем круглую область клика */
+  transition: all 0.2s;
 }
+
 .expenses-table .delete-btn:hover {
-  color: #e06b6b;
+  color: #ff8a8a;
+  background-color: rgba(224, 107, 107, 0.15);
 }
+
 
 /* Медиа-запросы для ExpensesPage */
 @media (max-width: 767px) {
