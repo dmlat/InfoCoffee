@@ -186,9 +186,11 @@ export default function ExpensesPage() {
           
           {!isLoading && !error && (
             <div className="data-table-container expenses-table-container">
+              {/* ИЗМЕНЕНО: Добавлен класс .data-table */}
               <table className="data-table expenses-table"> 
                 <thead>
                   <tr>
+                    {/* ИЗМЕНЕНО: Добавлены классы для выравнивания */}
                     <th className="td-amount">Сумма</th>
                     <th className="td-date">Дата</th>
                     <th className="td-comment">Комментарий</th>
@@ -201,6 +203,7 @@ export default function ExpensesPage() {
                   ) : (
                     expenses.map((row) => (
                       <tr key={row.id}>
+                        {/* ИЗМЕНЕНО: Добавлены классы для выравнивания */}
                         <td className="td-amount">{Number(row.amount).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td>
                         <td className="td-date">{formatDateForTableDisplay(row.expense_time)}</td>
                         <td className="td-comment">{row.comment}</td>
