@@ -45,12 +45,12 @@ echo "      Done."
 
 # Step 6: Restart PM2 services
 echo "[5/6] Restarting backend services..."
-pm2 restart ${PM2_APP_NAME}
-echo "      '${PM2_APP_NAME}' restarted."
-pm2 restart ${PM2_BOT_NAME}
-echo "      '${PM2_BOT_NAME}' restarted."
-pm2 restart ${PM2_SCHEDULER_NAME}
-echo "      '${PM2_SCHEDULER_NAME}' restarted."
+pm2 reload ${PM2_APP_NAME} --update-env
+echo "      '${PM2_APP_NAME}' reloaded."
+pm2 reload ${PM2_BOT_NAME} --update-env
+echo "      '${PM2_BOT_NAME}' reloaded."
+pm2 reload ${PM2_SCHEDULER_NAME} --update-env
+echo "      '${PM2_SCHEDULER_NAME}' reloaded."
 
 echo " "
 echo "--- [SUCCESS] Deployment finished! ---"
