@@ -4,10 +4,11 @@ require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const pool = require('./db'); // db.js
-const authRoutes = require('./routes/auth'); // routes/auth.js
-const profileRoutes = require('./routes/profile'); // routes/profile.js
-const transactionsRoutes = require('./routes/transactions'); // routes/transactions.js
-const expensesRoutes = require('./routes/expenses'); // routes/expenses.js
+const authRoutes = require('./routes/auth');
+const profileRoutes = require('./routes/profile');
+const transactionsRoutes = require('./routes/transactions');
+const expensesRoutes = require('./routes/expenses');
+const accessRoutes = require('./routes/access'); // <-- НОВЫЙ ИМПОРТ
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/transactions', transactionsRoutes);
 app.use('/api/expenses', expensesRoutes);
+app.use('/api/access', accessRoutes); // <-- НОВОЕ ПОДКЛЮЧЕНИЕ
 
 // Старый /api/vendista роут больше не нужен, т.к. его функционал переехал в /api/auth
 // Если у тебя были другие утилитарные функции в routes/vendista.js, их нужно пересмотреть.
