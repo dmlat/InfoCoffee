@@ -74,18 +74,6 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   margin-top: 5px;
   width: auto;
   align-self: flex-start;
-  background: #3e67e0;
-  color: #fff;
-  border: 1px solid #3e67e0;
-  font-weight: 600;
-  font-size: 0.95em;
-  height: 38px;
-  padding: 8px 22px;
-  border-radius: 8px;
-}
-.expense-form-submit-button:hover {
-  background: #4a75f0;
-  border-color: #4a75f0;
 }
 .expense-form-submit-button:disabled {
   background-color: #2e3340;
@@ -102,15 +90,7 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   font-size: 0.9em;
 }
 
-/* --- Стили, специфичные для таблицы расходов --- */
-
-/* УНИКАЛЬНОЕ ВЫРАВНИВАНИЕ ДЛЯ ЭТОЙ ТАБЛИЦЫ */
-/* Заголовки (th) уже выровнены по классам в JSX */
-/* Ячейки (td) будут выровнены по тем же классам, 
-   которые мы задали для заголовков, 
-   благодаря правилам в tables.css (.td-amount, .td-date и т.д.) */
-
-/* Уникальный стиль для кнопки удаления в этой таблице */
+/* --- Уникальный стиль для кнопки удаления в этой таблице --- */
 .expenses-table .delete-btn {
   background: transparent;
   color: #fff;
@@ -127,7 +107,6 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   background-color: rgba(224, 107, 107, 0.15);
 }
 
-
 /* Медиа-запросы для ExpensesPage */
 @media (max-width: 767px) {
   .expense-form-row:not(.expense-form-row-amount-date) {
@@ -136,9 +115,5 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
   }
   .expense-form-row:not(.expense-form-row-amount-date) .expense-form-field {
      width: 100%;
-  }
-  
-  .expense-form-input {
-    font-size: 16px !important;
   }
 }

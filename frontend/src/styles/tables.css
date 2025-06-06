@@ -1,11 +1,13 @@
 /* frontend/src/styles/tables.css */
 
 .data-table-container {
-  overflow-x: auto; 
+  overflow-x: auto;
   background: #282c34;
-  padding: 1px 15px 15px 15px; 
+  padding: 1px 15px 15px 15px;
   border-radius: 12px;
   margin-top: 20px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .data-table {
@@ -17,19 +19,27 @@
 .data-table thead {
   position: sticky;
   top: 0;
-  z-index: 1; 
-  background: #282c34; 
+  z-index: 1;
+  background: #282c34;
 }
 
 /* --- Стили для всех заголовков таблиц --- */
 .data-table th {
-  padding: 9px 10px;
+  padding: 10px 12px;
   color: #8ae6ff;    
-  font-weight: 500;  /* Шрифт как в "Показателях за период" */
-  text-align: left;
-  border-bottom: 1px solid #4a4f58; /* Видимая линия под шапкой */
+  font-weight: 600;  /* Сделал жирнее, как у заголовков */
+  text-align: left; /* Выравнивание по умолчанию */
+  border-bottom: 2px solid #4a4f58; /* Более толстая линия под шапкой */
   white-space: nowrap;
   border-right: 1px solid #353a40; /* Линия между столбцами */
+}
+
+.data-table th.text-right {
+  text-align: right;
+}
+
+.data-table th:first-child {
+  text-align: left; /* Всегда по левому краю для первого столбца */
 }
 
 .data-table th:last-child {
@@ -38,40 +48,45 @@
 
 /* --- Стили для всех ячеек таблиц --- */
 .data-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid #353a40; /* Линия между строками */
+  padding: 9px 12px;
+  border-bottom: 1px solid #353a40; /* Тонкая линия между строками */
   color: #c0c0c0;
-  text-align: left;
+  text-align: left; /* Выравнивание по умолчанию */
   vertical-align: middle;
   border-right: 1px solid #353a40; /* Линия между столбцами */
+}
+
+.data-table td.text-right {
+  text-align: right;
 }
 
 .data-table td:last-child {
   border-right: none;
 }
 
-/* --- Более акцентное чередование цветов строк --- */
+/* --- Чередование цветов строк --- */
 .data-table tbody tr:nth-child(odd) td {
-  background-color: #2c303a; 
+  background-color: #2c303a;
 }
 .data-table tbody tr:nth-child(even) td {
   background-color: #282c34;
 }
 
 .data-table tbody tr:last-child td {
-  border-bottom: none; 
+  border-bottom: none;
 }
 
 /* --- Стили для специфичных типов ячеек --- */
-.data-table .td-amount, 
+.data-table .td-amount,
 .data-table .td-revenue,
 .data-table .td-sales-count {
   font-weight: 500;
-  text-align: right; 
+  text-align: right;
   white-space: nowrap;
 }
 .data-table .td-date {
   white-space: nowrap;
+  text-align: right;
 }
 .data-table .td-comment {
   white-space: pre-wrap;
@@ -83,13 +98,12 @@
   white-space: nowrap;
 }
 
-/* ИСПРАВЛЕНО: Стили для строки "Нет данных" */
 .data-table .empty-data-row td {
-    color: #888;
-    padding: 20px;
-    text-align: center !important; /* Важно: всегда выравниваем по центру */
-    background-color: #282c34 !important; /* Убираем чередование цветов */
-    border: none;
+  color: #888;
+  padding: 20px;
+  text-align: center !important;
+  background-color: #282c34 !important;
+  border: none;
 }
 
 /* Медиа-запросы для таблиц */
@@ -97,10 +111,10 @@
   .data-table {
     font-size: 0.85em !important;
   }
-  .data-table th, .data-table td { 
-      padding: 6px 8px !important; 
+  .data-table th, .data-table td {
+    padding: 8px 10px !important;
   }
-   .data-table td.td-comment {
-      min-width: 80px; 
-   }
+  .data-table td.td-comment {
+    min-width: 80px;
+  }
 }

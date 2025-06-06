@@ -1,38 +1,115 @@
 /* frontend/src/index.css */
-/* Общие стили для всего документа - остаются здесь */
+/* Общие стили для всего документа */
 html, body {
   height: 100%;
   margin: 0;
-  overscroll-behavior-y: contain; 
-  background-color: #23272f;
-}
-
-body {
+  background-color: #23272f; /* Единственный источник цвета фона */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: #c6c6c6;
-  min-height: 100vh;
+  overscroll-behavior-y: contain; /* Предотвращает "оттягивание" страницы на мобильных */
+}
+
+/* Убираем лишние обертки, применяем стили к body и #root */
+body, #root {
   display: flex;
   flex-direction: column;
-  overflow-x: hidden; /* ПРЕДОТВРАЩАЕМ ГОРИЗОНТАЛЬНЫЙ СКРОЛЛ ВСЕЙ СТРАНИЦЫ */
+  min-height: 100vh;
+  overflow-x: hidden; /* Предотвращаем горизонтальный скролл */
 }
 
 #root {
-  min-height: 100vh;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
   flex: 1;
 }
 
-.App { 
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+/* Общие стили для кнопок и других элементов */
+.action-btn {
+  background: #3e67e0;
+  color: #fff;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 22px;
+  height: 38px;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 0.95em;
+}
+.action-btn:hover {
+  background: #4a75f0;
+}
+.action-btn:disabled {
+  background-color: #2e3340;
+  color: #7a8b98;
+  cursor: not-allowed;
 }
 
-/* Стили для App.css (стандартные от CRA) обычно остаются в App.css */
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #e06b6b;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+}
+.delete-btn:hover {
+  color: #ff8a8a;
+}
+
+.page-loading-container, .app-loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  font-size: 1.1em;
+  color: #a0b0c8;
+  width: 100%;
+  flex-grow: 1;
+}
+
+.loading-message, .empty-data-message {
+  color: #888;
+  padding: 20px;
+  text-align: center;
+}
+
+.error-message {
+  color: salmon;
+  padding: 10px;
+  text-align: center;
+  border: 1px solid salmon;
+  border-radius: 6px;
+  background-color: rgba(250, 128, 114, 0.1);
+  margin-bottom: 15px;
+}
+
+.text-center {
+  text-align: center;
+}
+
+/* Стили для мобильных устройств */
+@media (max-width: 767px) {
+  h2 {
+    font-size: 1.3em;
+    margin-bottom: 16px !important;
+  }
+  h4 {
+    font-size: 1.1em !important;
+    margin-bottom: 12px !important;
+  }
+  
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="date"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
