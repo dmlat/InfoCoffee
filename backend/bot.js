@@ -23,7 +23,7 @@ const mainKeyboard = {
     reply_markup: {
         inline_keyboard: [
             [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
-            [{ text: '💸 Записать расходы', callback_data: 'quick_expense_info' }],
+            [{ text: '💸 Записать расходы', callback_data: 'enter_expense_mode' }],
             [{ text: '📊 Финансы', callback_data: 'show_finances_menu' }],
             [{ text: '🆔 Показать ID', callback_data: 'show_my_id' }]
         ]
@@ -37,41 +37,40 @@ const financesKeyboard = {
             [{ text: '📈 С начала недели', callback_data: 'get_finances_week' }, { text: '📉 С начала месяца', callback_data: 'get_finances_month' }],
             [{ text: '7️⃣ За 7 дней', callback_data: 'get_finances_7_days' }, { text: '3️⃣0️⃣ За 30 дней', callback_data: 'get_finances_30_days' }],
             [{ text: '🏁 С начала года', callback_data: 'get_finances_year' }],
-            [{ text: '🔙 Назад', callback_data: 'main_menu' }]
+            [{ text: '🔙 Назад в меню', callback_data: 'main_menu' }]
         ]
     }
 };
 
+// Можно вынести в отдельную клаву, если нужно backToFinancesKeyboard
 const backToFinancesKeyboard = {
     reply_markup: {
-        inline_keyboard: [[{ text: '📊 Другой период', callback_data: 'show_finances_menu' }, { text: '🔙 В меню', callback_data: 'main_menu' }]]
+        inline_keyboard: [
+            [{ text: '🔙 Назад к выбору периода', callback_data: 'show_finances_menu' }],
+            [{ text: '🏠 Главное меню', callback_data: 'main_menu' }]
+        ]
     }
 };
 
-// Хранилище для незавершенных операций
+// --- Состояния ---
+const userState = {};
 const pendingYearClarifications = {};
 
 // --- Вспомогательные функции ---
 async function getUser(telegramId) {
     const ownerRes = await pool.query('SELECT id FROM users WHERE telegram_id = $1 AND vendista_api_token IS NOT NULL', [telegramId]);
-    if (ownerRes.rows.length > 0) {
-        return { type: 'owner', ownerUserId: ownerRes.rows[0].id };
-    }
+    if (ownerRes.rows.length > 0) return { type: 'owner', ownerUserId: ownerRes.rows[0].id };
 
     const accessRes = await pool.query('SELECT owner_user_id, access_level FROM user_access_rights WHERE shared_with_telegram_id = $1', [telegramId]);
-    if (accessRes.rows.length > 0) {
-        const { owner_user_id, access_level } = accessRes.rows[0];
-        if (access_level === 'admin') {
-            return { type: 'admin', ownerUserId: owner_user_id };
-        }
+    if (accessRes.rows.length > 0 && accessRes.rows[0].access_level === 'admin') {
+        return { type: 'admin', ownerUserId: accessRes.rows[0].owner_user_id };
     }
-
     return { type: 'unauthorized', ownerUserId: null };
 }
 
-const fNum = (num) => num.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fNum = (num) => Number(num || 0).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-async function saveExpenses(chatId, ownerUserId, expenses) {
+async function saveExpenses(ownerUserId, expenses) {
     const client = await pool.pool.connect();
     try {
         await client.query('BEGIN');
@@ -86,7 +85,6 @@ async function saveExpenses(chatId, ownerUserId, expenses) {
     } catch (dbErr) {
         await client.query('ROLLBACK');
         console.error("DB Error on saving expenses:", dbErr);
-        bot.sendMessage(chatId, "❌ Произошла ошибка при записи расходов в базу данных. Попробуйте позже.");
         return false;
     } finally {
         client.release();
@@ -94,23 +92,26 @@ async function saveExpenses(chatId, ownerUserId, expenses) {
 }
 
 // --- Обработчики команд ---
-bot.onText(/\/start/, (msg) => {
-    const welcomeText = `Добро пожаловать в сервис управления кофейным бизнесом InfoCoffee! ☕️\n\nИспользуйте меню ниже для навигации или просто отправьте мне расходы в свободном формате.`;
-    bot.sendMessage(msg.chat.id, welcomeText, mainKeyboard);
+const sendMainMenu = (chatId, text = 'Главное меню:') => {
+    bot.sendMessage(chatId, text, mainKeyboard);
+};
+
+bot.onText(/\/start|\/menu/, (msg) => {
+    sendMainMenu(msg.chat.id, `Добро пожаловать, ${msg.from.first_name}! ☕️`);
 });
 
-bot.onText(/\/myid/, (msg) => {
-    const chatId = msg.chat.id;
-    const telegramId = msg.from.id;
-    bot.sendMessage(chatId, `Ваш Telegram ID: \`${telegramId}\`\n\nНажмите кнопку ниже, чтобы быстро поделиться им.`, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-            inline_keyboard: [[{ text: '📲 Поделиться ID', switch_inline_query: String(telegramId) }]]
-        }
+bot.onText(/\/app/, (msg) => {
+    bot.sendMessage(msg.chat.id, 'Нажмите, чтобы запустить приложение 👇', {
+        reply_markup: { inline_keyboard: [[{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }]] }
     });
 });
 
-// Главный обработчик текстовых сообщений
+bot.onText(/\/myid/, (msg) => {
+    bot.sendMessage(msg.chat.id, `Ваш Telegram ID: \`${msg.from.id}\``, { parse_mode: 'Markdown' });
+    setTimeout(() => sendMainMenu(msg.chat.id), 500);
+});
+
+// --- Главный обработчик текстовых сообщений ---
 bot.on('message', async (msg) => {
     if (!msg.text || msg.text.startsWith('/')) return;
 
@@ -122,67 +123,39 @@ bot.on('message', async (msg) => {
         return bot.sendMessage(chatId, 'У вас нет доступа. Пожалуйста, пройдите регистрацию или попросите владельца предоставить вам доступ.');
     }
 
-    const result = parseExpenseMessage(msg.text);
+    // Проверяем, находится ли пользователь в режиме ввода расходов
+    if (userState[chatId] === 'awaiting_expenses') {
+        const result = parseExpenseMessage(msg.text);
+        delete userState[chatId];
 
-    if (!result.success) {
-        if (result.error) {
-            bot.sendMessage(chatId, `❌ ${result.error}\n\n${EXPENSE_INSTRUCTION}`, { parse_mode: 'Markdown' });
-        } else {
-            bot.sendMessage(chatId, "Не удалось распознать формат. Выберите действие из меню:", mainKeyboard);
+        if (!result.success) {
+            bot.sendMessage(chatId, `❌ ${result.error}`);
+            return sendMainMenu(chatId, 'Попробуйте еще раз из главного меню.');
         }
-        return;
-    }
 
-    if (result.needsClarification) {
-        pendingYearClarifications[chatId] = {
-            expensesData: result.expensesData,
-            monthIndex: result.monthIndex
-        };
-        const keyboard = {
-            reply_markup: {
-                inline_keyboard: [
-                    result.yearOptions.map(year => ({
-                        text: `${result.month} ${year}`,
-                        callback_data: `clarify_year_${result.monthIndex}_${year}`
-                    }))
-                ]
-            }
-        };
-        const currentMonthName = moment.tz(TIMEZONE).format('MMMM');
-        bot.sendMessage(chatId, `Сейчас ${currentMonthName}, а ${result.month} еще не наступил. В какой год внести расходы?`, keyboard);
-        return;
-    }
-
-    if (result.expenses.length > 0) {
-        const saved = await saveExpenses(chatId, user.ownerUserId, result.expenses);
+        const saved = await saveExpenses(user.ownerUserId, result.expenses);
         if (saved) {
             let totalAmount = result.expenses.reduce((sum, e) => sum + e.amount, 0);
-            let successMessage = `✅ Записаны расходы на *${moment(result.expenses[0].date).format('DD.MM.YYYY')}*:\n\n`;
-            if (result.expenses.length > 1) {
-                 successMessage = `✅ Записаны расходы:\n\n`;
-            }
-            
-            result.expenses.forEach(e => {
-                successMessage += `— *${fNum(e.amount)} ₽* ${e.comment ? `(${e.comment})` : ''}\n`;
-            });
-
-            if (result.expenses.length > 1) {
-                 successMessage += `\n*Всего:* ${fNum(totalAmount)} ₽`;
-            }
-
+            const successMessage = `✅ Расходы записаны.\n*Всего:* ${fNum(totalAmount)} ₽`;
             bot.sendMessage(chatId, successMessage, { parse_mode: 'Markdown' });
+            sendMainMenu(chatId, 'Что делаем дальше?');
+        } else {
+            bot.sendMessage(chatId, '❌ Не удалось сохранить расходы. Попробуйте позже.');
         }
+    } else {
+        // Если не режим ожидания — просто показываем меню
+        sendMainMenu(chatId, 'Выберите действие:');
     }
 });
 
-
+// --- Обработчик callback-кнопок ---
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
     const messageId = query.message.message_id;
     const data = query.data;
-    
-    // Обработка уточнения года
-    if (data.startsWith('clarify_year_')) {
+
+    // --- Годовые уточнения (если используешь в parseExpenseMessage подобную механику) ---
+    if (data && data.startsWith('clarify_year_')) {
         const pendingData = pendingYearClarifications[chatId];
         if (!pendingData) {
             bot.editMessageText('⏳ Эта сессия устарела. Пожалуйста, отправьте расходы заново.', { chat_id: chatId, message_id: messageId });
@@ -191,17 +164,15 @@ bot.on('callback_query', async (query) => {
 
         const [, monthIndex, year] = data.split('_');
         const baseDate = moment().tz(TIMEZONE).year(year).month(monthIndex).startOf('month');
-        
-        // Снова парсим, но теперь только строки с расходами, без заголовка
         const textToParse = pendingData.expensesData.join('\n');
         const result = parseExpenseMessage(textToParse);
-        
+
         if (!result.success || result.expenses.length === 0) {
             bot.editMessageText(`❌ Ошибка при обработке расходов. ${result.error || ''}`, { chat_id: chatId, message_id: messageId });
             delete pendingYearClarifications[chatId];
             return bot.answerCallbackQuery(query.id);
         }
-        
+
         const user = await getUser(query.from.id);
         if (user.type === 'unauthorized') {
             bot.editMessageText('У вас больше нет доступа.', { chat_id: chatId, message_id: messageId });
@@ -209,8 +180,7 @@ bot.on('callback_query', async (query) => {
         }
 
         const expensesWithDate = result.expenses.map(e => ({ ...e, date: baseDate.toDate() }));
-        
-        const saved = await saveExpenses(chatId, user.ownerUserId, expensesWithDate);
+        const saved = await saveExpenses(user.ownerUserId, expensesWithDate);
         if (saved) {
             const totalAmount = expensesWithDate.reduce((sum, e) => sum + e.amount, 0);
             const monthName = moment(baseDate).format('MMMM YYYY');
@@ -220,55 +190,77 @@ bot.on('callback_query', async (query) => {
         delete pendingYearClarifications[chatId];
         return bot.answerCallbackQuery(query.id);
     }
-    
+
+    // --- Доступ и меню ---
     const user = await getUser(query.from.id);
     if (user.type === 'unauthorized') {
         return bot.answerCallbackQuery(query.id, { text: 'У вас нет доступа.', show_alert: true });
     }
 
+    // Удаляем старое меню, если оно есть (чтобы не плодить много сообщений)
+    bot.deleteMessage(chatId, messageId).catch(() => {});
+
     if (data === 'main_menu') {
-        bot.editMessageText('Главное меню:', { chat_id: chatId, message_id: messageId, ...mainKeyboard });
+        sendMainMenu(chatId);
+    } else if (data === 'enter_expense_mode') {
+        userState[chatId] = 'awaiting_expenses';
+        bot.sendMessage(chatId, EXPENSE_INSTRUCTION, { parse_mode: 'Markdown' });
+        bot.sendMessage(chatId, 'Теперь отправьте сообщение с вашими расходами 👇');
     } else if (data === 'quick_expense_info') {
-        bot.editMessageText(EXPENSE_INSTRUCTION, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔙 Назад', callback_data: 'main_menu' }]] } });
+        bot.sendMessage(chatId, EXPENSE_INSTRUCTION, { parse_mode: 'Markdown' });
+        sendMainMenu(chatId);
     } else if (data === 'show_my_id') {
-        const idText = `Ваш Telegram ID: \`${query.from.id}\`\n\nНажмите кнопку ниже, чтобы быстро поделиться им с владельцем аккаунта.`;
-        bot.editMessageText(idText, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '📲 Поделиться ID', switch_inline_query: String(query.from.id) }], [{ text: '🔙 Назад', callback_data: 'main_menu' }]]}});
+        bot.sendMessage(chatId, `Ваш Telegram ID: \`${query.from.id}\``, { parse_mode: 'Markdown' });
+        sendMainMenu(chatId, 'Что делаем дальше?');
     } else if (data === 'show_finances_menu') {
-        bot.editMessageText('📊 Выберите период для отчета:', { chat_id: chatId, message_id: messageId, ...financesKeyboard });
+        bot.sendMessage(chatId, '📊 Выберите период для отчета:', financesKeyboard);
     } else if (data.startsWith('get_finances_')) {
         const periodKey = data.replace('get_finances_', '');
         const now = moment().tz(TIMEZONE);
         let from, to, periodName;
 
         switch (periodKey) {
-            case 'today': from = now.clone().startOf('day'); to = now.clone().endOf('day'); periodName = "за сегодня"; break;
-            case 'yesterday': from = now.clone().subtract(1, 'days').startOf('day'); to = now.clone().subtract(1, 'days').endOf('day'); periodName = "за вчера"; break;
-            case 'week': from = now.clone().startOf('week'); to = now.clone().endOf('day'); periodName = "с начала недели"; break;
-            case 'month': from = now.clone().startOf('month'); to = now.clone().endOf('day'); periodName = "с начала месяца"; break;
-            case '7_days': from = now.clone().subtract(6, 'days').startOf('day'); to = now.clone().endOf('day'); periodName = "за последние 7 дней"; break;
-            case '30_days': from = now.clone().subtract(29, 'days').startOf('day'); to = now.clone().endOf('day'); periodName = "за последние 30 дней"; break;
-            case 'year': from = now.clone().startOf('year'); to = now.clone().endOf('day'); periodName = "с начала года"; break;
-            default: return bot.answerCallbackQuery(query.id);
+            case 'today':
+                from = now.clone().startOf('day'); to = now.clone().endOf('day'); periodName = "за сегодня"; break;
+            case 'yesterday':
+                from = now.clone().subtract(1, 'days').startOf('day'); to = now.clone().subtract(1, 'days').endOf('day'); periodName = "за вчера"; break;
+            case 'week':
+                from = now.clone().startOf('week'); to = now.clone().endOf('day'); periodName = "с начала недели"; break;
+            case 'month':
+                from = now.clone().startOf('month'); to = now.clone().endOf('day'); periodName = "с начала месяца"; break;
+            case '7_days':
+                from = now.clone().subtract(6, 'days').startOf('day'); to = now.clone().endOf('day'); periodName = "за последние 7 дней"; break;
+            case '30_days':
+                from = now.clone().subtract(29, 'days').startOf('day'); to = now.clone().endOf('day'); periodName = "за последние 30 дней"; break;
+            case 'year':
+                from = now.clone().startOf('year'); to = now.clone().endOf('day'); periodName = "с начала года"; break;
+            default:
+                return bot.answerCallbackQuery(query.id);
         }
 
         try {
             await bot.answerCallbackQuery(query.id, { text: 'Формирую отчет...' });
             const summary = await getFinancialSummary(user.ownerUserId, from.format('YYYY-MM-DD HH:mm:ss'), to.format('YYYY-MM-DD HH:mm:ss'));
-            
-            const reportText = `*Финансовые показатели ${periodName}:*\n\n📈 *Выручка:* ${fNum(summary.revenue)} ₽\n☕️ *Продажи:* ${summary.salesCount} шт.\n💳 *Эквайринг:* ${fNum(summary.acquiringCost)} ₽\n📉 *Расходы:* ${fNum(summary.expensesSum)} ₽\n🧾 *Налоги:* ${fNum(summary.taxCost)} ₽\n\n💰 *Чистая прибыль:* *${fNum(summary.netProfit)} ₽*`;
-            
-            bot.editMessageText(reportText, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', ...backToFinancesKeyboard });
+            const reportText = `*Финансовые показатели ${periodName}:*\n\n` +
+                `📈 *Выручка:* ${fNum(summary.revenue)} ₽\n` +
+                `☕️ *Продажи:* ${summary.salesCount} шт.\n` +
+                `💳 *Эквайринг:* ${fNum(summary.acquiringCost)} ₽\n` +
+                `📉 *Расходы:* ${fNum(summary.expensesSum)} ₽\n` +
+                `🧾 *Налоги:* ${fNum(summary.taxCost)} ₽\n\n` +
+                `💰 *Чистая прибыль:* *${fNum(summary.netProfit)} ₽*`;
 
+            bot.sendMessage(chatId, reportText, { parse_mode: 'Markdown' });
         } catch (err) {
             console.error(`Error fetching financial summary for bot:`, err);
-            bot.answerCallbackQuery(query.id, { text: 'Ошибка получения данных', show_alert: true });
+            bot.sendMessage(chatId, "❌ Не удалось получить данные. Попробуйте позже.");
         }
+        sendMainMenu(chatId, 'Что делаем дальше?');
     } else {
         bot.answerCallbackQuery(query.id);
     }
 });
 
-
+// --- Ошибки ---
 bot.on('polling_error', (error) => console.error('[Bot Polling Error]', error.code, error.message || error));
 bot.on('webhook_error', (error) => console.error('[Bot Webhook Error]', error.code, error.message || error));
 
