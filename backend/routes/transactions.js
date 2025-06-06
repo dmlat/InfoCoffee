@@ -8,52 +8,38 @@ const authMiddleware = require('../middleware/auth');
 const pool = require('../db');
 const moment = require('moment-timezone');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier'); // <--- НОВЫЙ ИМПОРТ
+const { getFinancialSummary } = require('../utils/financials');
 
 const TIMEZONE = 'Europe/Moscow';
 
+// --- Aggregating endpoint for Dashboard ---
 // --- Aggregating endpoint for Dashboard ---
 router.get('/stats', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
     let { from, to } = req.query;
     try {
-        console.log(`[GET /api/transactions/stats] UserID: ${userId}, Raw query params: from=${from}, to=${to}`);
         let dateFrom, dateTo;
 
         if (from && to && moment(from, 'YYYY-MM-DD', true).isValid() && moment(to, 'YYYY-MM-DD', true).isValid()) {
             dateFrom = moment.tz(from, TIMEZONE).startOf('day').format('YYYY-MM-DD HH:mm:ss');
             dateTo = moment.tz(to, TIMEZONE).endOf('day').format('YYYY-MM-DD HH:mm:ss');
         } else {
-            console.log(`[GET /api/transactions/stats] Invalid or missing date params, defaulting to current month in ${TIMEZONE}`);
             const todayMoscow = moment().tz(TIMEZONE);
             dateFrom = todayMoscow.clone().startOf('month').format('YYYY-MM-DD HH:mm:ss');
             dateTo = todayMoscow.endOf('month').format('YYYY-MM-DD HH:mm:ss');
         }
         
-        console.log(`[GET /api/transactions/stats] SQL Date Range: from='${dateFrom}', to='${dateTo}'`);
+        // ИСПОЛЬЗУЕМ НОВУЮ УТИЛИТУ
+        const summary = await getFinancialSummary(userId, dateFrom, dateTo);
 
-        const trRes = await pool.query(
-            `SELECT 
-                COUNT(*) as sales_count, 
-                COALESCE(SUM(amount),0) as revenue_cents
-             FROM transactions
-             WHERE user_id = $1 AND result = '1' AND reverse_id = 0
-               AND transaction_time >= $2 AND transaction_time <= $3`,
-            [userId, dateFrom, dateTo]
-        );
-        const revenue = Number(trRes.rows[0].revenue_cents) / 100;
-        const salesCount = Number(trRes.rows[0].sales_count);
-
-        const expRes = await pool.query(
-            `SELECT COALESCE(SUM(amount),0) as expenses_sum 
-             FROM expenses
-             WHERE user_id = $1 AND expense_time >= $2 AND expense_time <= $3`,
-            [userId, dateFrom, dateTo]
-        );
-        const expensesSum = Number(expRes.rows[0].expenses_sum);
-
+        // Формируем ответ для старого контракта, чтобы фронтенд не сломался
         res.json({
             success: true,
-            stats: { revenue, salesCount, expensesSum }
+            stats: {
+                revenue: summary.revenue,
+                salesCount: summary.salesCount,
+                expensesSum: summary.expensesSum,
+            }
         });
     } catch (err) {
         console.error(`[GET /api/transactions/stats] UserID: ${userId} - Error:`, err);
