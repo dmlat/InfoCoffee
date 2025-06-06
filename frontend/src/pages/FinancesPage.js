@@ -195,24 +195,24 @@ export default function FinancesPage() {
             {!statsLoading && !statsError && (
             <table className="summary-table">
             <tbody>
-                <tr><td>Продажи</td><td className="value-cell">{salesCount} шт.</td></tr>
-                <tr><td>Выручка (общая)</td><td className="value-cell revenue-value">{revenue.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td></tr>
+                <tr><td>Продажи</td><td className="value-cell">{salesCount.toLocaleString('ru-RU')}{`\u00A0`}шт.</td></tr>
+                <tr><td>Выручка (общая)</td><td className="value-cell revenue-value">{revenue.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td></tr>
                 <tr>
                     <td>Эквайринг ({formattedAcquiringRateDisplay})</td> 
-                    <td className="value-cell">{acquiringCommissionCost.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
+                    <td className="value-cell">{acquiringCommissionCost.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td>
                 </tr>
                 <tr>
                     <td>Выручка (за вычетом эквайринга)</td>
-                    <td className="value-cell">{revenueAfterAcquiring.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
+                    <td className="value-cell">{revenueAfterAcquiring.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td>
                 </tr>
-                <tr><td>Расходы</td><td className="value-cell">{expensesSum.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td></tr>
+                <tr><td>Расходы</td><td className="value-cell">{expensesSum.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td></tr>
                 <tr>
                     <td>Налоги ({userTaxRateDisplay})</td>
-                    <td className="value-cell">{taxes.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
+                    <td className="value-cell">{taxes.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td>
                 </tr>
                 <tr className="profit-row">
                     <td className="profit-label">Чистая Прибыль</td>
-                    <td className="value-cell profit-value">{netProfit.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
+                    <td className="value-cell profit-value">{netProfit.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td>
                 </tr>
                 <tr><td>Маржинальность (от общей выручки)</td><td className="value-cell">{margin}%</td></tr>
             </tbody>
@@ -242,8 +242,7 @@ export default function FinancesPage() {
                     coffeeStats.map((row, idx) => (
                         <tr key={row.coffee_shop_id || idx}>
                         <td className="td-coffee-shop-name">{row.terminal_comment || `Кофейня ${row.coffee_shop_id}`}</td>
-                        <td className="td-revenue text-right">{Number(row.revenue).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ₽</td>
-                        {/* ИЗМЕНЕНИЕ: Добавлено форматирование чисел */}
+                        <td className="td-revenue text-right">{Number(row.revenue).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td>
                         <td className="td-sales-count text-right">{Number(row.sales_count).toLocaleString('ru-RU')}</td>
                         </tr>
                     ))

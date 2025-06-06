@@ -1,8 +1,10 @@
 /* frontend/src/pages/FinancesPage.css */
+
+/* ИЗМЕНЕНО: Убираем ограничение по ширине, чтобы кнопки могли растянуться */
 .sidebar-area {
   flex: 1;
   min-width: 220px; 
-  max-width: 280px;
+  /* max-width: 280px; <--- Эта строка ограничивала ширину, убираем ее */
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -24,10 +26,10 @@
 }
 
 .date-input-item label {
-  /* ИЗМЕНЕНО: шрифт как у кнопок */
-  font-size: 0.9em; 
-  color: #a0b0c8; 
+  /* ИЗМЕНЕНО: Шрифт как у заголовков таблиц */
+  font-size: 0.95em; 
   font-weight: 500;
+  color: #a0b0c8; 
   display: block;
   margin-bottom: 4px;
   text-align: left; 
@@ -48,6 +50,7 @@ input[type="date"].period-date-input {
 
 input[type="date"].period-date-input::-webkit-calendar-picker-indicator {
   filter: invert(0.6);
+  cursor: pointer;
 }
 
 input[type="date"].period-date-input:disabled {
@@ -55,15 +58,13 @@ input[type="date"].period-date-input:disabled {
   opacity: 0.6;
 }
 
-/* ИЗМЕНЕНО: Стили для кнопок периода */
 .period-buttons-container {
   display: grid;
   grid-template-columns: repeat(4, 1fr); 
-  gap: 8px; /* Отступ между кнопками */
+  gap: 8px;
   width: 100%;
   margin-bottom: 8px;
   box-sizing: border-box;
-  /* Убран padding, так как кнопки теперь растягиваются на 100% и gap создает отступы */
 }
 
 .period-btn {
@@ -155,41 +156,56 @@ input[type="date"].period-date-input:disabled {
 
 /* --- ИЗМЕНЕНИЯ: Стили для таблицы кофеен --- */
 .coffee-stats-card .data-table-container {
-  padding: 1px 0 15px 0;
+  padding: 1px 0 15px 0; /* Убираем боковые отступы, чтобы таблица была во всю ширину карточки */
 }
 
 .coffee-stats-table {
-  /* Наследует .data-table, но мы можем переопределить */
-  table-layout: auto; /* Позволяет браузеру определять ширину колонок */
+  width: 100%;
+}
+
+.coffee-stats-table th, .coffee-stats-table td {
+  border-right: 1px solid #23272f; /* Тонкая линия между столбцами */
+}
+.coffee-stats-table th:last-child, 
+.coffee-stats-table td:last-child {
+  border-right: none; /* Убираем линию у последнего столбца */
 }
 
 .coffee-stats-table th {
-  color: #8ae6ff; /* Цвет заголовка как у табов */
+  color: #8ae6ff;
   font-weight: 500;
   border-bottom: 1px solid #4a4f58;
-  padding-left: 15px;
-  padding-right: 15px;
-}
-.coffee-stats-table td {
-  padding-left: 15px;
-  padding-right: 15px;
-  /* Чередование цветов уже есть в `tables.css`, оно применится */
 }
 
-/* Выравнивание заголовков */
-.coffee-stats-table th:first-child {
+/* ИЗМЕНЕНО: Выравнивание и отступы */
+.coffee-stats-table th:first-child, 
+.coffee-stats-table td:first-child {
   text-align: left;
+  padding-left: 15px; /* Отступ слева у первой колонки */
 }
 .coffee-stats-table th {
   text-align: right;
+  padding-right: 4px; /* Уменьшен отступ справа у заголовков */
+}
+.coffee-stats-table td {
+  text-align: right;
+  padding-right: 4px; /* Уменьшен отступ справа у ячеек */
+}
+
+/* ИЗМЕНЕНО: Чередование цветов строк для таблицы кофеен */
+.coffee-stats-table tbody tr:nth-child(odd) td {
+  background: #262a36;
+}
+.coffee-stats-table tbody tr:nth-child(even) td {
+  background: #282c34;
 }
 
 /* Стили для ячеек */
 .coffee-stats-table .td-revenue,
 .coffee-stats-table .td-sales-count {
-  white-space: nowrap; /* Запрещаем перенос */
-  text-align: right;
+  white-space: nowrap; 
 }
+
 
 /* Адаптация для мобильных */
 @media (max-width: 767px) {
