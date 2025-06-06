@@ -42,6 +42,14 @@ const financesKeyboard = {
     }
 };
 
+const afterReportKeyboard = {
+    reply_markup: {
+        inline_keyboard: [
+            [{ text: '📊 Другой период', callback_data: 'show_finances_menu' }, { text: '🔙 В меню', callback_data: 'main_menu' }]
+        ]
+    }
+};
+
 // Хранилище состояний пользователя
 const userState = {};
 const pendingYearClarifications = {};
@@ -101,7 +109,7 @@ bot.onText(/\/app/, (msg) => {
 
 bot.onText(/\/myid/, (msg) => {
     bot.sendMessage(msg.chat.id, `Ваш Telegram ID: \`${msg.from.id}\``, { parse_mode: 'Markdown' });
-    setTimeout(() => sendMainMenu(msg.chat.id, 'Что делаем дальше?'), 500);
+    setTimeout(() => sendMainMenu(msg.chat.id), 500);
 });
 
 // Главный обработчик текстовых сообщений
@@ -117,7 +125,7 @@ bot.on('message', async (msg) => {
     }
 
     if (userState[chatId] === 'awaiting_expenses') {
-        delete userState[chatId]; // Сразу сбрасываем состояние после получения сообщения
+        delete userState[chatId];
         
         const result = parseExpenseMessage(msg.text);
 
@@ -133,22 +141,19 @@ bot.on('message', async (msg) => {
             };
             const currentMonthName = moment.tz(TIMEZONE).format('MMMM');
             bot.sendMessage(chatId, `Сейчас ${currentMonthName}, а ${result.month} еще не наступил. В какой год внести расходы?`, keyboard);
-            return; // Не возвращаемся в главное меню, ждем ответа
+            return;
         }
         
         const saved = await saveExpenses(chatId, user.ownerUserId, result.expenses);
         if (saved) {
             const totalAmount = result.expenses.reduce((sum, e) => sum + e.amount, 0);
-            const successMessage = `✅ Расходы записаны.\n*Всего:* ${fNum(totalAmount)} ₽`;
-            bot.sendMessage(chatId, successMessage, { parse_mode: 'Markdown' });
+            bot.sendMessage(chatId, `✅ Расходы записаны.\n*Всего:* ${fNum(totalAmount)} ₽`, { parse_mode: 'Markdown' });
         }
-        sendMainMenu(chatId, 'Что делаем дальше?');
-
+        sendMainMenu(chatId);
     } else {
         sendMainMenu(chatId, 'Выберите действие из меню:');
     }
 });
-
 
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
@@ -160,11 +165,10 @@ bot.on('callback_query', async (query) => {
         return bot.answerCallbackQuery(query.id, { text: 'У вас нет доступа.', show_alert: true });
     }
     
-    // Обработка уточнения года
     if (data.startsWith('clarify_year_')) {
         const pendingData = pendingYearClarifications[chatId];
-        delete pendingYearClarifications[chatId]; // Сразу удаляем
-        bot.deleteMessage(chatId, messageId).catch(()=>{}); // Удаляем сообщение с кнопками
+        delete pendingYearClarifications[chatId];
+        bot.deleteMessage(chatId, messageId).catch(() => {});
 
         if (!pendingData) {
             bot.sendMessage(chatId, '⏳ Эта сессия устарела. Пожалуйста, отправьте расходы заново.');
@@ -186,30 +190,30 @@ bot.on('callback_query', async (query) => {
         
         if (saved) {
             const totalAmount = expensesWithDate.reduce((sum, e) => sum + e.amount, 0);
-            const monthName = moment(baseDate).format('MMMM YYYY');
+            const monthName = moment(baseDate).format('MMMM YY');
             bot.sendMessage(chatId, `✅ Расходы записаны на *1 ${monthName}* г.\n*Всего:* ${fNum(totalAmount)} ₽`, { parse_mode: 'Markdown' });
         }
-        return sendMainMenu(chatId, 'Что делаем дальше?');
+        return sendMainMenu(chatId);
     }
     
-    // Удаляем предыдущее меню для чистоты
-    bot.deleteMessage(chatId, messageId).catch(() => {});
-
     switch (data) {
         case 'main_menu':
+            bot.deleteMessage(chatId, messageId).catch(() => {});
             sendMainMenu(chatId);
             break;
         case 'enter_expense_mode':
             userState[chatId] = 'awaiting_expenses';
+            bot.deleteMessage(chatId, messageId).catch(() => {});
             bot.sendMessage(chatId, EXPENSE_INSTRUCTION, { parse_mode: 'Markdown' })
                 .then(() => bot.sendMessage(chatId, 'Теперь я жду ваше сообщение с расходами 👇'));
             break;
         case 'show_my_id':
+            bot.deleteMessage(chatId, messageId).catch(() => {});
             bot.sendMessage(chatId, `Ваш Telegram ID: \`${query.from.id}\``, { parse_mode: 'Markdown' });
-            sendMainMenu(chatId, 'Что делаем дальше?');
+            sendMainMenu(chatId);
             break;
         case 'show_finances_menu':
-            bot.sendMessage(chatId, '📊 Выберите период для отчета:', financesKeyboard);
+            bot.editMessageText('📊 Выберите период для отчета:', { chat_id: chatId, message_id: messageId, ...financesKeyboard });
             break;
         default:
             if (data.startsWith('get_finances_')) {
@@ -232,12 +236,13 @@ bot.on('callback_query', async (query) => {
                     await bot.answerCallbackQuery(query.id, { text: 'Формирую отчет...' });
                     const summary = await getFinancialSummary(user.ownerUserId, from.format('YYYY-MM-DD HH:mm:ss'), to.format('YYYY-MM-DD HH:mm:ss'));
                     const reportText = `*Финансовые показатели ${periodName}:*\n\n📈 *Выручка:* ${fNum(summary.revenue)} ₽\n☕️ *Продажи:* ${summary.salesCount} шт.\n💳 *Эквайринг:* ${fNum(summary.acquiringCost)} ₽\n📉 *Расходы:* ${fNum(summary.expensesSum)} ₽\n🧾 *Налоги:* ${fNum(summary.taxCost)} ₽\n\n💰 *Чистая прибыль:* *${fNum(summary.netProfit)} ₽*`;
-                    bot.sendMessage(chatId, reportText, { parse_mode: 'Markdown' });
+                    
+                    bot.editMessageText(reportText, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', ...afterReportKeyboard });
                 } catch (err) {
                     console.error(`Error fetching financial summary for bot:`, err);
-                    bot.sendMessage(chatId, "❌ Не удалось получить данные. Попробуйте позже.");
+                    bot.answerCallbackQuery(query.id, { text: 'Ошибка получения данных.', show_alert: true });
+                    sendMainMenu(chatId);
                 }
-                sendMainMenu(chatId, 'Что делаем дальше?');
             } else {
                 bot.answerCallbackQuery(query.id);
             }
@@ -245,5 +250,5 @@ bot.on('callback_query', async (query) => {
     }
 });
 
-bot.on('polling_error', (error) => console.error('[Bot Polling Error]', error.code, error.message || error));
+bot.on('polling_error', (error) => console.error('[Bot Polling Error]', error));
 console.log('Telegram Bot started and ready.');
