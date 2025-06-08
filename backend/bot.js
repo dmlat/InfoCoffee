@@ -74,6 +74,14 @@ let keyboards = {};
                         [{ text: '🔙 В меню', callback_data: 'main_menu' }]
                     ]
                 }
+            },
+            expenseMode: { // <--- НОВАЯ КЛАВИАТУРА
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
+                        [{ text: '🔙 Назад', callback_data: 'main_menu' }]
+                    ]
+                }
             }
         };
 
@@ -195,7 +203,7 @@ bot.onText(/\/expenses/, async (msg) => {
     await cleanupUserMessages(msg.chat.id);
     const user = await getUser(msg.from.id);
     if (user.type === 'owner' || user.type === 'admin') {
-        const sentMsg = await bot.sendMessage(msg.chat.id, EXPENSE_INSTRUCTION + '\n\n*Теперь я жду ваше сообщение с расходами 👇*', { parse_mode: 'Markdown' });
+        const sentMsg = await bot.sendMessage(msg.chat.id, EXPENSE_INSTRUCTION + '\n\n*Теперь я жду ваше сообщение с расходами 👇*', { parse_mode: 'Markdown', ...keyboards.expenseMode });
         userState[msg.chat.id] = { mode: 'awaiting_expenses', instructionMessageId: sentMsg.message_id };
     } else {
         bot.sendMessage(msg.chat.id, 'Эта команда доступна только для зарегистрированных пользователей.');
@@ -246,7 +254,7 @@ bot.on('message', async (msg) => {
             userState[chatId] = { ...userState[chatId], instructionMessageId: instructionMsg.message_id };
         }
         
-        const errorMsg = await bot.sendMessage(chatId, `❌ ${result.error || 'Неверный формат.'}\nСледуйте инструкции выше для быстрой записи расходов.`, keyboards.backToMenu);
+        const errorMsg = await bot.sendMessage(chatId, `❌ ${result.error || 'Неверный формат.'}\nСледуйте инструкции выше для быстрой записи расходов.`, keyboards.afterAction);
         userState[chatId] = { ...userState[chatId], errorCleanupId: errorMsg.message_id };
     }
 });
@@ -270,7 +278,7 @@ bot.on('callback_query', async (query) => {
             sendDynamicMainMenu(chatId, query.from, messageId);
             break;
         case 'enter_expense_mode':
-            await bot.editMessageText(EXPENSE_INSTRUCTION + '\n\n*Теперь я жду ваше сообщение с расходами 👇*', { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown' });
+            await bot.editMessageText(EXPENSE_INSTRUCTION + '\n\n*Теперь я жду ваше сообщение с расходами 👇*', { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', ...keyboards.expenseMode });
             userState[chatId] = { mode: 'awaiting_expenses', instructionMessageId: messageId, activeMessageId: null };
             break;
         case 'show_my_id':
