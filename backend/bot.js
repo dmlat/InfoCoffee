@@ -18,14 +18,35 @@ if (!TOKEN || !WEB_APP_URL) {
 
 const bot = new TelegramBot(TOKEN, { polling: true });
 
+// --- РЕГИСТРАЦИЯ КОМАНД ДЛЯ МЕНЮ TELEGRAM ---
+bot.setMyCommands([
+    { command: '/start', description: '🚀 Запустить/Перезапустить бота' },
+    { command: '/menu', description: '📋 Показать главное меню' },
+    { command: '/app', description: '📱 Открыть веб-приложение' },
+    { command: '/myid', description: '🆔 Показать мой Telegram ID' },
+    { command: '/finances', description: '📊 Открыть меню финансов' },
+    { command: '/expenses', description: '💸 Быстро записать расходы' },
+]);
+
+
 // --- Клавиатуры ---
-const mainKeyboard = {
+
+const authorizedKeyboard = {
     reply_markup: {
         inline_keyboard: [
             [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
             [{ text: '💸 Записать расходы', callback_data: 'enter_expense_mode' }],
             [{ text: '📊 Финансы', callback_data: 'show_finances_menu' }],
-            [{ text: '🆔 Показать ID', callback_data: 'show_my_id' }]
+            [{ text: '🆔 Мой ID', callback_data: 'show_my_id' }]
+        ]
+    }
+};
+
+const unauthorizedKeyboard = {
+    reply_markup: {
+        inline_keyboard: [
+            [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
+            [{ text: '🆔 Мой ID', callback_data: 'show_my_id' }]
         ]
     }
 };
@@ -37,7 +58,7 @@ const financesKeyboard = {
             [{ text: '📈 С начала недели', callback_data: 'get_finances_week' }, { text: '📉 С начала месяца', callback_data: 'get_finances_month' }],
             [{ text: '7️⃣ За 7 дней', callback_data: 'get_finances_7_days' }, { text: '3️⃣0️⃣ За 30 дней', callback_data: 'get_finances_30_days' }],
             [{ text: '🏁 С начала года', callback_data: 'get_finances_year' }],
-            [{ text: '🔙 Назад в меню', callback_data: 'main_menu' }]
+            [{ text: '🔙 В меню', callback_data: 'main_menu' }]
         ]
     }
 };
@@ -45,16 +66,30 @@ const financesKeyboard = {
 const afterReportKeyboard = {
     reply_markup: {
         inline_keyboard: [
-            [{ text: '📊 Другой период', callback_data: 'show_finances_menu' }, { text: '🔙 В меню', callback_data: 'main_menu' }]
+            [{ text: '📊 Другой период', callback_data: 'show_finances_menu' }],
+            [{ text: '🔙 В меню', callback_data: 'main_menu' }]
         ]
     }
 };
 
-// Хранилище состояний пользователя
+const backToMenuKeyboard = {
+    reply_markup: {
+        inline_keyboard: [
+            [{ text: '🔙 В меню', callback_data: 'main_menu' }]
+        ]
+    }
+};
+
+// Хранилище состояний и сообщений для очистки
 const userState = {};
-const pendingYearClarifications = {};
 
 // --- Вспомогательные функции ---
+
+/**
+ * Определяет статус пользователя (владелец, админ, неавторизован).
+ * @param {number} telegramId - ID пользователя в Telegram.
+ * @returns {Promise<object>} Объект с типом доступа и ID владельца.
+ */
 async function getUser(telegramId) {
     const ownerRes = await pool.query('SELECT id FROM users WHERE telegram_id = $1 AND vendista_api_token IS NOT NULL', [telegramId]);
     if (ownerRes.rows.length > 0) {
@@ -69,36 +104,54 @@ async function getUser(telegramId) {
 
 const fNum = (num) => num.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-async function saveExpenses(chatId, ownerUserId, expenses) {
-    const client = await pool.pool.connect();
-    try {
-        await client.query('BEGIN');
-        for (const exp of expenses) {
-            await client.query(
-                `INSERT INTO expenses (user_id, amount, expense_time, comment) VALUES ($1, $2, $3, $4)`,
-                [ownerUserId, exp.amount, exp.date, exp.comment]
-            );
+/**
+ * Безопасно удаляет предыдущие сообщения (ошибки, инструкции) из чата.
+ * @param {number} chatId - ID чата.
+ */
+async function cleanupMessages(chatId) {
+    if (userState[chatId]?.cleanupMessageIds?.length > 0) {
+        for (const msgId of userState[chatId].cleanupMessageIds) {
+            await bot.deleteMessage(chatId, msgId).catch(() => {});
         }
-        await client.query('COMMIT');
-        return true;
-    } catch (dbErr) {
-        await client.query('ROLLBACK');
-        console.error("DB Error on saving expenses:", dbErr);
-        bot.sendMessage(chatId, "❌ Произошла ошибка при записи расходов в базу данных. Попробуйте позже.");
-        return false;
-    } finally {
-        client.release();
+        userState[chatId].cleanupMessageIds = [];
     }
 }
 
-const sendMainMenu = (chatId, text = 'Главное меню:') => {
-    delete userState[chatId];
-    bot.sendMessage(chatId, text, mainKeyboard);
-};
+/**
+ * Отправляет динамическое главное меню в зависимости от статуса пользователя.
+ * @param {number} chatId - ID чата.
+ * @param {object} from - Объект пользователя Telegram.
+ * @param {number|null} messageId - ID сообщения для редактирования (если есть).
+ */
+async function sendDynamicMainMenu(chatId, from, messageId = null) {
+    await cleanupMessages(chatId); // Очищаем предыдущие сообщения перед показом меню
+    const user = await getUser(from.id);
+    let text;
+    let keyboard;
+
+    if (user.type === 'owner' || user.type === 'admin') {
+        text = 'Главное меню:';
+        keyboard = authorizedKeyboard;
+    } else {
+        text = `Добро пожаловать, ${from.first_name}! ☕️\n\nЯ — бот для аналитики ваших кофеен. Чтобы начать, откройте приложение и пройдите регистрацию.`;
+        keyboard = unauthorizedKeyboard;
+    }
+
+    if (messageId) {
+        await bot.editMessageText(text, { chat_id: chatId, message_id: messageId, ...keyboard }).catch(() => {
+            // Если редактирование не удалось (например, сообщение слишком старое), отправляем новое
+            bot.sendMessage(chatId, text, keyboard);
+        });
+    } else {
+        await bot.sendMessage(chatId, text, keyboard);
+    }
+    delete userState[chatId]; // Сбрасываем состояние при возврате в меню
+}
 
 // --- Обработчики команд ---
+
 bot.onText(/\/start|\/menu/, (msg) => {
-    sendMainMenu(msg.chat.id, `Добро пожаловать, ${msg.from.first_name}! ☕️`);
+    sendDynamicMainMenu(msg.chat.id, msg.from);
 });
 
 bot.onText(/\/app/, (msg) => {
@@ -108,19 +161,41 @@ bot.onText(/\/app/, (msg) => {
 });
 
 bot.onText(/\/myid/, (msg) => {
-    const chatId = msg.chat.id;
-    const telegramId = msg.from.id;
-    bot.sendMessage(chatId, `Ваш Telegram ID:\n${telegramId}`, {
-         reply_markup: {
+    bot.sendMessage(msg.chat.id, `\`${msg.from.id}\``, {
+        parse_mode: 'Markdown',
+        reply_markup: {
             inline_keyboard: [
-                [{ text: '📲 Отправить ID', switch_inline_query: String(telegramId) }],
+                [{ text: '📲 Отправить ID', switch_inline_query: String(msg.from.id) }],
                 [{ text: '🔙 В меню', callback_data: 'main_menu' }]
             ]
         }
     });
 });
 
-// Главный обработчик текстовых сообщений
+bot.onText(/\/finances/, async (msg) => {
+    const user = await getUser(msg.from.id);
+    if (user.type === 'owner' || user.type === 'admin') {
+        bot.sendMessage(msg.chat.id, '📊 Выберите период для отчета:', financesKeyboard);
+    } else {
+        bot.sendMessage(msg.chat.id, 'Эта команда доступна только для зарегистрированных пользователей.');
+    }
+});
+
+bot.onText(/\/expenses/, async (msg) => {
+    const user = await getUser(msg.from.id);
+    if (user.type === 'owner' || user.type === 'admin') {
+        userState[msg.chat.id] = { mode: 'awaiting_expenses', cleanupMessageIds: [] };
+        const sentMsg = await bot.sendMessage(msg.chat.id, EXPENSE_INSTRUCTION, { parse_mode: 'Markdown' });
+        if(userState[msg.chat.id]) { // Проверяем, не сбросилось ли состояние
+            userState[msg.chat.id].cleanupMessageIds.push(sentMsg.message_id);
+        }
+    } else {
+        bot.sendMessage(msg.chat.id, 'Эта команда доступна только для зарегистрированных пользователей.');
+    }
+});
+
+
+// --- Основной обработчик текстовых сообщений ---
 bot.on('message', async (msg) => {
     if (!msg.text || msg.text.startsWith('/')) return;
 
@@ -129,95 +204,141 @@ bot.on('message', async (msg) => {
 
     const user = await getUser(telegramId);
     if (user.type === 'unauthorized') {
-        return bot.sendMessage(chatId, 'У вас нет доступа. Пожалуйста, пройдите регистрацию или попросите владельца предоставить вам доступ.');
+        // Неавторизованные пользователи не могут вводить расходы
+        return;
     }
+    
+    // Попытка обработать любое сообщение как расход
+    const result = parseExpenseMessage(msg.text);
 
-    if (userState[chatId] === 'awaiting_expenses') {
-        delete userState[chatId];
-        
-        const result = parseExpenseMessage(msg.text);
-
-        if (!result.success) {
-            bot.sendMessage(chatId, `❌ ${result.error || 'Неизвестная ошибка парсинга.'}`);
-            return sendMainMenu(chatId);
-        }
+    if (result.success && result.expenses) {
+        // Успешный парсинг расходов
+        await cleanupMessages(chatId);
 
         if (result.needsClarification) {
-            pendingYearClarifications[chatId] = { expensesData: result.expensesData, monthIndex: result.monthIndex };
-            const keyboard = {
-                reply_markup: { inline_keyboard: [result.yearOptions.map(year => ({ text: `${result.month} ${year}`, callback_data: `clarify_year_${result.monthIndex}_${year}` }))] }
-            };
-            const currentMonthName = moment.tz(TIMEZONE).format('MMMM');
-            bot.sendMessage(chatId, `Сейчас ${currentMonthName}, а ${result.month} еще не наступил. В какой год внести расходы?`, keyboard);
-            return;
+             const { month, monthIndex, expensesData, yearOptions } = result;
+             userState[chatId] = { ...userState[chatId], pendingYearClarification: { expensesData, monthIndex } };
+             const keyboard = {
+                 reply_markup: { inline_keyboard: [yearOptions.map(year => ({ text: `${month} ${year}`, callback_data: `clarify_year_${monthIndex}_${year}` }))] }
+             };
+             return bot.sendMessage(chatId, `Сейчас ${moment.tz(TIMEZONE).format('MMMM')}, а вы указали будущий месяц. Выберите год, в который нужно внести расходы:`, keyboard);
         }
-        
-        const saved = await saveExpenses(chatId, user.ownerUserId, result.expenses);
+
+
+        const wasInExpenseMode = userState[chatId]?.mode === 'awaiting_expenses';
+        delete userState[chatId]; // Сбрасываем состояние
+
+        const saved = await pool.query(
+            `INSERT INTO expenses (user_id, amount, expense_time, comment) 
+             SELECT $1, (item->>'amount')::numeric, (item->>'date')::timestamp, item->>'comment'
+             FROM jsonb_array_elements($2::jsonb) as item`,
+            [user.ownerUserId, JSON.stringify(result.expenses)]
+        ).then(() => true).catch(err => {
+            console.error("DB Error on saving expenses:", err);
+            bot.sendMessage(chatId, "❌ Произошла ошибка при записи расходов в базу данных.");
+            return false;
+        });
+
         if (saved) {
             const totalAmount = result.expenses.reduce((sum, e) => sum + e.amount, 0);
-            bot.sendMessage(chatId, `✅ Расходы записаны.\n*Всего:* ${fNum(totalAmount)} ₽`, { parse_mode: 'Markdown' });
+            let successText = `✅ Расходы записаны.\n*Всего:* ${fNum(totalAmount)} ₽`;
+
+            if (wasInExpenseMode) {
+                successText += `\n\nВы можете внести ещё расходы или вернуться в Меню.\n\n_Подсказка: расходы можно записывать в любой момент, не нажимая кнопку "Записать расходы"._`;
+            }
+            bot.sendMessage(chatId, successText, { parse_mode: 'Markdown', ...backToMenuKeyboard });
         }
-        sendMainMenu(chatId);
-    } else {
-        sendMainMenu(chatId, 'Выберите действие из меню:');
+
+    } else if (userState[chatId]?.mode === 'awaiting_expenses') {
+        // Ошибка парсинга расходов, но только если пользователь был в режиме ожидания расходов
+        await cleanupMessages(chatId);
+        const instructionMsg = await bot.sendMessage(chatId, EXPENSE_INSTRUCTION, { parse_mode: 'Markdown' });
+        const errorMsg = await bot.sendMessage(chatId, `❌ ${result.error || 'Неизвестная ошибка.'}`, backToMenuKeyboard);
+        if(userState[chatId]) {
+            userState[chatId].cleanupMessageIds = [instructionMsg.message_id, errorMsg.message_id];
+        }
     }
 });
 
+// --- Обработчик кнопок ---
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
     const messageId = query.message.message_id;
     const data = query.data;
 
     const user = await getUser(query.from.id);
-    if (user.type === 'unauthorized') {
-        return bot.answerCallbackQuery(query.id, { text: 'У вас нет доступа.', show_alert: true });
+    if (user.type === 'unauthorized' && !['main_menu', 'show_my_id'].includes(data)) {
+        return bot.answerCallbackQuery(query.id, { text: 'Эта функция доступна после регистрации.', show_alert: true });
     }
     
+    // Очищаем предыдущие "мусорные" сообщения при любом действии с кнопкой
+    if (!data.startsWith('clarify_year_')) {
+        await cleanupMessages(chatId);
+    }
+
     if (data.startsWith('clarify_year_')) {
-        const pendingData = pendingYearClarifications[chatId];
-        delete pendingYearClarifications[chatId];
         bot.deleteMessage(chatId, messageId).catch(() => {});
-
+        const pendingData = userState[chatId]?.pendingYearClarification;
         if (!pendingData) {
-            bot.sendMessage(chatId, '⏳ Эта сессия устарела. Пожалуйста, отправьте расходы заново.');
-            return sendMainMenu(chatId);
+            return bot.answerCallbackQuery(query.id, { text: 'Эта сессия устарела. Пожалуйста, отправьте расходы заново.' });
         }
-
+        
         const [, monthIndex, year] = data.split('_');
         const baseDate = moment().tz(TIMEZONE).year(year).month(monthIndex).startOf('month');
         const textToParse = pendingData.expensesData.join('\n');
+        
+        // Повторно парсим только строки с расходами
         const result = parseExpenseMessage(textToParse);
         
-        if (!result.success || result.expenses.length === 0) {
-            bot.sendMessage(chatId, `❌ Ошибка при обработке расходов. ${result.error || ''}`);
-            return sendMainMenu(chatId);
+        if (!result.success || !result.expenses || result.expenses.length === 0) {
+            bot.sendMessage(chatId, `❌ Ошибка при повторной обработке расходов. ${result.error || ''}`, backToMenuKeyboard);
+            return bot.answerCallbackQuery(query.id);
         }
         
+        // Применяем выбранную дату
         const expensesWithDate = result.expenses.map(e => ({ ...e, date: baseDate.toDate() }));
-        const saved = await saveExpenses(chatId, user.ownerUserId, expensesWithDate);
+
+        const wasInExpenseMode = userState[chatId]?.mode === 'awaiting_expenses';
+        delete userState[chatId]; // Сбрасываем состояние
+
+        // Сохраняем в БД
+        const saved = await pool.query(
+             `INSERT INTO expenses (user_id, amount, expense_time, comment) 
+             SELECT $1, (item->>'amount')::numeric, (item->>'date')::timestamp, item->>'comment'
+             FROM jsonb_array_elements($2::jsonb) as item`,
+            [user.ownerUserId, JSON.stringify(expensesWithDate)]
+        ).then(() => true).catch(err => {
+            console.error("DB Error on saving expenses:", err);
+            bot.sendMessage(chatId, "❌ Произошла ошибка при записи расходов в базу данных.");
+            return false;
+        });
         
         if (saved) {
             const totalAmount = expensesWithDate.reduce((sum, e) => sum + e.amount, 0);
-            const monthName = moment(baseDate).format('MMMM YY');
-            bot.sendMessage(chatId, `✅ Расходы записаны на *1 ${monthName}* г.\n*Всего:* ${fNum(totalAmount)} ₽`, { parse_mode: 'Markdown' });
+            const monthName = moment(baseDate).format('MMMM YYYY');
+            let successText = `✅ Расходы записаны на *1 ${monthName}*.\n*Всего:* ${fNum(totalAmount)} ₽`;
+             if (wasInExpenseMode) {
+                successText += `\n\nВы можете внести ещё расходы или вернуться в Меню.`;
+            }
+            bot.sendMessage(chatId, successText, { parse_mode: 'Markdown', ...backToMenuKeyboard });
         }
-        return sendMainMenu(chatId);
+        return bot.answerCallbackQuery(query.id);
     }
     
     switch (data) {
         case 'main_menu':
-            bot.deleteMessage(chatId, messageId).catch(() => {});
-            sendMainMenu(chatId);
+            sendDynamicMainMenu(chatId, query.from, messageId);
             break;
         case 'enter_expense_mode':
-            userState[chatId] = 'awaiting_expenses';
-            bot.deleteMessage(chatId, messageId).catch(() => {});
-            bot.sendMessage(chatId, EXPENSE_INSTRUCTION, { parse_mode: 'Markdown' })
-                .then(() => bot.sendMessage(chatId, 'Теперь я жду ваше сообщение с расходами 👇'));
+            userState[chatId] = { mode: 'awaiting_expenses', cleanupMessageIds: [] };
+            const sentMsg = await bot.editMessageText(EXPENSE_INSTRUCTION + '\n\n*Теперь я жду ваше сообщение с расходами 👇*', { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown' });
+            if (userState[chatId]) { // Проверяем, не сбросилось ли состояние
+                 userState[chatId].cleanupMessageIds.push(sentMsg.message_id);
+            }
             break;
         case 'show_my_id':
-            bot.deleteMessage(chatId, messageId).catch(() => {});
-            bot.sendMessage(chatId, `Ваш Telegram ID:\n\`${query.from.id}\``, {
+            bot.deleteMessage(chatId, messageId).catch(()=>{});
+            bot.sendMessage(chatId, `\`${query.from.id}\``, {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [
@@ -252,14 +373,11 @@ bot.on('callback_query', async (query) => {
                     const summary = await getFinancialSummary(user.ownerUserId, from.format('YYYY-MM-DD HH:mm:ss'), to.format('YYYY-MM-DD HH:mm:ss'));
                     const reportText = `*Финансовые показатели ${periodName}:*\n\n📈 *Выручка:* ${fNum(summary.revenue)} ₽\n☕️ *Продажи:* ${summary.salesCount} шт.\n💳 *Эквайринг:* ${fNum(summary.acquiringCost)} ₽\n📉 *Расходы:* ${fNum(summary.expensesSum)} ₽\n🧾 *Налоги:* ${fNum(summary.taxCost)} ₽\n\n💰 *Чистая прибыль:* *${fNum(summary.netProfit)} ₽*`;
                     
-                    // Редактируем сообщение, добавляя под ним новые кнопки
                     bot.editMessageText(reportText, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', ...afterReportKeyboard });
                 } catch (err) {
                     console.error(`Error fetching financial summary for bot:`, err);
                     bot.answerCallbackQuery(query.id, { text: 'Ошибка получения данных.', show_alert: true });
-                    // В случае ошибки, удаляем "сломанное" меню и возвращаем главное
-                    bot.deleteMessage(chatId, messageId).catch(() => {});
-                    sendMainMenu(chatId);
+                    sendDynamicMainMenu(chatId, query.from, messageId);
                 }
             } else {
                 bot.answerCallbackQuery(query.id);
@@ -268,5 +386,5 @@ bot.on('callback_query', async (query) => {
     }
 });
 
-bot.on('polling_error', (error) => console.error('[Bot Polling Error]', error));
+bot.on('polling_error', (error) => console.error('[Bot Polling Error]', error.code, error.message));
 console.log('Telegram Bot started and ready.');
