@@ -19,13 +19,62 @@ if (!TOKEN || !WEB_APP_URL) {
 const bot = new TelegramBot(TOKEN, { polling: true });
 
 let BOT_USERNAME = '';
+let keyboards = {};
 
 // --- Инициализация и регистрация команд ---
 (async () => {
     try {
         const me = await bot.getMe();
         BOT_USERNAME = me.username;
-        console.log(`Bot @${BOT_USERNAME} started.`);
+
+        // --- Клавиатуры ---
+        keyboards = {
+            authorized: {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
+                        [{ text: '💸 Записать расходы', callback_data: 'enter_expense_mode' }],
+                        [{ text: '📊 Финансы', callback_data: 'show_finances_menu' }],
+                        [{ text: '🆔 Мой ID', callback_data: 'show_my_id' }, { text: '🙋‍♂️ Пригласить', switch_inline_query: `@${BOT_USERNAME}` }]
+                    ]
+                }
+            },
+            unauthorized: {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
+                        [{ text: '🆔 Мой ID', callback_data: 'show_my_id' }, { text: '🙋‍♂️ Пригласить', switch_inline_query: `@${BOT_USERNAME}` }]
+                    ]
+                }
+            },
+            finances: { /* ... */ }, // Остальные клавиатуры не изменились
+            afterReport: { /* ... */ },
+            backToMenu: {
+                reply_markup: { inline_keyboard: [[{ text: '🔙 В меню', callback_data: 'main_menu' }]] }
+            }
+        };
+        
+        // Копируем неизменные части, чтобы не дублировать код
+        keyboards.finances = {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '📅 Сегодня', callback_data: 'get_finances_today' }, { text: '🕰️ Вчера', callback_data: 'get_finances_yesterday' }],
+                    [{ text: '📈 С начала недели', callback_data: 'get_finances_week' }, { text: '📉 С начала месяца', callback_data: 'get_finances_month' }],
+                    [{ text: '7️⃣ За 7 дней', callback_data: 'get_finances_7_days' }, { text: '3️⃣0️⃣ За 30 дней', callback_data: 'get_finances_30_days' }],
+                    [{ text: '🏁 С начала года', callback_data: 'get_finances_year' }],
+                    [{ text: '🔙 В меню', callback_data: 'main_menu' }]
+                ]
+            }
+        };
+        keyboards.afterReport = {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '📊 Другой период', callback_data: 'show_finances_menu' }],
+                    [{ text: '🔙 В меню', callback_data: 'main_menu' }]
+                ]
+            }
+        };
+
 
         await bot.setMyCommands([
             { command: '/start', description: '🚀 Запустить/Перезапустить бота' },
@@ -35,58 +84,13 @@ let BOT_USERNAME = '';
             { command: '/finances', description: '📊 Открыть меню финансов' },
             { command: '/expenses', description: '💸 Быстро записать расходы' },
         ]);
+
+        console.log(`Bot @${BOT_USERNAME} started and commands are set.`);
+
     } catch (e) {
         console.error("Failed to set bot commands or get bot info:", e);
     }
 })();
-
-// --- Клавиатуры ---
-const INVITE_TEXT = `Ссылка на приложение:\n\nhttps://t.me/${BOT_USERNAME}`;
-
-const authorizedKeyboard = {
-    reply_markup: {
-        inline_keyboard: [
-            [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
-            [{ text: '💸 Записать расходы', callback_data: 'enter_expense_mode' }],
-            [{ text: '📊 Финансы', callback_data: 'show_finances_menu' }],
-            [{ text: '🆔 Мой ID', callback_data: 'show_my_id' }, { text: '🙋‍♂️ Пригласить', switch_inline_query: INVITE_TEXT }]
-        ]
-    }
-};
-
-const unauthorizedKeyboard = {
-    reply_markup: {
-        inline_keyboard: [
-            [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
-            [{ text: '🆔 Мой ID', callback_data: 'show_my_id' }, { text: '🙋‍♂️ Пригласить', switch_inline_query: INVITE_TEXT }]
-        ]
-    }
-};
-
-const financesKeyboard = {
-    reply_markup: {
-        inline_keyboard: [
-            [{ text: '📅 Сегодня', callback_data: 'get_finances_today' }, { text: '🕰️ Вчера', callback_data: 'get_finances_yesterday' }],
-            [{ text: '📈 С начала недели', callback_data: 'get_finances_week' }, { text: '📉 С начала месяца', callback_data: 'get_finances_month' }],
-            [{ text: '7️⃣ За 7 дней', callback_data: 'get_finances_7_days' }, { text: '3️⃣0️⃣ За 30 дней', callback_data: 'get_finances_30_days' }],
-            [{ text: '🏁 С начала года', callback_data: 'get_finances_year' }],
-            [{ text: '🔙 В меню', callback_data: 'main_menu' }]
-        ]
-    }
-};
-
-const afterReportKeyboard = {
-    reply_markup: {
-        inline_keyboard: [
-            [{ text: '📊 Другой период', callback_data: 'show_finances_menu' }],
-            [{ text: '🔙 В меню', callback_data: 'main_menu' }]
-        ]
-    }
-};
-
-const backToMenuKeyboard = {
-    reply_markup: { inline_keyboard: [[{ text: '🔙 В меню', callback_data: 'main_menu' }]] }
-};
 
 // Хранилище состояний и сообщений для очистки
 const userState = {};
@@ -110,13 +114,19 @@ async function cleanupUserMessages(chatId) {
     const state = userState[chatId];
     if (!state) return;
     
+    // Собираем все ID сообщений, которые нужно удалить
     const messageIds = [state.activeMessageId, state.errorCleanupId, state.instructionMessageId].filter(Boolean);
     
     for (const msgId of messageIds) {
         await bot.deleteMessage(chatId, msgId).catch(() => {});
     }
 
-    delete userState[chatId];
+    // Сбрасываем только ID сообщений, но можем сохранить режим
+    if(userState[chatId]) {
+        delete userState[chatId].activeMessageId;
+        delete userState[chatId].errorCleanupId;
+        delete userState[chatId].instructionMessageId;
+    }
 }
 
 async function sendDynamicMainMenu(chatId, from, messageId = null) {
@@ -127,10 +137,10 @@ async function sendDynamicMainMenu(chatId, from, messageId = null) {
 
     if (user.type === 'owner' || user.type === 'admin') {
         text = 'Главное меню:';
-        keyboard = authorizedKeyboard;
+        keyboard = keyboards.authorized;
     } else {
         text = `Добро пожаловать, ${from.first_name}! ☕️\n\nЯ — бот для аналитики ваших кофеен. Чтобы начать, откройте приложение и пройдите регистрацию.`;
-        keyboard = unauthorizedKeyboard;
+        keyboard = keyboards.unauthorized;
     }
 
     try {
@@ -140,10 +150,10 @@ async function sendDynamicMainMenu(chatId, from, messageId = null) {
         } else {
             sentMsg = await bot.sendMessage(chatId, text, keyboard);
         }
-        userState[chatId] = { ...userState[chatId], activeMessageId: sentMsg.message_id };
+        userState[chatId] = { activeMessageId: sentMsg.message_id };
     } catch {
         const sentMsg = await bot.sendMessage(chatId, text, keyboard);
-        userState[chatId] = { ...userState[chatId], activeMessageId: sentMsg.message_id };
+        userState[chatId] = { activeMessageId: sentMsg.message_id };
     }
 }
 
@@ -162,7 +172,7 @@ bot.onText(/\/app/, (msg) => {
 bot.onText(/\/myid/, (msg) => {
     cleanupUserMessages(msg.chat.id);
     const id = msg.from.id;
-    bot.sendMessage(msg.chat.id, `Ваш ID (нажмите, чтобы скопировать):\n\n\`${id}\`\n\nИли нажмите кнопку ниже, чтобы быстро отправить его в другой чат.`, {
+    bot.sendMessage(msg.chat.id, `Ваш ID (нажмите на него, чтобы скопировать):\n\n\`${id}\`\n\nИли нажмите кнопку ниже, чтобы быстро отправить его в другой чат.`, {
         parse_mode: 'Markdown',
         reply_markup: {
             inline_keyboard: [
@@ -177,7 +187,7 @@ bot.onText(/\/finances/, async (msg) => {
     await cleanupUserMessages(msg.chat.id);
     const user = await getUser(msg.from.id);
     if (user.type === 'owner' || user.type === 'admin') {
-        const sentMsg = await bot.sendMessage(msg.chat.id, '📊 Выберите период для отчета:', financesKeyboard);
+        const sentMsg = await bot.sendMessage(msg.chat.id, '📊 Выберите период для отчета:', keyboards.finances);
         userState[msg.chat.id] = { activeMessageId: sentMsg.message_id };
     } else {
         bot.sendMessage(msg.chat.id, 'Эта команда доступна только для зарегистрированных пользователей.');
@@ -207,10 +217,8 @@ bot.on('message', async (msg) => {
     const result = parseExpenseMessage(msg.text);
 
     if (result.success && result.expenses) {
-        await cleanupUserMessages(chatId);
-
         const wasInExpenseMode = userState[chatId]?.mode === 'awaiting_expenses';
-        delete userState[chatId];
+        await cleanupUserMessages(chatId);
 
         const saved = await pool.query(
             `INSERT INTO expenses (user_id, amount, expense_time, comment) 
@@ -229,20 +237,19 @@ bot.on('message', async (msg) => {
             if (wasInExpenseMode) {
                 successText += `\n\nВы можете внести ещё расходы или вернуться в Меню.\n\n_Подсказка: расходы можно записывать в любой момент, не нажимая кнопку "Записать расходы"._`;
             }
-            bot.sendMessage(chatId, successText, { parse_mode: 'Markdown', ...backToMenuKeyboard });
+            bot.sendMessage(chatId, successText, { parse_mode: 'Markdown', ...keyboards.backToMenu });
         }
     } else {
         // Ошибка парсинга или просто непонятный текст
         if (userState[chatId]?.errorCleanupId) {
             await bot.deleteMessage(chatId, userState[chatId].errorCleanupId).catch(() => {});
         }
-        // Если инструкции еще не было на экране, отправляем ее
         if (!userState[chatId]?.instructionMessageId) {
             const instructionMsg = await bot.sendMessage(chatId, EXPENSE_INSTRUCTION, { parse_mode: 'Markdown' });
             userState[chatId] = { ...userState[chatId], instructionMessageId: instructionMsg.message_id };
         }
         
-        const errorMsg = await bot.sendMessage(chatId, `❌ ${result.error || 'Неверный формат.'}\nСледуйте инструкции выше для быстрой записи расходов.`, backToMenuKeyboard);
+        const errorMsg = await bot.sendMessage(chatId, `❌ ${result.error || 'Неверный формат.'}\nСледуйте инструкции выше для быстрой записи расходов.`, keyboards.backToMenu);
         userState[chatId] = { ...userState[chatId], errorCleanupId: errorMsg.message_id };
     }
 });
@@ -259,22 +266,22 @@ bot.on('callback_query', async (query) => {
         return;
     }
     
-    if (userState[chatId] && !data.startsWith('get_finances_')) {
-        await cleanupUserMessages(chatId);
-    }
+    // Сохраняем ID текущего сообщения, чтобы потом его можно было удалить
+    userState[chatId] = { ...userState[chatId], activeMessageId: messageId };
     
     switch (data) {
         case 'main_menu':
             sendDynamicMainMenu(chatId, query.from, messageId);
             break;
         case 'enter_expense_mode':
+            // Не удаляем старые сообщения здесь, т.к. пользователь явно переходит в этот режим
             const sentMsg = await bot.editMessageText(EXPENSE_INSTRUCTION + '\n\n*Теперь я жду ваше сообщение с расходами 👇*', { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown' });
-            userState[chatId] = { mode: 'awaiting_expenses', instructionMessageId: sentMsg.message_id };
+            userState[chatId] = { mode: 'awaiting_expenses', instructionMessageId: sentMsg.message_id, activeMessageId: null };
             break;
         case 'show_my_id':
             await bot.deleteMessage(chatId, messageId).catch(()=>{});
             const id = query.from.id;
-            const sentIdMsg = await bot.sendMessage(chatId, `Ваш ID (нажмите, чтобы скопировать):\n\n\`${id}\`\n\nИли нажмите кнопку ниже, чтобы быстро отправить его в другой чат.`, {
+            const sentIdMsg = await bot.sendMessage(chatId, `Ваш ID (нажмите на него, чтобы скопировать):\n\n\`${id}\`\n\nИли нажмите кнопку ниже, чтобы быстро отправить его в другой чат.`, {
                 parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [
@@ -283,10 +290,10 @@ bot.on('callback_query', async (query) => {
                     ]
                 }
             });
-            userState[chatId] = { ...userState[chatId], activeMessageId: sentIdMsg.message_id };
+            userState[chatId] = { activeMessageId: sentIdMsg.message_id };
             break;
         case 'show_finances_menu':
-            const finMsg = await bot.editMessageText('📊 Выберите период для отчета:', { chat_id: chatId, message_id: messageId, ...financesKeyboard });
+            const finMsg = await bot.editMessageText('📊 Выберите период для отчета:', { chat_id: chatId, message_id: messageId, ...keyboards.finances });
             userState[chatId] = { activeMessageId: finMsg.message_id };
             break;
         default:
@@ -311,8 +318,8 @@ bot.on('callback_query', async (query) => {
                     const summary = await getFinancialSummary(user.ownerUserId, from.format('YYYY-MM-DD HH:mm:ss'), to.format('YYYY-MM-DD HH:mm:ss'));
                     const reportText = `*Финансовые показатели ${periodName}:*\n\n📈 *Выручка:* ${fNum(summary.revenue)} ₽\n☕️ *Продажи:* ${summary.salesCount} шт.\n💳 *Эквайринг:* ${fNum(summary.acquiringCost)} ₽\n📉 *Расходы:* ${fNum(summary.expensesSum)} ₽\n🧾 *Налоги:* ${fNum(summary.taxCost)} ₽\n\n💰 *Чистая прибыль:* *${fNum(summary.netProfit)} ₽*`;
                     
-                    const reportMsg = await bot.editMessageText(reportText, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', ...afterReportKeyboard });
-                    userState[chatId] = { activeMessageId: reportMsg.message_id }; // Сохраняем ID отчета для возможного удаления
+                    const reportMsg = await bot.editMessageText(reportText, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', ...keyboards.afterReport });
+                    userState[chatId] = { activeMessageId: reportMsg.message_id }; 
                 } catch (err) {
                     console.error(`Error fetching financial summary for bot:`, err);
                     bot.answerCallbackQuery(query.id, { text: 'Ошибка получения данных.', show_alert: true });
