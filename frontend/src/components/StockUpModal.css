@@ -1,0 +1,95 @@
+/* frontend/src/components/StockUpModal.css */
+
+/* Этот класс применяется к .modal-content */
+.stock-up-modal {
+    max-width: 450px;
+}
+
+.stock-up-item-container {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #3a3e47;
+}
+.stock-up-item-container:last-of-type {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.stock-up-item-row {
+    display: grid;
+    grid-template-columns: 1fr 110px 40px; /* Скорректирована ширина инпута */
+    gap: 8px;
+    align-items: center;
+}
+
+.stock-up-item-row select, .stock-up-item-row input {
+    font-size: 16px !important;
+    background: #2e3340;
+    border: 1px solid #3a3e47;
+    color: #e0e0e0;
+    border-radius: 6px;
+    padding: 8px;
+    height: 40px;
+    box-sizing: border-box;
+}
+
+.stock-up-item-row input {
+    text-align: right;
+}
+
+.remove-item-btn {
+    background-color: #4a4f58;
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    font-size: 1.8em;
+    font-weight: 300;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.remove-item-btn:hover {
+    background-color: #e06b6b;
+}
+
+.stock-up-quick-add {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.stock-up-quick-add button {
+    background-color: #2e3340;
+    border: 1px solid #3a3e47;
+    color: #a0b0c8;
+    padding: 8px 5px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.stock-up-quick-add button:hover {
+    background-color: #383e4c;
+}
+
+.add-item-btn {
+    width: 100%;
+    text-align: center;
+    background: none;
+    border: 1px dashed #4a4f58;
+    color: #a0b0c8;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 16px;
+}

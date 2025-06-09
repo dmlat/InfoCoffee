@@ -1,28 +1,39 @@
 // frontend/src/components/QuickTransferModal.js
 import React, { useState, useMemo } from 'react';
 import apiClient from '../api';
-import './QuickTransferModal.css';
+import './Modals.css';
+import './QuickTransferModal.css'; // Импортируем свой CSS
 
 const GRAMS_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф'];
+const ML_ITEMS = ['Вода'];
 
 export default function QuickTransferModal({ moveRequest, onClose, onSuccess }) {
-    const { item_name, from, to } = moveRequest;
+    const { item_name, currentStock, from, to } = moveRequest;
     const [quantity, setQuantity] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
 
     const unitInfo = useMemo(() => {
-        if (GRAMS_ITEMS.includes(item_name)) return { name: 'граммах', short: 'г' };
-        if (item_name === 'Вода') return { name: 'миллилитрах', short: 'мл' };
-        return { name: 'штуках', short: 'шт' };
+        if (GRAMS_ITEMS.includes(item_name)) return { name: 'килограммах', short: 'кг', multiplier: 1000 };
+        if (ML_ITEMS.includes(item_name)) return { name: 'литрах', short: 'л', multiplier: 1000 };
+        return { name: 'штуках', short: 'шт', multiplier: 1 };
     }, [item_name]);
+
+    const availableStock = useMemo(() => {
+        return parseFloat((currentStock / unitInfo.multiplier).toFixed(3));
+    }, [currentStock, unitInfo]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const numQuantity = parseFloat(quantity);
+        const numQuantity = parseFloat(String(quantity).replace(',', '.'));
 
         if (!numQuantity || numQuantity <= 0) {
             setError('Введите количество больше нуля.');
+            return;
+        }
+
+        if (numQuantity > availableStock) {
+            setError(`Нельзя переместить больше, чем есть в источнике (${availableStock} ${unitInfo.short}).`);
             return;
         }
 
@@ -30,9 +41,12 @@ export default function QuickTransferModal({ moveRequest, onClose, onSuccess }) 
         setError('');
 
         try {
+            // Конвертируем обратно в граммы/мл для бэкенда
+            const payloadQuantity = numQuantity * unitInfo.multiplier;
+
             const payload = {
                 item_name,
-                quantity: numQuantity,
+                quantity: payloadQuantity,
                 from: { location: from.type, terminal_id: from.terminalId },
                 to: { location: to.type, terminal_id: to.terminalId },
             };
@@ -56,7 +70,10 @@ export default function QuickTransferModal({ moveRequest, onClose, onSuccess }) 
     };
 
     const addQuantity = (amount) => {
-        setQuantity(prev => (Number(prev) || 0) + amount);
+        const currentVal = parseFloat(String(quantity).replace(',', '.')) || 0;
+        const precision = unitInfo.multiplier > 1 ? 3 : 0;
+        let newVal = parseFloat((currentVal + amount).toFixed(precision));
+        setQuantity(String(newVal));
     };
 
     return (
@@ -73,21 +90,22 @@ export default function QuickTransferModal({ moveRequest, onClose, onSuccess }) 
                         </p>
                         
                         <div className="quick-transfer-input-group">
-                            <label htmlFor="transfer-quantity">Количество ({unitInfo.short})</label>
+                            <label htmlFor="transfer-quantity">Количество ({unitInfo.short}), доступно: {availableStock}</label>
                             <input
                                 id="transfer-quantity"
-                                type="number"
+                                type="text"
+                                inputMode="decimal"
                                 placeholder="0"
                                 value={quantity}
-                                onChange={(e) => setQuantity(e.target.value)}
+                                onChange={(e) => setQuantity(e.target.value.replace(/[^0-9,.]/g, ''))}
                                 autoFocus
                             />
                         </div>
 
                         <div className="quick-add-buttons">
-                            <button type="button" onClick={() => addQuantity(1000)}>+1000</button>
                             <button type="button" onClick={() => addQuantity(100)}>+100</button>
                             <button type="button" onClick={() => addQuantity(10)}>+10</button>
+                            <button type="button" onClick={() => addQuantity(1)}>+1</button>
                             <button type="button" onClick={() => setQuantity('')}>Сброс</button>
                         </div>
                         

@@ -1,7 +1,8 @@
 // frontend/src/components/StockUpModal.js
 import React, { useState } from 'react';
 import apiClient from '../api';
-import './Modals.css';
+import './Modals.css'; // Общие стили для оверлея, хедера и футера
+import './StockUpModal.css'; // Новые стили для контента этого модального окна
 
 const INVENTORY_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода', 'Стаканы', 'Крышки', 'Размешиватели', 'Сахар'];
 const WEIGHT_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф'];
@@ -20,7 +21,6 @@ export default function StockUpModal({ onClose, onSuccess }) {
     const handleItemChange = (index, field, value) => {
         const newItems = [...items];
         if (field === 'quantity') {
-            // Разрешаем только цифры, точку и запятую для ввода
             newItems[index][field] = value.replace(/[^0-9,.]/g, '');
         } else {
             newItems[index][field] = value;
@@ -39,12 +39,10 @@ export default function StockUpModal({ onClose, onSuccess }) {
         const currentVal = parseFloat(String(currentItem.quantity).replace(',', '.')) || 0;
         const unit = getUnitForPlaceholder(currentItem.itemName);
         
-        // Определяем точность, чтобы избежать ошибок с плавающей точкой
         const precision = (unit === 'кг' || unit === 'л') ? 3 : 0;
         
         let newVal = (currentVal + amount);
         
-        // Округляем до нужной точности, чтобы избежать 0.0100000002
         newItems[index].quantity = String(parseFloat(newVal.toFixed(precision)));
         
         setItems(newItems);
@@ -65,10 +63,6 @@ export default function StockUpModal({ onClose, onSuccess }) {
             let finalQuantity = parseFloat(normalizedQuantity);
             if (!item.itemName || isNaN(finalQuantity) || finalQuantity <= 0) return null;
 
-            // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-            // Было: { itemName: item.item_name, quantity: finalQuantity }
-            // Стало: { item_name: item.itemName, quantity: finalQuantity }
-            // Бэкенд ожидает ключ `item_name`, а в состоянии у нас `itemName`.
             return { item_name: item.itemName, quantity: finalQuantity };
         }).filter(Boolean);
 
@@ -95,6 +89,7 @@ export default function StockUpModal({ onClose, onSuccess }) {
 
     return (
         <div className="modal-overlay" onClick={onClose}>
+            {/* Добавляем специфичный класс к modal-content */}
             <div className="modal-content stock-up-modal" onClick={e => e.stopPropagation()}>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-header">
@@ -105,7 +100,7 @@ export default function StockUpModal({ onClose, onSuccess }) {
                         {error && <p className="error-message small">{error}</p>}
                         {items.map((item, index) => {
                             const unit = getUnitForPlaceholder(item.itemName);
-                            let quickAddAmounts = [1000, 500, 100, 10]; // Для шт
+                            let quickAddAmounts = [1000, 500, 100, 10];
                             if (unit === 'кг') quickAddAmounts = [1, 0.5, 0.1, 0.01];
                             if (unit === 'л') quickAddAmounts = [19, 5, 1, 0.5];
                             
@@ -124,7 +119,7 @@ export default function StockUpModal({ onClose, onSuccess }) {
                                         />
                                         <button type="button" className="remove-item-btn" onClick={() => handleRemoveItem(index)} title="Удалить строку">&times;</button>
                                     </div>
-                                    <div className="quick-add-buttons stock-up-quick-add">
+                                    <div className="stock-up-quick-add">
                                         {quickAddAmounts.map(amount => (
                                             <button key={amount} type="button" onClick={() => handleAddQuantity(index, amount)}>+{amount} {unit}</button>
                                         ))}
