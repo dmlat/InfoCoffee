@@ -4,12 +4,26 @@
     flex-direction: column;
     gap: 20px;
     width: 100%;
+    overflow-x: hidden; /* Предотвращаем горизонтальный скролл */
 }
 
 .warehouse-header {
     background: #282c34;
-    padding: 12px 16px;
+    padding: 10px 16px;
     border-radius: 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.warehouse-header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.warehouse-header .header-hint {
+    font-size: 0.9em;
+    color: #a0b0c8;
 }
 
 .warehouse-block-container {
@@ -22,7 +36,7 @@
 
 .block-title {
     color: #8ae6ff;
-    font-size: 1.2em;
+    font-size: 1.1em;
     font-weight: 600;
     margin: 0 0 16px 0;
 }
@@ -30,7 +44,7 @@
 .warehouse-transfer-container {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
-    gap: 12px;
+    gap: 16px;
     align-items: flex-start;
 }
 
@@ -38,21 +52,22 @@
     width: 1px;
     background-color: #3a3e47;
     align-self: stretch;
-    margin: 25px 0 0 0;
+    margin: 30px 0 0 0;
 }
 
 .location-panel {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    min-width: 0;
 }
 
 .transfer-panel-header {
     margin: 0 0 4px 0;
     text-align: left;
     color: #fff;
-    font-size: 1em;
-    font-weight: 600;
+    font-size: 0.9em;
+    font-weight: 500;
 }
 
 .location-buttons-horizontal {
@@ -69,8 +84,14 @@
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s;
-    font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+    font-size: clamp(0.75rem, 2.5vw, 0.85rem);
     font-weight: 500;
+}
+
+.location-buttons-horizontal button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #23272f;
 }
 
 .location-buttons-horizontal button.active {
@@ -98,11 +119,24 @@
     font-size: 0.9em;
     color: #e0e0e0;
 }
+
 .terminal-display.disabled {
     background: #2e3340;
     color: #777c8c;
     cursor: not-allowed;
     border-color: #3a3e47;
+}
+
+.inventory-grid-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px; /* Соотносится с gap и шириной стрелок в inventory-row */
+    padding: 0 8px 8px 8px;
+    font-size: 0.8em;
+    color: #a0b0c8;
+}
+.inventory-grid-header span:last-child {
+    text-align: right;
 }
 
 .inventory-grid {
@@ -112,53 +146,57 @@
 
 .inventory-separator {
     border: none;
-    border-top: 2px solid #3a3e47;
-    margin: 10px 0;
+    border-top: 1px solid #3a3e47;
+    margin: 8px 0;
 }
 
 .inventory-row {
     display: grid;
-    grid-template-columns: 1fr auto 50px auto 1fr;
+    grid-template-columns: 1fr min-content 25px 25px min-content 1fr;
     align-items: center;
     gap: 8px;
-    padding: 6px 0;
+    padding: 4px 0;
     border-bottom: 1px solid #303548;
 }
-
-.inventory-row:last-child {
+.inventory-grid .inventory-section:last-child .inventory-row:last-child {
     border-bottom: none;
 }
 
 .inv-item-name, .inv-item-name-right {
     font-weight: 500;
     color: #c6c6c6;
-    font-size: 0.95em;
+    font-size: 0.9em;
+    white-space: nowrap;
 }
 .inv-item-name { text-align: left; }
 .inv-item-name-right { text-align: right; }
 
 .inv-item-stock {
-    font-weight: 600;
-    font-size: 1.05em;
+    font-weight: 500;
+    font-size: 0.9em;
     color: #e0e0e0;
     text-align: center;
-    min-width: 70px;
+    min-width: 65px;
 }
 
 .inv-item-arrows {
+    grid-column: 3 / 5;
     display: flex;
     justify-content: center;
-    gap: 4px;
+    gap: 2px;
 }
 
 .inv-item-arrows button {
     background: none;
     border: none;
-    color: #fff;
+    color: #8a9db8;
     font-size: 1.4em;
     cursor: pointer;
+    padding: 0 2px;
 }
 
+.inv-item-arrows button.arrow-right:not(:disabled) { color: #4caf50; }
+.inv-item-arrows button.arrow-left:not(:disabled) { color: #e06b6b; }
 .inv-item-arrows button:disabled {
     opacity: 0.2;
     cursor: not-allowed;
@@ -174,6 +212,9 @@
         height: 1px;
         margin: 0;
     }
-    .inv-item-name, .inv-item-name-right { font-size: 0.9em; }
-    .inv-item-stock { font-size: 1em; min-width: 60px; }
+    .inventory-grid-header {
+        gap: 10px;
+    }
+    .inv-item-name, .inv-item-name-right { font-size: 0.85em; }
+    .inv-item-stock { font-size: 0.9em; min-width: auto; }
 }

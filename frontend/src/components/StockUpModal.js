@@ -4,6 +4,13 @@ import apiClient from '../api';
 import './Modals.css'; // Общие стили для модальных окон
 
 const INVENTORY_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода', 'Стаканы', 'Крышки', 'Размешиватели', 'Сахар'];
+const GRAMS_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф'];
+
+const getUnitForPlaceholder = (itemName) => {
+    if (GRAMS_ITEMS.includes(itemName)) return 'кг';
+    if (itemName === 'Вода') return 'л';
+    return 'шт';
+};
 
 export default function StockUpModal({ onClose, onSuccess }) {
     const [items, setItems] = useState([{ itemName: 'Кофе', quantity: '' }]);
@@ -12,12 +19,26 @@ export default function StockUpModal({ onClose, onSuccess }) {
 
     const handleItemChange = (index, field, value) => {
         const newItems = [...items];
-        newItems[index][field] = value;
+        if (field === 'quantity') {
+            newItems[index][field] = value.replace(',', '.').replace(/[^0-9.]/g, '');
+        } else {
+            newItems[index][field] = value;
+        }
         setItems(newItems);
     };
 
     const handleAddItem = () => {
         setItems([...items, { itemName: 'Кофе', quantity: '' }]);
+    };
+    
+    const handleAddQuantity = (index, amount) => {
+        const newItems = [...items];
+        const currentVal = parseFloat(newItems[index].quantity) || 0;
+        const unit = getUnitForPlaceholder(newItems[index].itemName);
+        // Для кг и л добавляем в тысячах (г, мл), для шт - как есть
+        const amountToAdd = (unit === 'кг' || unit === 'л') ? amount * 1000 : amount;
+        newItems[index].quantity = String(currentVal + amountToAdd);
+        setItems(newItems);
     };
 
     const handleRemoveItem = (index) => {
@@ -30,7 +51,11 @@ export default function StockUpModal({ onClose, onSuccess }) {
         setIsSaving(true);
         setError('');
         
-        const itemsToStockUp = items.filter(item => item.itemName && parseFloat(item.quantity) > 0);
+        const itemsToStockUp = items.map(item => ({
+            ...item,
+            quantity: parseFloat(item.quantity)
+        })).filter(item => item.itemName && item.quantity > 0);
+
         if (itemsToStockUp.length === 0) {
             setError('Добавьте хотя бы один товар с количеством больше нуля.');
             setIsSaving(false);
@@ -40,8 +65,8 @@ export default function StockUpModal({ onClose, onSuccess }) {
         try {
             const response = await apiClient.post('/warehouse/stock-up', { items: itemsToStockUp });
             if (response.data.success) {
-                onSuccess(); // Вызываем колбэк для обновления данных на основной странице
-                onClose();     // Закрываем окно
+                onSuccess();
+                onClose();
             } else {
                 setError(response.data.error || 'Произошла ошибка.');
             }
@@ -62,20 +87,32 @@ export default function StockUpModal({ onClose, onSuccess }) {
                     </div>
                     <div className="modal-body">
                         {error && <p className="error-message small">{error}</p>}
-                        {items.map((item, index) => (
-                            <div className="stock-up-item-row" key={index}>
-                                <select value={item.itemName} onChange={(e) => handleItemChange(index, 'itemName', e.target.value)}>
-                                    {INVENTORY_ITEMS.map(name => <option key={name} value={name}>{name}</option>)}
-                                </select>
-                                <input
-                                    type="number"
-                                    placeholder="Кол-во"
-                                    value={item.quantity}
-                                    onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                                />
-                                <button type="button" className="remove-item-btn" onClick={() => handleRemoveItem(index)}>&ndash;</button>
-                            </div>
-                        ))}
+                        {items.map((item, index) => {
+                            const unit = getUnitForPlaceholder(item.itemName);
+                            const quickAddAmounts = (unit === 'кг' || unit === 'л') ? [10, 5, 1] : [1000, 500, 100];
+                            
+                            return (
+                                <div className="stock-up-item-container" key={index}>
+                                    <div className="stock-up-item-row">
+                                        <select value={item.itemName} onChange={(e) => handleItemChange(index, 'itemName', e.target.value)}>
+                                            {INVENTORY_ITEMS.map(name => <option key={name} value={name}>{name}</option>)}
+                                        </select>
+                                        <input
+                                            type="number"
+                                            placeholder={`Кол-во, ${unit === 'кг' ? 'г' : (unit === 'л' ? 'мл' : unit)}`}
+                                            value={item.quantity}
+                                            onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                                        />
+                                        <button type="button" className="remove-item-btn" onClick={() => handleRemoveItem(index)}>&times;</button>
+                                    </div>
+                                    <div className="quick-add-buttons stock-up-quick-add">
+                                        {quickAddAmounts.map(amount => (
+                                            <button key={amount} type="button" onClick={() => handleAddQuantity(index, amount)}>+{amount}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
                         <button type="button" className="add-item-btn" onClick={handleAddItem}>+ Добавить позицию</button>
                     </div>
                     <div className="modal-footer">

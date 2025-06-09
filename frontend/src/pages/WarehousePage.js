@@ -8,6 +8,10 @@ import QuickTransferModal from '../components/QuickTransferModal';
 
 const MACHINE_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода'];
 const STAND_ITEMS = ['Стаканы', 'Крышки', 'Размешиватели', 'Сахар'];
+const ABBREVIATIONS = {
+    'Размешиватели': 'Размеш.'
+};
+
 
 const formatStock = (item_name, stock) => {
     const numStock = parseFloat(stock) || 0;
@@ -68,11 +72,16 @@ export default function WarehousePage() {
                 setTerminals(fetchedTerminals);
 
                 const initialFrom = { type: 'warehouse', terminalId: null, terminalName: 'Склад' };
-                const initialTo = { 
-                    type: 'stand', 
-                    terminalId: fetchedTerminals[0]?.id || null, 
-                    terminalName: fetchedTerminals[0]?.comment || 'Выберите стойку'
-                };
+                let initialTo = { type: 'stand', terminalId: null, terminalName: 'Выберите стойку' };
+
+                if (fetchedTerminals.length > 0) {
+                    initialTo = { 
+                        type: 'stand', 
+                        terminalId: fetchedTerminals[0]?.id, 
+                        terminalName: fetchedTerminals[0]?.comment || `Стойка #${fetchedTerminals[0]?.id}`
+                    };
+                }
+
 
                 const [fromInventory, toInventory] = await Promise.all([
                     fetchInventory(initialFrom),
@@ -99,9 +108,12 @@ export default function WarehousePage() {
         if (newType === 'warehouse') {
             newTerminalName = 'Склад';
         } else if (terminals.length > 0) {
-            let oppositePanelState = panel === 'from' ? to : from;
-            // Выбираем первый терминал, который не совпадает с терминалом на другой панели
+            const oppositePanelState = panel === 'from' ? to : from;
             let defaultTerminal = terminals.find(t => t.id !== oppositePanelState.terminalId) || terminals[0];
+            
+            if (isInvalidMove({type: newType, terminalId: defaultTerminal.id }, oppositePanelState)) {
+                 defaultTerminal = terminals.find(t => t.id !== oppositePanelState.terminalId && t.id !== defaultTerminal.id) || defaultTerminal;
+            }
 
             newTerminalId = defaultTerminal.id;
             newTerminalName = defaultTerminal.comment;
@@ -126,18 +138,23 @@ export default function WarehousePage() {
     
     const isInvalidMove = (source, destination) => {
         if (!source || !destination) return true;
-        // Перемещение разрешено всегда, кроме случая, когда источник и назначение идентичны
         return source.type === destination.type && source.terminalId === destination.terminalId;
     };
 
-
-    const renderLocationSelector = (panel, state) => {
+    const renderLocationSelector = (panel) => {
+        const state = panel === 'from' ? from : to;
+        const oppositeState = panel === 'from' ? to : from;
         const panelTitle = panel === 'from' ? '1. Укажите откуда' : '2. Укажите, куда';
+
         return (
              <div className="location-panel">
                 <h4 className="transfer-panel-header">{panelTitle}</h4>
                 <div className="location-buttons-horizontal">
-                    <button className={state.type === 'warehouse' ? 'active' : ''} onClick={() => handleLocationTypeChange(panel, 'warehouse')}>Склад</button>
+                    <button 
+                        className={state.type === 'warehouse' ? 'active' : ''} 
+                        onClick={() => handleLocationTypeChange(panel, 'warehouse')}
+                        disabled={oppositeState.type === 'warehouse'}
+                    >Склад</button>
                     <button className={state.type === 'stand' ? 'active' : ''} onClick={() => handleLocationTypeChange(panel, 'stand')}>Стойка</button>
                     <button className={state.type === 'machine' ? 'active' : ''} onClick={() => handleLocationTypeChange(panel, 'machine')}>Машина</button>
                 </div>
@@ -172,19 +189,27 @@ export default function WarehousePage() {
             });
         };
 
+        const displayName = ABBREVIATIONS[itemName] || itemName;
+
         return (
             <div className="inventory-row" key={itemName}>
-                <span className="inv-item-name">{itemName}</span>
+                <span className="inv-item-name">{displayName}</span>
                 <span className="inv-item-stock">{formatStock(itemName, fromItem.current_stock)}</span>
                 <div className="inv-item-arrows">
-                    <button onClick={() => openModal('from')} disabled={toItem.current_stock <= 0 || isInvalidMove(to, from)}>{'<'}</button>
-                    <button onClick={() => openModal('to')} disabled={fromItem.current_stock <= 0 || isInvalidMove(from, to)}>{'>'}</button>
+                    <button className="arrow-left" onClick={() => openModal('from')} disabled={toItem.current_stock <= 0 || isInvalidMove(to, from)}>{'<'}</button>
+                    <button className="arrow-right" onClick={() => openModal('to')} disabled={fromItem.current_stock <= 0 || isInvalidMove(from, to)}>{'>'}</button>
                 </div>
                 <span className="inv-item-stock">{formatStock(itemName, toItem.current_stock)}</span>
-                <span className="inv-item-name-right">{itemName}</span>
+                <span className="inv-item-name-right">{displayName}</span>
             </div>
         );
     };
+
+    const getPanelDisplayName = (panelState) => {
+        if (panelState.type === 'warehouse') return 'Склад';
+        return panelState.terminalName || 'Не выбрано';
+    };
+
 
     if (isLoading) {
         return <div className="page-loading-container"><span>Загрузка склада...</span></div>;
@@ -196,20 +221,27 @@ export default function WarehousePage() {
                 {error && <div className="error-message">{error}</div>}
                 
                 <div className="warehouse-header">
-                    <button className="action-btn" onClick={() => setIsStockUpModalOpen(true)}>Приходовать товар</button>
+                    <div className="warehouse-header-content">
+                        <button className="action-btn" onClick={() => setIsStockUpModalOpen(true)}>Приходовать товар</button>
+                        <span className="header-hint">Пополнить склад</span>
+                    </div>
                 </div>
-
+                
                 <div className="warehouse-block-container">
                     <h3 className="block-title">Переместить остатки</h3>
                     <div className="warehouse-transfer-container">
-                        {renderLocationSelector('from', from)}
+                        {renderLocationSelector('from')}
                         <div className="transfer-divider"></div>
-                        {renderLocationSelector('to', to)}
+                        {renderLocationSelector('to')}
                     </div>
                 </div>
                 
                 <div className="warehouse-block-container">
                     <h3 className="block-title">3. Выберите, что переместить</h3>
+                     <div className="inventory-grid-header">
+                        <span>{getPanelDisplayName(from)}</span>
+                        <span>{getPanelDisplayName(to)}</span>
+                    </div>
                     <div className="inventory-grid">
                         <div className="inventory-section">
                             {MACHINE_ITEMS.map(renderInventoryRow)}
@@ -230,7 +262,7 @@ export default function WarehousePage() {
                     onClose={() => setTerminalModal({ isOpen: false, panel: null })}
                     onSelect={handleTerminalSelect}
                     currentSelection={terminalModal.panel === 'from' ? from.terminalId : to.terminalId}
-                    excludeTerminalId={terminalModal.panel === 'to' ? from.terminalId : null}
+                    excludeTerminalId={terminalModal.panel === 'to' && from.type !== 'warehouse' ? from.terminalId : null}
                 />
             )}
 

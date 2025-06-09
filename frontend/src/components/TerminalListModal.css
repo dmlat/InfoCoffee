@@ -28,13 +28,25 @@
     transition: background-color 0.2s;
 }
 
-.terminal-card:hover {
+.terminal-card:not(.disabled):hover {
     background-color: #3e67e0;
 }
 
 .terminal-card.selected {
     background-color: #3e67e0;
     font-weight: bold;
+}
+
+.terminal-card.disabled {
+    background-color: #23272f;
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.terminal-card .disabled-label {
+    margin-left: auto;
+    font-size: 0.8em;
+    color: #a0b0c8;
 }
 
 .terminal-card .status-indicator {

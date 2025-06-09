@@ -84,14 +84,22 @@
 }
 
 /* Стили для StockUpModal */
+.stock-up-item-container {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #3a3e47;
+}
+.stock-up-item-container:last-of-type {
+    border-bottom: none;
+}
+
 .stock-up-item-row {
     display: flex;
     gap: 8px;
-    margin-bottom: 8px;
     align-items: center;
 }
 .stock-up-item-row select, .stock-up-item-row input {
-    font-size: 16px !important; /* Важно для мобильных */
+    font-size: 16px !important;
     background: #2e3340;
     border: 1px solid #3a3e47;
     color: #e0e0e0;
@@ -101,18 +109,41 @@
     box-sizing: border-box;
 }
 .stock-up-item-row select { flex: 2; }
-.stock-up-item-row input { flex: 1; max-width: 120px; } /* Ограничиваем ширину поля ввода */
+.stock-up-item-row input { flex: 1; max-width: 150px; }
 .remove-item-btn {
-    background-color: #e06b6b;
+    background-color: #4a4f58;
     color: white;
     border: none;
     width: 36px;
     height: 36px;
-    border-radius: 50%;
-    font-size: 1.5em;
+    border-radius: 8px;
+    font-size: 1.8em;
+    font-weight: 300;
+    line-height: 1;
     cursor: pointer;
     flex-shrink: 0;
+    transition: background-color 0.2s;
 }
+.remove-item-btn:hover {
+    background-color: #e06b6b;
+}
+
+.stock-up-quick-add {
+    margin-top: 8px;
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+}
+.stock-up-quick-add button {
+    background-color: #2e3340;
+    border: 1px solid #3a3e47;
+    color: #a0b0c8;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8em;
+}
+
 .add-item-btn {
     width: 100%;
     text-align: center;
@@ -147,7 +178,7 @@
     color: #a0b0c8;
 }
 .transfer-input-group input {
-    font-size: 18px !important; /* Важно для мобильных */
+    font-size: 18px !important;
     padding: 10px;
     border-radius: 6px;
     background: #2e3340;

@@ -4,16 +4,29 @@ import './TerminalListModal.css';
 
 export default function TerminalListModal({ terminals, onSelect, onClose, currentSelection, excludeTerminalId = null }) {
     
-    // Фильтруем терминалы, исключая тот, что передан в excludeTerminalId
-    const filteredTerminals = terminals.filter(t => t.id !== excludeTerminalId);
-
-    const onlineTerminals = filteredTerminals.filter(t => (t.last_hour_online || 0) > 0);
-    const offlineTerminals = filteredTerminals.filter(t => (t.last_hour_online || 0) === 0);
+    const onlineTerminals = terminals.filter(t => (t.last_hour_online || 0) > 0);
+    const offlineTerminals = terminals.filter(t => (t.last_hour_online || 0) === 0);
 
     const handleCardClick = (terminal) => {
+        if (terminal.id === excludeTerminalId) return; // Не даем выбрать неактивный
         onSelect(terminal);
         onClose();
     };
+
+    const renderTerminal = (terminal) => {
+        const isExcluded = terminal.id === excludeTerminalId;
+        return (
+            <div
+                key={terminal.id}
+                className={`terminal-card ${currentSelection === terminal.id ? 'selected' : ''} ${isExcluded ? 'disabled' : ''}`}
+                onClick={() => handleCardClick(terminal)}
+            >
+                <span className={`status-indicator ${ (terminal.last_hour_online || 0) > 0 ? 'online' : 'offline'}`}></span>
+                <span className="terminal-name">{terminal.comment || `Терминал #${terminal.id}`}</span>
+                {isExcluded && <span className="disabled-label">(Источник)</span>}
+            </div>
+        );
+    }
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -23,37 +36,19 @@ export default function TerminalListModal({ terminals, onSelect, onClose, curren
                     <button type="button" className="modal-close-btn" onClick={onClose}>&times;</button>
                 </div>
                 <div className="modal-body">
-                    {filteredTerminals.length === 0 ? (
-                        <p className="empty-data-message">Нет доступных стоек для выбора.</p>
+                    {terminals.length === 0 ? (
+                        <p className="empty-data-message">Нет доступных стоек.</p>
                     ) : (
                         <>
                             {onlineTerminals.length > 0 && (
                                 <div className="terminal-list-section">
-                                    {onlineTerminals.map(terminal => (
-                                        <div
-                                            key={terminal.id}
-                                            className={`terminal-card ${currentSelection === terminal.id ? 'selected' : ''}`}
-                                            onClick={() => handleCardClick(terminal)}
-                                        >
-                                            <span className="status-indicator online"></span>
-                                            <span className="terminal-name">{terminal.comment || `Терминал #${terminal.id}`}</span>
-                                        </div>
-                                    ))}
+                                    {onlineTerminals.map(renderTerminal)}
                                 </div>
                             )}
                             {offlineTerminals.length > 0 && (
                                 <div className="terminal-list-section">
                                     {onlineTerminals.length > 0 && <hr className="section-separator" />}
-                                    {offlineTerminals.map(terminal => (
-                                        <div
-                                            key={terminal.id}
-                                            className={`terminal-card ${currentSelection === terminal.id ? 'selected' : ''}`}
-                                            onClick={() => handleCardClick(terminal)}
-                                        >
-                                            <span className="status-indicator offline"></span>
-                                            <span className="terminal-name">{terminal.comment || `Терминал #${terminal.id}`}</span>
-                                        </div>
-                                    ))}
+                                    {offlineTerminals.map(renderTerminal)}
                                 </div>
                             )}
                         </>
