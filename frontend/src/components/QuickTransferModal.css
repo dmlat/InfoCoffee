@@ -68,7 +68,7 @@
     padding: 12px 16px;
     background-color: #282c34;
     border-color: #3a3e47;
-    flex-shrink: 0; /* Важно, чтобы футер не сжимался */
+    flex-shrink: 0;
 }
 .modal-header {
     display: flex;
@@ -82,7 +82,7 @@
 .modal-body {
     padding: 16px;
     overflow-y: auto;
-    flex-grow: 1; /* Позволяет основному контенту расти */
+    flex-grow: 1;
 }
 
 .modal-footer {
