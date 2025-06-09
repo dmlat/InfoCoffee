@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api';
 import './WarehousePage.css';
+import StockUpModal from '../components/StockUpModal';
+import InventoryTransferModal from '../components/InventoryTransferModal';
 
 const INVENTORY_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода', 'Стаканы', 'Крышки', 'Размешиватели', 'Сахар'];
 
@@ -14,26 +16,15 @@ export default function WarehousePage() {
     const [from, setFrom] = useState({ type: 'warehouse', terminalId: null, inventory: [] });
     const [to, setTo] = useState({ type: 'stand', terminalId: null, inventory: [] });
     
+    const [fromIndex, setFromIndex] = useState(0);
+    const [toIndex, setToIndex] = useState(0);
+    
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
 
-    const fetchTerminals = useCallback(async () => {
-        try {
-            const response = await apiClient.get('/terminals');
-            if (response.data.success) {
-                const fetchedTerminals = response.data.terminals || [];
-                setTerminals(fetchedTerminals);
-                if (fetchedTerminals.length > 0) {
-                    setTo(prev => ({ ...prev, type: 'stand', terminalId: fetchedTerminals[0].id }));
-                }
-            } else {
-                setError('Не удалось загрузить список стоек.');
-            }
-        } catch (err) {
-            setError('Ошибка сети при загрузке стоек.');
-        }
-    }, []);
-    
+    const [isStockUpModalOpen, setIsStockUpModalOpen] = useState(false);
+    const [moveRequest, setMoveRequest] = useState(null);
+
     const fetchInventory = useCallback(async (location) => {
         if (!location) return [];
         
@@ -50,16 +41,55 @@ export default function WarehousePage() {
         return [];
     }, []);
 
-    useEffect(() => {
-        const loadInitialData = async () => {
-            setIsLoading(true);
-            await fetchTerminals();
+    const fetchAllData = useCallback(async () => {
+        setIsLoading(true);
+        setError('');
+        try {
+            const terminalsResponse = await apiClient.get('/terminals');
+            if (!terminalsResponse.data.success) throw new Error('Не удалось загрузить список стоек.');
+            const fetchedTerminals = terminalsResponse.data.terminals || [];
+            setTerminals(fetchedTerminals);
+
+            const initialFrom = { type: 'warehouse', terminalId: null };
+            const initialTo = { type: 'stand', terminalId: fetchedTerminals[0]?.id || null };
+            
+            const [fromInventory, toInventory] = await Promise.all([
+                fetchInventory(initialFrom),
+                fetchInventory(initialTo)
+            ]);
+
+            setFrom({ ...initialFrom, inventory: fromInventory });
+            setTo({ ...initialTo, inventory: toInventory });
+        } catch (err) {
+            setError(err.message || 'Ошибка сети при загрузке данных.');
+        } finally {
             setIsLoading(false);
-        };
-        loadInitialData();
-    }, [fetchTerminals]);
+        }
+    }, [fetchInventory]);
+
+    useEffect(() => {
+        fetchAllData();
+    }, [fetchAllData]);
+
+    const handleLocationTypeChange = (panelSetter, panelState, newType, setIndex) => {
+        let newTerminalId = panelState.terminalId;
+        if ((newType === 'stand' || newType === 'machine')) {
+            newTerminalId = terminals[0]?.id || null;
+            setIndex(0);
+        } else if (newType === 'warehouse') {
+            newTerminalId = null;
+        }
+        panelSetter({ ...panelState, type: newType, terminalId: newTerminalId });
+    };
+
+    const handleTerminalChange = (panelSetter, setIndex, currentIndex, direction) => {
+        if (!terminals || terminals.length === 0) return;
+        const newIndex = (currentIndex + direction + terminals.length) % terminals.length;
+        setIndex(newIndex);
+        panelSetter(prev => ({...prev, terminalId: terminals[newIndex].id}));
+    };
     
-    // --- ИСПРАВЛЕНИЕ: Добавлены `from` и `to` в массив зависимостей, как просит линтер ---
+    // Этот эффект отвечает за обновление инвентаря при смене локации
     useEffect(() => {
         const updateInventories = async () => {
              if (isLoading) return;
@@ -75,21 +105,11 @@ export default function WarehousePage() {
              }
         }
         updateInventories();
-    }, [from, to, isLoading, fetchInventory]); // <-- Вот окончательное исправление
+    // --- ИСПРАВЛЕНИЕ: Добавляем целые объекты `from` и `to` в зависимости ---
+    }, [from, to, isLoading, fetchInventory]);
 
-    const handleLocationTypeChange = (panelSetter, panelState, newType) => {
-        let newTerminalId = panelState.terminalId;
-        if ((newType === 'stand' || newType === 'machine')) {
-            newTerminalId = panelState.terminalId && terminals.some(t => t.id === panelState.terminalId)
-                ? panelState.terminalId
-                : terminals[0]?.id || null;
-        } else if (newType === 'warehouse') {
-            newTerminalId = null;
-        }
-        panelSetter({ ...panelState, type: newType, terminalId: newTerminalId });
-    };
 
-    const renderPanel = (panelState, panelSetter, title) => {
+    const renderPanel = (panelState, panelSetter, index, setIndex, title) => {
         const isStandSelectorActive = panelState.type === 'stand' || panelState.type === 'machine';
         const currentTerminal = terminals.find(t => t.id === panelState.terminalId);
         
@@ -102,17 +122,17 @@ export default function WarehousePage() {
                 <h3>{title}</h3>
                 <div className="location-selector">
                     <button className={panelState.type === 'warehouse' ? 'active' : ''} 
-                            onClick={() => handleLocationTypeChange(panelSetter, panelState, 'warehouse')}
+                            onClick={() => handleLocationTypeChange(panelSetter, panelState, 'warehouse', setIndex)}
                             disabled={!isFromPanel && otherPanel.type === 'warehouse'}>Склад</button>
                     <button className={panelState.type === 'stand' ? 'active' : ''} 
-                            onClick={() => handleLocationTypeChange(panelSetter, panelState, 'stand')}>Стойка</button>
+                            onClick={() => handleLocationTypeChange(panelSetter, panelState, 'stand', setIndex)}>Стойка</button>
                     <button className={panelState.type === 'machine' ? 'active' : ''} 
-                            onClick={() => handleLocationTypeChange(panelSetter, panelState, 'machine')}>Кофемашина</button>
+                            onClick={() => handleLocationTypeChange(panelSetter, panelState, 'machine', setIndex)}>Кофемашина</button>
                 </div>
                  <div className={`terminal-selector ${isStandSelectorActive ? 'active' : ''}`}>
-                    <button disabled={!isStandSelectorActive}>&lt;</button>
-                    <span>{isStandSelectorActive ? (currentTerminal?.comment || 'Выберите стойку') : '---'}</span>
-                    <button disabled={!isStandSelectorActive}>&gt;</button>
+                    <button onClick={() => handleTerminalChange(panelSetter, setIndex, index, -1)} disabled={!isStandSelectorActive}>&lt;</button>
+                    <span>{isStandSelectorActive ? (currentTerminal?.comment || 'Нет стоек') : '---'}</span>
+                    <button onClick={() => handleTerminalChange(panelSetter, setIndex, index, 1)} disabled={!isStandSelectorActive}>&gt;</button>
                 </div>
                 <div className="inventory-list">
                     {INVENTORY_ITEMS.map(itemName => {
@@ -122,8 +142,7 @@ export default function WarehousePage() {
                             <div className="inventory-list-item" key={itemName}>
                                 <span>{itemName}</span>
                                 <strong>{parseFloat(stock).toLocaleString('ru-RU')}</strong>
-                                 {isFromPanel && <TransferArrow onClick={() => alert(`Перемещаем ${itemName}`)} 
-                                                                 disabled={isSelfSelection || stock <= 0} />}
+                                 {isFromPanel && <TransferArrow onClick={() => setMoveRequest({ item_name: itemName, currentStock: stock, from: { ...from, terminalName: terminals.find(t=>t.id === from.terminalId)?.comment }, to: { ...to, terminalName: terminals.find(t=>t.id === to.terminalId)?.comment } })} disabled={isSelfSelection || stock <= 0} />}
                             </div>
                          )
                     })}
@@ -136,15 +155,20 @@ export default function WarehousePage() {
     if (error) return <div className="error-message">{error}</div>;
 
     return (
-        <div className="page-container warehouse-page">
-            <div className="warehouse-header">
-                <button className="action-btn">Приходовать товар</button>
-                <p>Добавить новый товар на центральный склад</p>
+        <>
+            <div className="page-container warehouse-page">
+                <div className="warehouse-header">
+                    <button className="action-btn" onClick={() => setIsStockUpModalOpen(true)}>Приходовать товар</button>
+                    <p>Добавить новый товар на центральный склад</p>
+                </div>
+                <div className="warehouse-body">
+                    {renderPanel(from, setFrom, fromIndex, setFromIndex, 'ОТКУДА')}
+                    {renderPanel(to, setTo, toIndex, setToIndex, 'КУДА')}
+                </div>
             </div>
-            <div className="warehouse-body">
-                {renderPanel(from, setFrom, 'ОТКУДА')}
-                {renderPanel(to, setTo, 'КУДА')}
-            </div>
-        </div>
+
+            {isStockUpModalOpen && <StockUpModal onClose={() => setIsStockUpModalOpen(false)} onSuccess={fetchAllData} />}
+            {moveRequest && <InventoryTransferModal moveRequest={moveRequest} onClose={() => setMoveRequest(null)} onSuccess={fetchAllData} />}
+        </>
     );
 }
