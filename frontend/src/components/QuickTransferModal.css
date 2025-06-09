@@ -1,0 +1,70 @@
+/* frontend/src/components/QuickTransferModal.css */
+.quick-transfer-modal {
+    max-width: 400px;
+    height: auto;
+}
+
+.quick-transfer-hint {
+    text-align: center;
+    color: #a0b0c8;
+    margin-bottom: 20px;
+}
+
+.quick-transfer-hint .highlight {
+    color: #8ae6ff;
+    font-weight: 500;
+}
+
+.quick-transfer-input-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 16px;
+}
+
+.quick-transfer-input-group label {
+    margin-bottom: 6px;
+    color: #a0b0c8;
+}
+
+.quick-transfer-input-group input {
+    font-size: 24px !important;
+    padding: 10px;
+    border-radius: 8px;
+    background: #2e3340;
+    border: 1px solid #3a3e47;
+    color: #e0e0e0;
+    text-align: center;
+}
+
+.quick-add-buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.quick-add-buttons button {
+    background-color: #2e3340;
+    border: 1px solid #3a3e47;
+    color: #a0b0c8;
+    padding: 10px 5px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.modal-footer.column {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.preview-text {
+    font-size: 0.9em;
+    color: #c6c6c6;
+    text-align: center;
+    margin: 0;
+}
+
+.confirm-btn {
+    width: 100%;
+}

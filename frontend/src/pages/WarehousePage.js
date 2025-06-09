@@ -3,182 +3,243 @@ import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api';
 import './WarehousePage.css';
 import StockUpModal from '../components/StockUpModal';
-import InventoryTransferModal from '../components/InventoryTransferModal';
+import TerminalListModal from '../components/TerminalListModal';
+import QuickTransferModal from '../components/QuickTransferModal';
 
-const INVENTORY_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода', 'Стаканы', 'Крышки', 'Размешиватели', 'Сахар'];
+const MACHINE_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода'];
+const STAND_ITEMS = ['Стаканы', 'Крышки', 'Размешиватели', 'Сахар'];
 
-const TransferArrow = ({ onClick, disabled }) => (
-    <button onClick={onClick} className="transfer-arrow-btn" disabled={disabled} title="Переместить">
-        →
-    </button>
-);
+const formatStock = (item_name, stock) => {
+    const numStock = parseFloat(stock) || 0;
+    if (MACHINE_ITEMS.includes(item_name) && item_name !== 'Вода') {
+        return `${(numStock / 1000).toLocaleString('ru-RU', {maximumFractionDigits: 2})} кг`;
+    }
+    if (item_name === 'Вода') {
+        return `${(numStock / 1000).toLocaleString('ru-RU', {maximumFractionDigits: 2})} л`;
+    }
+    return `${numStock.toLocaleString('ru-RU')} шт`;
+};
 
 export default function WarehousePage() {
     const [terminals, setTerminals] = useState([]);
-    const [from, setFrom] = useState({ type: 'warehouse', terminalId: null, inventory: [] });
-    const [to, setTo] = useState({ type: 'stand', terminalId: null, inventory: [] });
-    
-    const [fromIndex, setFromIndex] = useState(0);
-    const [toIndex, setToIndex] = useState(0);
+    const [from, setFrom] = useState({ type: 'warehouse', terminalId: null, terminalName: 'Склад', inventory: [] });
+    const [to, setTo] = useState({ type: 'stand', terminalId: null, terminalName: '', inventory: [] });
     
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
 
     const [isStockUpModalOpen, setIsStockUpModalOpen] = useState(false);
-    const [moveRequest, setMoveRequest] = useState(null);
+    const [terminalModal, setTerminalModal] = useState({ isOpen: false, panel: null });
+    const [quickTransferModal, setQuickTransferModal] = useState({ isOpen: false, request: null });
 
     const fetchInventory = useCallback(async (location) => {
         if (!location) return [];
         try {
             if (location.type === 'warehouse') {
                 const res = await apiClient.get('/warehouse');
-                return res.data.warehouseStock || [];
+                return res.data.success ? res.data.warehouseStock || [] : [];
             }
             if (location.terminalId && (location.type === 'stand' || location.type === 'machine')) {
                 const res = await apiClient.get(`/terminals/vendista/${location.terminalId}/details`);
-                return (res.data.details?.inventory || []).filter(item => item.location === location.type);
+                const inventory = res.data.success ? res.data.details?.inventory || [] : [];
+                return inventory.filter(item => item.location === location.type);
             }
         } catch(err) {
             console.error(`Failed to fetch inventory for`, location, err);
-            setError(`Ошибка загрузки данных для ${location.type}.`);
+            setError(`Ошибка загрузки данных.`);
         }
         return [];
     }, []);
 
-    const loadAndSetInitialData = useCallback(async () => {
-        setIsLoading(true);
-        setError('');
-        try {
-            const terminalsResponse = await apiClient.get('/terminals');
-            if (!terminalsResponse.data.success) throw new Error('Не удалось загрузить список стоек.');
-            const fetchedTerminals = terminalsResponse.data.terminals || [];
-            setTerminals(fetchedTerminals);
+    const updatePanel = useCallback(async (panelSetter, panelState) => {
+        const inventory = await fetchInventory(panelState);
+        panelSetter(prev => ({ ...prev, ...panelState, inventory }));
+    }, [fetchInventory]);
+    
+    useEffect(() => {
+        const loadInitialData = async () => {
+            setIsLoading(true);
+            setError('');
+            try {
+                const terminalsResponse = await apiClient.get('/terminals');
+                if (!terminalsResponse.data.success) throw new Error('Не удалось загрузить список стоек.');
+                
+                const fetchedTerminals = terminalsResponse.data.terminals || [];
+                setTerminals(fetchedTerminals);
 
-            const initialFrom = { type: 'warehouse', terminalId: null };
-            const initialTo = { type: 'stand', terminalId: fetchedTerminals[0]?.id || null };
-            
-            const [fromInventory, toInventory] = await Promise.all([
-                fetchInventory(initialFrom),
-                fetchInventory(initialTo)
-            ]);
+                const initialFrom = { type: 'warehouse', terminalId: null, terminalName: 'Склад' };
+                const initialTo = { 
+                    type: 'stand', 
+                    terminalId: fetchedTerminals[0]?.id || null, 
+                    terminalName: fetchedTerminals[0]?.comment || 'Выберите стойку'
+                };
 
-            setFrom({ ...initialFrom, inventory: fromInventory });
-            setTo({ ...initialTo, inventory: toInventory });
+                const [fromInventory, toInventory] = await Promise.all([
+                    fetchInventory(initialFrom),
+                    fetchInventory(initialTo)
+                ]);
 
-        } catch (err) {
-            setError(err.message || 'Ошибка сети при загрузке данных.');
-        } finally {
-            setIsLoading(false);
-        }
+                setFrom({ ...initialFrom, inventory: fromInventory });
+                setTo({ ...initialTo, inventory: toInventory });
+
+            } catch (err) {
+                setError(err.response?.data?.error || err.message || 'Ошибка сети при загрузке данных.');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadInitialData();
     }, [fetchInventory]);
 
-    useEffect(() => {
-        loadAndSetInitialData();
-    }, [loadAndSetInitialData]);
-
-    const handleLocationChange = async (panel, newType) => {
+    const handleLocationTypeChange = (panel, newType) => {
         const panelSetter = panel === 'from' ? setFrom : setTo;
-        const panelState = panel === 'from' ? from : to;
-        const setIndex = panel === 'from' ? setFromIndex : setToIndex;
-        
-        let newTerminalId = panelState.terminalId;
-        if ((newType === 'stand' || newType === 'machine')) {
-            newTerminalId = terminals[0]?.id || null;
-            setIndex(0);
-        } else if (newType === 'warehouse') {
-            newTerminalId = null;
+        let newTerminalId = null;
+        let newTerminalName = '';
+
+        if (newType === 'warehouse') {
+            newTerminalName = 'Склад';
+        } else if (terminals.length > 0) {
+            // Найдем первый терминал, который не совпадает с 'from' панелью, если мы меняем 'to'
+            let defaultTerminal = terminals[0];
+            if (panel === 'to' && from.type === newType && from.terminalId === defaultTerminal.id) {
+                defaultTerminal = terminals[1] || terminals[0];
+            }
+            newTerminalId = defaultTerminal.id;
+            newTerminalName = defaultTerminal.comment;
+        } else {
+            newTerminalName = 'Нет доступных стоек';
         }
-        const newState = { ...panelState, type: newType, terminalId: newTerminalId };
-        const inventory = await fetchInventory(newState);
-        panelSetter({ ...newState, inventory });
+        
+        updatePanel(panelSetter, { type: newType, terminalId: newTerminalId, terminalName: newTerminalName });
+    };
+    
+    const handleTerminalSelect = (terminal) => {
+        if (!terminalModal.panel) return;
+        const panelSetter = terminalModal.panel === 'from' ? setFrom : setTo;
+        const currentPanelState = terminalModal.panel === 'from' ? from : to;
+        updatePanel(panelSetter, { type: currentPanelState.type, terminalId: terminal.id, terminalName: terminal.comment });
     };
 
-    const handleTerminalChange = async (panel, direction) => {
-        if (!terminals || terminals.length < 2) return;
-        const index = panel === 'from' ? fromIndex : toIndex;
-        const setIndex = panel === 'from' ? setFromIndex : setToIndex;
-        const panelSetter = panel === 'from' ? setFrom : setTo;
-        const panelState = panel === 'from' ? from : to;
-
-        const newIndex = (index + direction + terminals.length) % terminals.length;
-        setIndex(newIndex);
-        const newTerminalId = terminals[newIndex].id;
-        const newState = { ...panelState, terminalId: newTerminalId };
-        const inventory = await fetchInventory(newState);
-        panelSetter({ ...newState, inventory });
+    const handleSuccessAction = useCallback(() => {
+        updatePanel(setFrom, from);
+        updatePanel(setTo, to);
+    }, [from, to, updatePanel]);
+    
+    // Единая функция для проверки недопустимого перемещения
+    const isInvalidMove = (source, destination) => {
+        if (!source || !destination) return true;
+        // Нельзя перемещать со склада на склад
+        if (source.type === 'warehouse' && destination.type === 'warehouse') return true;
+        // Нельзя перемещать внутри одного и того же инвентаря (например, Стойка A -> Стойка A)
+        if (source.type === destination.type && source.terminalId === destination.terminalId) return true;
+        return false;
     };
 
-    const renderPanel = (panel, panelState, setIndex, title) => {
-        const isStandSelectorActive = panelState.type === 'stand' || panelState.type === 'machine';
-        const currentTerminal = terminals.find(t => t.id === panelState.terminalId);
 
+    const renderLocationSelector = (panel, state) => {
         return (
-            <div className="location-panel">
-                <h4>{title}</h4>
-                <div className="location-selector">
-                    <button className={panelState.type === 'warehouse' ? 'active' : ''} onClick={() => handleLocationChange(panel, 'warehouse')}>Склад</button>
-                    <button className={panelState.type === 'stand' ? 'active' : ''} onClick={() => handleLocationChange(panel, 'stand')}>Стойка</button>
-                    <button className={panelState.type === 'machine' ? 'active' : ''} onClick={() => handleLocationChange(panel, 'machine')}>Машина</button>
+             <div className="location-panel">
+                <h4>{panel === 'from' ? 'ОТКУДА' : 'КУДА'}</h4>
+                <div className="location-buttons-vertical">
+                    <button className={state.type === 'warehouse' ? 'active' : ''} disabled={panel === 'to' && isInvalidMove(from, {type: 'warehouse'})} onClick={() => handleLocationTypeChange(panel, 'warehouse')}>Склад</button>
+                    <button className={state.type === 'stand' ? 'active' : ''} disabled={panel === 'to' && isInvalidMove(from, {type: 'stand', terminalId: state.terminalId})} onClick={() => handleLocationTypeChange(panel, 'stand')}>Стойка</button>
+                    <button className={state.type === 'machine' ? 'active' : ''} disabled={panel === 'to' && isInvalidMove(from, {type: 'machine', terminalId: state.terminalId})} onClick={() => handleLocationTypeChange(panel, 'machine')}>Машина</button>
                 </div>
-                <div className={`terminal-selector ${isStandSelectorActive ? 'active' : ''}`}>
-                    <button onClick={() => handleTerminalChange(panel, -1)} disabled={!isStandSelectorActive || terminals.length < 2}>‹</button>
-                    <span>{isStandSelectorActive ? (currentTerminal?.comment || 'Нет стоек') : '—'}</span>
-                    <button onClick={() => handleTerminalChange(panel, 1)} disabled={!isStandSelectorActive || terminals.length < 2}>›</button>
-                </div>
+                {state.type !== 'warehouse' && (
+                    <div className="terminal-display" onClick={() => setTerminalModal({ isOpen: true, panel })}>
+                        {state.terminalName || 'Выберите стойку'}
+                    </div>
+                )}
             </div>
         );
     };
-    
-    const handleMoveClick = (item_name, currentStock) => {
-        const isSelfSelection = from.type !== 'warehouse' && from.type === to.type && from.terminalId === to.terminalId;
-        if(isSelfSelection || currentStock <= 0) return;
 
-        setMoveRequest({
-            item_name,
-            currentStock,
-            from: { ...from, terminalName: terminals.find(t=>t.id === from.terminalId)?.comment },
-            to: { ...to, terminalName: terminals.find(t=>t.id === to.terminalId)?.comment }
-        });
+    const renderInventoryRow = (itemName) => {
+        const fromItem = from.inventory.find(i => i.item_name === itemName) || { current_stock: 0 };
+        const toItem = to.inventory.find(i => i.item_name === itemName) || { current_stock: 0 };
+        
+        const openModal = (direction) => {
+            const source = direction === 'to' ? from : to;
+            const destination = direction === 'to' ? to : from;
+            
+            if (isInvalidMove(source, destination)) return;
+
+            setQuickTransferModal({ 
+                isOpen: true,
+                request: { 
+                    item_name: itemName, 
+                    currentStock: source.inventory.find(i=>i.item_name === itemName)?.current_stock || 0, 
+                    from: source, 
+                    to: destination 
+                }
+            });
+        };
+
+        return (
+            <div className="inventory-row" key={itemName}>
+                <span className="inv-item-name">{itemName}</span>
+                <span className="inv-item-stock">{formatStock(itemName, fromItem.current_stock)}</span>
+                <div className="inv-item-arrows">
+                    <button onClick={() => openModal('from')} disabled={toItem.current_stock <= 0 || isInvalidMove(to, from)}>{'<'}</button>
+                    <button onClick={() => openModal('to')} disabled={fromItem.current_stock <= 0 || isInvalidMove(from, to)}>{'>'}</button>
+                </div>
+                <span className="inv-item-stock">{formatStock(itemName, toItem.current_stock)}</span>
+                <span className="inv-item-name-right">{itemName}</span>
+            </div>
+        );
+    };
+
+    if (isLoading) {
+        return <div className="page-loading-container"><span>Загрузка склада...</span></div>;
     }
-
-    if (isLoading) return <div className="page-loading-container">Загрузка...</div>;
-    if (error) return <div className="error-message">{error}</div>;
-
+    
     return (
         <>
             <div className="page-container warehouse-page">
+                {error && <div className="error-message">{error}</div>}
+                
                 <div className="warehouse-header">
                     <button className="action-btn" onClick={() => setIsStockUpModalOpen(true)}>Приходовать товар</button>
                 </div>
 
                 <div className="warehouse-transfer-container">
-                    {renderPanel('from', from, setFromIndex, 'ОТКУДА')}
+                    {renderLocationSelector('from', from)}
                     <div className="transfer-arrow-visual">→</div>
-                    {renderPanel('to', to, setToIndex, 'КУДА')}
+                    {renderLocationSelector('to', to)}
                 </div>
                 
                 <div className="inventory-view-container">
-                    <h3>Остатки в источнике ({from.type === 'warehouse' ? 'Склад' : terminals.find(t=>t.id===from.terminalId)?.comment || 'Стойка'})</h3>
-                    <div className="inventory-list">
-                       {INVENTORY_ITEMS.map(itemName => {
-                         const item = from.inventory.find(i => i.item_name === itemName);
-                         const stock = item ? item.current_stock : 0;
-                         return (
-                            <div className="inventory-list-item" key={`from-${itemName}`}>
-                                <span className="item-name">{itemName}</span>
-                                <div className="item-stock">
-                                    <strong>{parseFloat(stock).toLocaleString('ru-RU')}</strong>
-                                    <TransferArrow onClick={() => handleMoveClick(itemName, stock)} disabled={stock <= 0} />
-                                </div>
-                            </div>
-                         )
-                       })}
+                    <h3>Остатки</h3>
+                    <div className="inventory-grid">
+                        <div className="inventory-section">
+                            {MACHINE_ITEMS.map(renderInventoryRow)}
+                        </div>
+                        <hr className="inventory-separator" />
+                        <div className="inventory-section">
+                            {STAND_ITEMS.map(renderInventoryRow)}
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {isStockUpModalOpen && <StockUpModal onClose={() => setIsStockUpModalOpen(false)} onSuccess={loadAndSetInitialData} />}
-            {moveRequest && <InventoryTransferModal moveRequest={moveRequest} onClose={() => setMoveRequest(null)} onSuccess={loadAndSetInitialData} />}
+            {isStockUpModalOpen && <StockUpModal onClose={() => setIsStockUpModalOpen(false)} onSuccess={handleSuccessAction} />}
+            
+            {terminalModal.isOpen && (
+                <TerminalListModal 
+                    terminals={terminals.filter(t => terminalModal.panel === 'from' || !isInvalidMove(from, {type: to.type, terminalId: t.id }))}
+                    onClose={() => setTerminalModal({ isOpen: false, panel: null })}
+                    onSelect={handleTerminalSelect}
+                    currentSelection={terminalModal.panel === 'from' ? from.terminalId : to.terminalId}
+                />
+            )}
+
+            {quickTransferModal.isOpen && (
+                <QuickTransferModal 
+                    moveRequest={quickTransferModal.request}
+                    onClose={() => setQuickTransferModal({ isOpen: false, request: null })}
+                    onSuccess={handleSuccessAction}
+                />
+            )}
         </>
     );
 }

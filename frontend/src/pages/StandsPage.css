@@ -36,18 +36,19 @@
     border-radius: 12px;
     padding: 14px 18px;
     display: flex;
-    align-items: center; /* Центрируем по вертикали */
-    justify-content: space-between; /* Распределяем контент по краям */
+    align-items: center;
+    justify-content: space-between;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
     border: 1px solid #303548;
     cursor: pointer;
     transition: background-color 0.2s ease-in-out;
-    min-height: 65px; /* Задаем минимальную высоту для выравнивания */
+    min-height: 65px;
     box-sizing: border-box;
 }
 
 .stand-card:hover {
     background-color: #2f343e;
+    /* Убрана анимация смещения */
 }
 
 .stand-info {
@@ -55,7 +56,7 @@
     align-items: center;
     gap: 12px;
     overflow: hidden;
-    min-width: 0; 
+    min-width: 0;
 }
 
 .status-indicator {
@@ -79,7 +80,7 @@
     font-size: 0.95em;
     color: #e0e0e0;
     font-weight: 600;
-    white-space: wrap; /* Разрешаем перенос */
+    white-space: wrap; /* Разрешаем перенос текста */
 }
 
 .stand-details-arrow {
@@ -92,7 +93,7 @@
 
 @media (max-width: 767px) {
     .stands-list-container {
-        grid-template-columns: 1fr; /* Одна колонка на мобильных */
+        grid-template-columns: 1fr;
         gap: 12px;
     }
 }

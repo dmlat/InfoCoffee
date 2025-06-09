@@ -42,13 +42,19 @@ export default function StandDetailModal({ terminal, onClose }) {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     
+    // Для Настроек
     const [settings, setSettings] = useState({});
-    const [isSaving, setIsSaving] = useState(false);
-    const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
-
+    const [initialSettings, setInitialSettings] = useState({});
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
+    
+    // Для Рецептов
     const [machineItems, setMachineItems] = useState([]);
     const [recipes, setRecipes] = useState({});
+    const [initialRecipes, setInitialRecipes] = useState({});
+    const [isSavingRecipes, setIsSavingRecipes] = useState(false);
+
     const [internalTerminalId, setInternalTerminalId] = useState(null);
+    const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
 
     const fetchDetailsAndRecipes = useCallback(async () => {
         const vendistaId = terminal.id;
@@ -57,6 +63,7 @@ export default function StandDetailModal({ terminal, onClose }) {
         setIsLoading(true);
         setError('');
         try {
+            // 1. Получаем детали и внутренний ID
             const detailsResponse = await apiClient.get(`/terminals/vendista/${vendistaId}/details`, {
                 params: { name: terminal.comment, serial_number: terminal.serial_number }
             });
@@ -69,6 +76,7 @@ export default function StandDetailModal({ terminal, onClose }) {
             setDetails(fetchedDetails);
             setInternalTerminalId(fetchedInternalId);
             
+            // 2. Устанавливаем настройки остатков
             const newSettings = {};
             [...INVENTORY_ITEMS.machine, ...INVENTORY_ITEMS.stand].forEach(itemName => {
                 const existingItem = fetchedDetails.inventory.find(i => i.item_name === itemName);
@@ -78,12 +86,15 @@ export default function StandDetailModal({ terminal, onClose }) {
                 };
             });
             setSettings(newSettings);
+            setInitialSettings(JSON.parse(JSON.stringify(newSettings))); // Глубокая копия для сравнения
 
+            // 3. Получаем список кнопок автомата
             const itemsResponse = await apiClient.get(`/terminals/vendista/${vendistaId}/machine-items`);
             if (itemsResponse.data.success) {
                 setMachineItems(itemsResponse.data.machineItems || []);
             }
 
+            // 4. Получаем рецепты, если есть внутренний ID
             if(fetchedInternalId) {
                 const recipesResponse = await apiClient.get(`/recipes/terminal/${fetchedInternalId}`);
                 if (recipesResponse.data.success) {
@@ -92,6 +103,7 @@ export default function StandDetailModal({ terminal, onClose }) {
                         return acc;
                     }, {});
                     setRecipes(recipesMap);
+                    setInitialRecipes(JSON.parse(JSON.stringify(recipesMap))); // Глубокая копия для сравнения
                 }
             }
         } catch (err) {
@@ -111,7 +123,7 @@ export default function StandDetailModal({ terminal, onClose }) {
 
     const handleSaveSettings = async (e) => {
         e.preventDefault();
-        setIsSaving(true);
+        setIsSavingSettings(true);
         setSaveStatus({ message: '', type: '' });
         const inventorySettings = Object.entries(settings).map(([itemName, values]) => ({
             item_name: itemName,
@@ -123,14 +135,14 @@ export default function StandDetailModal({ terminal, onClose }) {
             const response = await apiClient.post(`/terminals/vendista/${terminal.id}/settings`, { inventorySettings });
             if (response.data.success) {
                 setSaveStatus({ message: 'Настройки сохранены!', type: 'success' });
-                await fetchDetailsAndRecipes();
+                setInitialSettings(JSON.parse(JSON.stringify(settings))); // Обновляем исходное состояние
             } else {
                 setSaveStatus({ message: response.data.error || 'Ошибка.', type: 'error' });
             }
         } catch (err) {
             setSaveStatus({ message: err.response?.data?.error || 'Сетевая ошибка.', type: 'error' });
         } finally {
-            setIsSaving(false);
+            setIsSavingSettings(false);
             setTimeout(() => setSaveStatus({ message: '', type: '' }), 3000);
         }
     };
@@ -147,76 +159,74 @@ export default function StandDetailModal({ terminal, onClose }) {
     };
 
     const handleSaveRecipes = async () => {
-        setIsSaving(true);
+        setIsSavingRecipes(true);
         setSaveStatus({ message: '', type: '' });
         try {
             const recipesToSave = Object.values(recipes).filter(r => r.name || Object.values(RECIPE_INGREDIENTS_MAP).some(key => r[key]));
             const response = await apiClient.post('/recipes', { terminalId: internalTerminalId, recipes: recipesToSave });
             if (response.data.success) {
                 setSaveStatus({ message: 'Рецепты успешно сохранены!', type: 'success' });
+                setInitialRecipes(JSON.parse(JSON.stringify(recipes))); // Обновляем исходное состояние
             } else {
                  setSaveStatus({ message: response.data.error || 'Ошибка сохранения.', type: 'error' });
             }
         } catch(err) {
             setSaveStatus({ message: err.response?.data?.error || 'Сетевая ошибка.', type: 'error' });
         } finally {
-            setIsSaving(false);
+            setIsSavingRecipes(false);
             setTimeout(() => setSaveStatus({ message: '', type: '' }), 3000);
         }
     };
 
-    const renderStock = () => {
-        if (details.inventory.length === 0) {
-            return (
-                 <div className="modal-tab-content placeholder-text">
-                    <p>Остатки для этой стойки еще не настроены.</p>
-                    <p>Перейдите на вкладку "Настройки", чтобы задать параметры контейнеров и запасов.</p>
-                </div>
-            )
-        }
-        const machineItems = details.inventory.filter(i => i.location === 'machine');
-        const standItems = details.inventory.filter(i => i.location === 'stand');
-        return (
-            <div className="modal-tab-content">
-                <div className="inventory-section">
-                    <h4>Контейнеры кофемашины</h4>
-                    {machineItems.length > 0 ? machineItems.map(item => (
-                        <div key={item.item_name} className="inventory-item">
-                            <span className="item-name">{item.item_name}</span>
-                            <div className="item-details">
-                                <ProgressBar value={item.current_stock} max={item.max_stock} />
-                                <span className="item-stock-label">
-                                    {parseFloat(item.current_stock) || 0} / {parseFloat(item.max_stock) || 0} г
-                                </span>
-                            </div>
+    const haveRecipesChanged = JSON.stringify(recipes) !== JSON.stringify(initialRecipes);
+    const haveSettingsChanged = JSON.stringify(settings) !== JSON.stringify(initialSettings);
+
+    const renderStock = () => (
+        <div className="modal-tab-content">
+            <div className="inventory-section">
+                <h4>Контейнеры кофемашины</h4>
+                {details.inventory.filter(i => i.location === 'machine').length > 0 ? details.inventory.filter(i => i.location === 'machine').map(item => (
+                    <div key={item.item_name} className="inventory-item">
+                        <span className="item-name">{item.item_name}</span>
+                        <div className="item-details">
+                            <ProgressBar value={item.current_stock} max={item.max_stock} />
+                            <span className="item-stock-label">
+                                {parseFloat(item.current_stock) || 0} / {parseFloat(item.max_stock) || '∞'} г
+                            </span>
                         </div>
-                    )) : <p className="placeholder-text-small">Нет данных по остаткам в кофемашине.</p>}
-                </div>
-                <div className="inventory-section">
-                    <h4>Запасы в стойке</h4>
-                     {standItems.length > 0 ? standItems.map(item => (
-                        <div key={item.item_name} className="inventory-item">
-                            <span className="item-name">{item.item_name}</span>
-                            <div className="item-details simple">
-                               <span>Остаток: <strong>{parseFloat(item.current_stock) || 0} шт.</strong></span>
-                               (Крит: {parseFloat(item.critical_stock) || 0} шт.)
-                            </div>
-                        </div>
-                    )) : <p className="placeholder-text-small">Нет данных по запасам в стойке.</p>}
-                </div>
+                    </div>
+                )) : <p className="placeholder-text-small">Нет данных. Задайте макс. остатки в Настройках.</p>}
             </div>
-        );
-    };
+            <div className="inventory-section">
+                <h4>Запасы в стойке</h4>
+                 {details.inventory.filter(i => i.location === 'stand').length > 0 ? details.inventory.filter(i => i.location === 'stand').map(item => (
+                    <div key={item.item_name} className="inventory-item">
+                        <span className="item-name">{item.item_name}</span>
+                        <div className="item-details simple">
+                           <span>Остаток: <strong>{parseFloat(item.current_stock) || 0} шт.</strong></span>
+                           (Крит: {parseFloat(item.critical_stock) || 0} шт.)
+                        </div>
+                    </div>
+                )) : <p className="placeholder-text-small">Нет данных. Задайте крит. остатки в Настройках.</p>}
+            </div>
+        </div>
+    );
 
     const renderRecipes = () => (
         <div className="modal-tab-content recipes-form">
-            <p className="helper-text">Укажите названия напитков и расход в граммах/мл для автоматического учета остатков.</p>
+            <p className="helper-text">Укажите названия напитков и расход для автоматического учета остатков.</p>
+            <div className="form-footer recipes-footer">
+                 <button type="button" className="action-btn" onClick={handleSaveRecipes} disabled={isSavingRecipes || !haveRecipesChanged}>
+                    {isSavingRecipes ? 'Сохранение...' : 'Сохранить рецепты'}
+                </button>
+                {saveStatus.message && activeTab === 'recipes' && <span className={`save-status ${saveStatus.type}`}>{saveStatus.message}</span>}
+            </div>
             <div className="table-scroll-container">
                 <table className="recipes-table">
                     <thead>
                         <tr>
                             <th>Кнопка</th>
-                            <th>Название напитка</th>
+                            <th>Название</th>
                             {Object.keys(RECIPE_INGREDIENTS_MAP).map(ing => <th key={ing}>{ing}</th>)}
                         </tr>
                     </thead>
@@ -225,7 +235,7 @@ export default function StandDetailModal({ terminal, onClose }) {
                             <tr key={itemId}>
                                 <td className="item-id-cell">{itemId}</td>
                                 <td>
-                                    <input type="text" placeholder="Латте" value={recipes[itemId]?.name || ''} 
+                                    <input type="text" placeholder="-" value={recipes[itemId]?.name || ''} 
                                            onChange={e => handleRecipeChange(itemId, 'name', e.target.value)} />
                                 </td>
                                 {Object.entries(RECIPE_INGREDIENTS_MAP).map(([ingName, fieldName]) => (
@@ -241,46 +251,41 @@ export default function StandDetailModal({ terminal, onClose }) {
                     </tbody>
                 </table>
             </div>
-             <div className="form-footer">
-                 <button type="button" className="action-btn" onClick={handleSaveRecipes} disabled={isSaving}>
-                    {isSaving ? 'Сохранение...' : 'Сохранить рецепты'}
-                </button>
-                {saveStatus.message && <span className={`save-status ${saveStatus.type}`}>{saveStatus.message}</span>}
-            </div>
         </div>
     );
     
     const renderSettings = () => (
         <form className="modal-tab-content settings-form" onSubmit={handleSaveSettings}>
-            <p className="helper-text">Задайте максимальный объем контейнеров и критические остатки для своевременных уведомлений.</p>
+            <p className="helper-text">Задайте максимальный объем контейнеров и критические остатки для уведомлений.</p>
             <div className="settings-section">
                 <h4>Контейнеры кофемашины (г/мл)</h4>
+                <div className="setting-item-header">
+                    <span/>
+                    <span>Максимальные</span>
+                    <span>Критические</span>
+                </div>
                 {INVENTORY_ITEMS.machine.map(itemName => (
                     <div className="setting-item" key={itemName}>
                         <label>{itemName}</label>
-                        <div className="setting-inputs">
-                            <input type="number" placeholder="Макс." value={settings[itemName]?.max_stock || ''} onChange={e => handleSettingsChange(itemName, 'max_stock', e.target.value)} />
-                            <input type="number" placeholder="Крит." value={settings[itemName]?.critical_stock || ''} onChange={e => handleSettingsChange(itemName, 'critical_stock', e.target.value)} />
-                        </div>
+                        <input type="number" placeholder="Макс." value={settings[itemName]?.max_stock || ''} onChange={e => handleSettingsChange(itemName, 'max_stock', e.target.value)} />
+                        <input type="number" placeholder="Крит." value={settings[itemName]?.critical_stock || ''} onChange={e => handleSettingsChange(itemName, 'critical_stock', e.target.value)} />
                     </div>
                 ))}
             </div>
             <div className="settings-section">
-                <h4>Расходники в стойке (шт)</h4>
-                 {INVENTORY_ITEMS.stand.map(itemName => (
+                <h4>Критические остатки расходников (шт)</h4>
+                {INVENTORY_ITEMS.stand.map(itemName => (
                     <div className="setting-item" key={itemName}>
                         <label>{itemName}</label>
-                        <div className="setting-inputs">
-                            <input type="number" placeholder="Крит." value={settings[itemName]?.critical_stock || ''} onChange={e => handleSettingsChange(itemName, 'critical_stock', e.target.value)} />
-                        </div>
+                        <input type="number" placeholder="Крит." value={settings[itemName]?.critical_stock || ''} onChange={e => handleSettingsChange(itemName, 'critical_stock', e.target.value)} />
                     </div>
                 ))}
             </div>
             <div className="form-footer">
-                 <button type="submit" className="action-btn" disabled={isSaving}>
-                    {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
+                 <button type="submit" className="action-btn" disabled={isSavingSettings || !haveSettingsChanged}>
+                    {isSavingSettings ? 'Сохранение...' : 'Сохранить настройки'}
                 </button>
-                {saveStatus.message && <span className={`save-status ${saveStatus.type}`}>{saveStatus.message}</span>}
+                {saveStatus.message && activeTab === 'settings' && <span className={`save-status ${saveStatus.type}`}>{saveStatus.message}</span>}
             </div>
         </form>
     );

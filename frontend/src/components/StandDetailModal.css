@@ -17,8 +17,8 @@
     border: 1px solid #3a3e47;
     border-radius: 12px;
     width: 100%;
-    max-width: 600px; /* Максимальная ширина на десктопах */
-    height: 90%; /* Высота на десктопах */
+    max-width: 600px;
+    height: 90%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -30,7 +30,6 @@
     to { opacity: 1; transform: scale(1); }
 }
 
-/* Стили для мобильных устройств: модальное окно на весь экран */
 @media (max-width: 767px) {
     .modal-overlay {
         padding: 0;
@@ -71,7 +70,9 @@
 
 .modal-body {
     flex-grow: 1;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden; /* Родитель не скроллится */
     padding: 16px;
 }
 
@@ -79,6 +80,7 @@
     display: flex;
     border-bottom: 1px solid #3a3e47;
     margin-bottom: 16px;
+    flex-shrink: 0;
 }
 
 .modal-tabs button {
@@ -101,11 +103,10 @@
 
 .modal-tab-content {
     animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    flex-grow: 1;
+    overflow-y: auto; /* Скроллится только контент вкладки */
+    display: flex;
+    flex-direction: column;
 }
 
 .inventory-section {
@@ -178,7 +179,7 @@
     color: #8a9db8;
 }
 
-/* Стили для формы настроек */
+/* --- Стили для формы настроек --- */
 .settings-form {
     padding-top: 8px;
 }
@@ -188,6 +189,7 @@
     color: #8a9db8;
     margin-bottom: 20px;
     text-align: center;
+    flex-shrink: 0;
 }
 
 .settings-section {
@@ -201,34 +203,43 @@
     padding-bottom: 8px;
 }
 
-.setting-item {
-    display: flex;
-    justify-content: space-between;
+.setting-item, .setting-item-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
     align-items: center;
     margin-bottom: 10px;
 }
+.setting-item-header {
+    font-size: 0.8em;
+    color: #8a9db8;
+    text-align: center;
+    margin-bottom: 4px;
+}
+.setting-item-header span:first-child {
+    text-align: left;
+}
+.settings-section:last-of-type .setting-item {
+    grid-template-columns: 1fr 1fr;
+}
+
 
 .setting-item label {
-    flex: 1;
     color: #c6c6c6;
+    text-align: left;
 }
 
-.setting-inputs {
-    display: flex;
-    gap: 8px;
-    flex: 1;
-    justify-content: flex-end;
-}
 
-.setting-inputs input {
-    width: 100px;
+.setting-item input {
+    width: 100%;
     background: #2e3340;
     border: 1px solid #3a3e47;
     color: #e0e0e0;
     border-radius: 6px;
     padding: 8px;
     text-align: right;
-    font-size: 16px; /* Для предотвращения зума на iOS */
+    font-size: 16px !important;
+    box-sizing: border-box;
 }
 
 input[type=number] {
@@ -243,10 +254,12 @@ input[type=number]::-webkit-outer-spin-button {
 
 
 .form-footer {
-    margin-top: 20px;
+    margin-top: auto; /* Прижимает футер к низу */
+    padding-top: 20px;
     display: flex;
     align-items: center;
     gap: 15px;
+    flex-shrink: 0;
 }
 
 .save-status {
@@ -259,10 +272,16 @@ input[type=number]::-webkit-outer-spin-button {
     color: #f44336;
 }
 
-/* Стили для вкладки Рецепты */
+/* --- Стили для Рецептов --- */
+.recipes-footer {
+    margin-top: 0;
+    margin-bottom: 16px;
+    padding-top: 0;
+}
+
 .recipes-form .table-scroll-container {
     overflow-x: auto;
-    max-width: 100%;
+    flex-grow: 1; /* Позволяет таблице занимать оставшееся место */
 }
 
 .recipes-table {

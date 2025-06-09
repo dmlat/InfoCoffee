@@ -44,7 +44,7 @@ export default function StandsPage() {
     if (isLoading) {
         return <div className="page-loading-container"><span>Загрузка стоек...</span></div>;
     }
-    
+
     if (error) {
         return <div className="error-message">{error}</div>;
     }
@@ -57,7 +57,7 @@ export default function StandsPage() {
                     <ul>
                         <li><b>Рецепты:</b> расчёт расхода ингредиентов и названия напитков</li>
                         <li><b>Остатки:</b> максимальные и критические остатки в контейнерах</li>
-                        <li><b>Частота обслуживания:</b> уведомления об обслуживании стойки и кофемашины каждые N продаж</li>
+                        <li><b>Частота обслуживания:</b> уведомления об обслуживании каждые N продаж</li>
                     </ul>
                 </div>
 
@@ -82,11 +82,11 @@ export default function StandsPage() {
                     )}
                 </div>
             </div>
-            
+
             {selectedTerminal && (
-                <StandDetailModal 
-                    terminal={selectedTerminal} 
-                    onClose={() => setSelectedTerminal(null)} 
+                <StandDetailModal
+                    terminal={selectedTerminal}
+                    onClose={() => setSelectedTerminal(null)}
                 />
             )}
         </>
