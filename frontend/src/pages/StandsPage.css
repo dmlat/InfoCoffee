@@ -6,7 +6,8 @@
 
 .stands-list-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    /* Уменьшаем минимальную ширину карточки для большей гибкости на малых экранах */
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 16px;
     width: 100%;
 }
@@ -14,10 +15,10 @@
 .stand-card {
     background: #282c34;
     border-radius: 12px;
-    padding: 12px 16px; /* Уменьшаем вертикальные паддинги */
+    padding: 12px 16px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px Dg(0, 0, 0, 0.2);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     border: 1px solid #303548;
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
@@ -30,7 +31,7 @@
 .stand-card-header {
     display: flex;
     align-items: center;
-    justify-content: space-between; /* Главное изменение для размещения кнопки справа */
+    justify-content: space-between;
     gap: 10px;
     width: 100%;
 }
@@ -39,7 +40,8 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    overflow: hidden; /* Важно для обрезания длинных названий */
+    overflow: hidden; /* Обязательно для работы text-overflow */
+    min-width: 0; /* <<<----- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ! Позволяет flex-элементу сжиматься меньше его содержимого */
 }
 
 .status-indicator {
@@ -60,7 +62,7 @@
 
 .stand-name {
     margin: 0;
-    /* Шрифт заголовка сделаем чуть меньше, как у табов */
+    /* Шрифт заголовка согласован с табами навигации */
     font-size: clamp(0.8rem, 2.7vw, 0.9rem);
     color: #e0e0e0;
     font-weight: 600;
@@ -69,14 +71,13 @@
     text-overflow: ellipsis;
 }
 
-/* Стили для новой, более компактной кнопки */
 .details-btn {
     background-color: #3e67e0;
     color: white;
     border: none;
     border-radius: 6px;
     padding: 6px 12px;
-    font-size: 0.8em;
+    font-size: clamp(0.7rem, 2.2vw, 0.8rem); /* Адаптивный шрифт для кнопки */
     font-weight: 500;
     cursor: pointer;
     transition: background-color 0.2s;
@@ -92,9 +93,4 @@
         grid-template-columns: 1fr; /* Одна колонка на мобильных */
         gap: 12px;
     }
-}
-
-/* Предотвращение горизонтального скролла */
-body, html {
-    overflow-x: hidden;
 }
