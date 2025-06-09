@@ -11,7 +11,6 @@ const VENDISTA_API_URL = process.env.VENDISTA_API_URL || 'https://api.vendista.r
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 const ALGORITHM = 'aes-256-cbc';
 
-// --- Функция дешифровки токена (в будущем вынесем в общий модуль) ---
 function decrypt(text) {
     if (!ENCRYPTION_KEY) {
         console.error('ENCRYPTION_KEY is not set. Cannot decrypt.');
@@ -36,12 +35,11 @@ function decrypt(text) {
     }
 }
 
-// --- Получить список всех терминалов (стоек) для пользователя ---
+// Получить список всех терминалов (стоек) для пользователя
 router.get('/', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
 
     try {
-        // 1. Получаем зашифрованный токен пользователя из нашей БД
         const userRes = await pool.query('SELECT vendista_api_token FROM users WHERE id = $1', [userId]);
         if (userRes.rows.length === 0 || !userRes.rows[0].vendista_api_token) {
             return res.status(403).json({ success: false, error: 'API токен Vendista не найден для этого пользователя.' });
@@ -54,13 +52,12 @@ router.get('/', authMiddleware, async (req, res) => {
             return res.status(500).json({ success: false, error: 'Не удалось дешифровать API токен.' });
         }
 
-        // 2. Делаем запрос к API Vendista
         const vendistaResponse = await axios.get(`${VENDISTA_API_URL}/terminals`, {
             params: {
                 token: vendistaToken,
-                ItemsOnPage: 500 // Запрашиваем с запасом
+                ItemsOnPage: 500
             },
-            timeout: 20000 // Таймаут 20 секунд
+            timeout: 20000
         });
 
         if (!vendistaResponse.data.success || !vendistaResponse.data.items) {
@@ -69,17 +66,13 @@ router.get('/', authMiddleware, async (req, res) => {
 
         let terminals = vendistaResponse.data.items;
 
-        // 3. Сортируем терминалы: сначала те, что были онлайн за последние 24 часа
         terminals.sort((a, b) => {
             const aOnline = (a.last24_hours_online || 0) > 0;
             const bOnline = (b.last24_hours_online || 0) > 0;
             if (aOnline && !bOnline) return -1;
             if (!aOnline && bOnline) return 1;
-            // Если оба онлайн или оба оффлайн, сортируем по имени (comment)
             return (a.comment || '').localeCompare(b.comment || '');
         });
-
-        // TODO: В будущем здесь будет обогащение данных из нашей таблицы `terminals`
 
         res.json({ success: true, terminals: terminals });
 
@@ -92,6 +85,69 @@ router.get('/', authMiddleware, async (req, res) => {
             errorStack: err.stack,
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при получении списка стоек' });
+    }
+});
+
+
+// --- ОБНОВЛЕННЫЙ ЭНДПОИНТ ---
+// Получить детали конкретного терминала по его VENDISTA ID
+router.get('/vendista/:vendistaId/details', authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
+    const { vendistaId } = req.params;
+    const { name, serial_number } = req.query; // Получаем доп. инфо для создания
+
+    if (!vendistaId || isNaN(parseInt(vendistaId))) {
+        return res.status(400).json({ success: false, error: 'Некорректный ID терминала' });
+    }
+
+    const client = await pool.pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // 1. Ищем терминал в нашей базе
+        let terminalRes = await client.query('SELECT id FROM terminals WHERE vendista_terminal_id = $1 AND user_id = $2', [vendistaId, userId]);
+        let internalTerminalId;
+
+        // 2. Если не нашли - создаем
+        if (terminalRes.rows.length === 0) {
+            const insertRes = await client.query(
+                'INSERT INTO terminals (user_id, vendista_terminal_id, name, serial_number) VALUES ($1, $2, $3, $4) RETURNING id',
+                [userId, vendistaId, name || `Терминал ${vendistaId}`, serial_number || '']
+            );
+            internalTerminalId = insertRes.rows[0].id;
+        } else {
+            internalTerminalId = terminalRes.rows[0].id;
+        }
+
+        // 3. Получаем остатки для этого терминала по его внутреннему ID
+        const inventoryRes = await client.query(
+            "SELECT item_name, location, current_stock, max_stock, critical_stock FROM inventories WHERE user_id = $1 AND terminal_id = $2 ORDER BY item_name",
+            [userId, internalTerminalId]
+        );
+        
+        await client.query('COMMIT');
+
+        res.json({
+            success: true,
+            details: {
+                inventory: inventoryRes.rows,
+                // recipes: [], // заглушка
+                // settings: {} // заглушка
+            }
+        });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(`[GET /api/terminals/vendista/:id/details] UserID: ${userId} - Error:`, err);
+        sendErrorToAdmin({
+            userId: userId,
+            errorContext: `GET /api/terminals/vendista/${vendistaId}/details - UserID: ${userId}`,
+            errorMessage: err.message,
+            errorStack: err.stack,
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при получении деталей стойки' });
+    } finally {
+        client.release();
     }
 });
 
