@@ -1,7 +1,7 @@
 // frontend/src/components/StockUpModal.js
 import React, { useState } from 'react';
 import apiClient from '../api';
-import './Modals.css'; // Общие стили для модальных окон
+import './Modals.css';
 
 const INVENTORY_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода', 'Стаканы', 'Крышки', 'Размешиватели', 'Сахар'];
 const WEIGHT_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф'];
@@ -20,7 +20,8 @@ export default function StockUpModal({ onClose, onSuccess }) {
     const handleItemChange = (index, field, value) => {
         const newItems = [...items];
         if (field === 'quantity') {
-            newItems[index][field] = value.replace(',', '.').replace(/[^0-9.]/g, '');
+            // Разрешаем только цифры, точку и запятую для ввода
+            newItems[index][field] = value.replace(/[^0-9,.]/g, '');
         } else {
             newItems[index][field] = value;
         }
@@ -34,8 +35,18 @@ export default function StockUpModal({ onClose, onSuccess }) {
     
     const handleAddQuantity = (index, amount) => {
         const newItems = [...items];
-        const currentVal = parseFloat(newItems[index].quantity) || 0;
-        newItems[index].quantity = String(currentVal + amount);
+        const currentItem = newItems[index];
+        const currentVal = parseFloat(String(currentItem.quantity).replace(',', '.')) || 0;
+        const unit = getUnitForPlaceholder(currentItem.itemName);
+        
+        // Определяем точность, чтобы избежать ошибок с плавающей точкой
+        const precision = (unit === 'кг' || unit === 'л') ? 3 : 0;
+        
+        let newVal = (currentVal + amount);
+        
+        // Округляем до нужной точности, чтобы избежать 0.0100000002
+        newItems[index].quantity = String(parseFloat(newVal.toFixed(precision)));
+        
         setItems(newItems);
     };
 
@@ -50,16 +61,12 @@ export default function StockUpModal({ onClose, onSuccess }) {
         setError('');
         
         const itemsToStockUp = items.map(item => {
-            let finalQuantity = parseFloat(item.quantity);
+            const normalizedQuantity = String(item.quantity).replace(',', '.');
+            let finalQuantity = parseFloat(normalizedQuantity);
             if (!item.itemName || isNaN(finalQuantity) || finalQuantity <= 0) return null;
 
-            // Конвертируем кг и л в граммы и мл для бэкенда
-            const unit = getUnitForPlaceholder(item.itemName);
-            if (unit === 'кг' || unit === 'л') {
-                finalQuantity *= 1000;
-            }
-            return { itemName: item.itemName, quantity: finalQuantity };
-        }).filter(Boolean); // Отфильтровываем null
+            return { itemName: item.item_name, quantity: finalQuantity };
+        }).filter(Boolean);
 
         if (itemsToStockUp.length === 0) {
             setError('Добавьте хотя бы один товар с количеством больше нуля.');
@@ -84,7 +91,7 @@ export default function StockUpModal({ onClose, onSuccess }) {
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-content stock-up-modal" onClick={e => e.stopPropagation()}>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-header">
                         <h2>Приходовать товар на склад</h2>
@@ -94,9 +101,9 @@ export default function StockUpModal({ onClose, onSuccess }) {
                         {error && <p className="error-message small">{error}</p>}
                         {items.map((item, index) => {
                             const unit = getUnitForPlaceholder(item.itemName);
-                            let quickAddAmounts = [1000, 500, 100]; // Для шт
-                            if (unit === 'кг') quickAddAmounts = [1, 0.1, 0.01];
-                            if (unit === 'л') quickAddAmounts = [19, 5, 1];
+                            let quickAddAmounts = [1000, 500, 100, 10]; // Для шт
+                            if (unit === 'кг') quickAddAmounts = [1, 0.5, 0.1, 0.01];
+                            if (unit === 'л') quickAddAmounts = [19, 5, 1, 0.5];
                             
                             return (
                                 <div className="stock-up-item-container" key={index}>
@@ -105,19 +112,18 @@ export default function StockUpModal({ onClose, onSuccess }) {
                                             {INVENTORY_ITEMS.map(name => <option key={name} value={name}>{name}</option>)}
                                         </select>
                                         <input
-                                            type="text" // Используем text для гибкого ввода с запятой
-                                            inputMode="decimal" // Подсказка для мобильных
+                                            type="text"
+                                            inputMode="decimal"
                                             placeholder={`Кол-во, ${unit}`}
                                             value={item.quantity}
                                             onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                                         />
-                                        <button type="button" className="remove-item-btn" onClick={() => handleRemoveItem(index)}>&times;</button>
+                                        <button type="button" className="remove-item-btn" onClick={() => handleRemoveItem(index)} title="Удалить строку">&times;</button>
                                     </div>
                                     <div className="quick-add-buttons stock-up-quick-add">
                                         {quickAddAmounts.map(amount => (
-                                            <button key={amount} type="button" onClick={() => handleAddQuantity(index, amount)}>+{amount}</button>
+                                            <button key={amount} type="button" onClick={() => handleAddQuantity(index, amount)}>+{amount} {unit}</button>
                                         ))}
-                                        <button type="button" onClick={() => handleItemChange(index, 'quantity', '')}>Обнулить</button>
                                     </div>
                                 </div>
                             );

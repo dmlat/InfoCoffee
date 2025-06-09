@@ -30,6 +30,10 @@ router.post('/stock-up', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
     const { items } = req.body;
 
+    // --- НАЧАЛО: Добавлено логирование для диагностики ---
+    console.log(`[POST /api/warehouse/stock-up] UserID: ${userId} - Received request body:`, JSON.stringify(req.body, null, 2));
+    // --- КОНЕЦ: Добавлено логирование ---
+
     if (!Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ success: false, error: 'Неверный формат данных' });
     }
@@ -38,33 +42,38 @@ router.post('/stock-up', authMiddleware, async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        for (const item of items) {
-            if (!item.item_name || isNaN(parseFloat(item.quantity)) || item.quantity <= 0) {
-                continue; // Пропускаем некорректные записи
-            }
-            
-            // 1. Пытаемся найти существующую запись
-            const existingItem = await client.query(
-                `SELECT id FROM inventories 
-                 WHERE user_id = $1 AND location = 'warehouse' AND item_name = $2 AND terminal_id IS NULL`,
-                [userId, item.item_name]
-            );
+        const itemsToStockUp = items.map(item => {
+            let finalQuantity = parseFloat(String(item.quantity).replace(',', '.'));
+            if (!item.item_name || isNaN(finalQuantity) || finalQuantity <= 0) return null;
 
-            if (existingItem.rows.length > 0) {
-                // 2a. Если запись есть - обновляем
-                await client.query(
-                    `UPDATE inventories SET current_stock = current_stock + $1, updated_at = NOW()
-                     WHERE id = $2`,
-                    [item.quantity, existingItem.rows[0].id]
-                );
-            } else {
-                // 2b. Если записи нет - создаем новую
-                await client.query(
-                    `INSERT INTO inventories (user_id, location, terminal_id, item_name, current_stock)
-                     VALUES ($1, 'warehouse', NULL, $2, $3)`,
-                    [userId, item.item_name, item.quantity]
-                );
+            // Конвертируем кг и л в граммы и мл для бэкенда
+            const unit = (['Кофе', 'Сливки', 'Какао', 'Раф'].includes(item.item_name)) ? 'кг' : (item.item_name === 'Вода' ? 'л' : 'шт');
+            
+            if (unit === 'кг' || unit === 'л') {
+                finalQuantity *= 1000;
             }
+            return { itemName: item.item_name, quantity: finalQuantity };
+        }).filter(Boolean);
+
+        // --- НАЧАЛО: Добавлено логирование для диагностики ---
+        console.log(`[POST /api/warehouse/stock-up] UserID: ${userId} - Parsed and validated items to stock up:`, JSON.stringify(itemsToStockUp, null, 2));
+        // --- КОНЕЦ: Добавлено логирование ---
+
+        if (itemsToStockUp.length === 0) {
+            await client.query('ROLLBACK'); // Откатываем транзакцию, так как нет данных для работы
+            return res.status(400).json({ success: false, error: 'Добавьте хотя бы один товар с количеством больше нуля.' });
+        }
+
+        for (const item of itemsToStockUp) {
+            await client.query(
+                `INSERT INTO inventories (user_id, location, terminal_id, item_name, current_stock)
+                 VALUES ($1, 'warehouse', NULL, $2, $3)
+                 ON CONFLICT (user_id, terminal_id, item_name, location)
+                 DO UPDATE SET
+                    current_stock = inventories.current_stock + EXCLUDED.current_stock,
+                    updated_at = NOW()`,
+                [userId, item.itemName, item.quantity]
+            );
         }
         
         await client.query('COMMIT');

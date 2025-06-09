@@ -11,6 +11,7 @@
     align-items: center;
     z-index: 1000;
     padding: 10px;
+    box-sizing: border-box;
 }
 
 .modal-content {
@@ -97,7 +98,7 @@
 
 .stock-up-item-row {
     display: grid;
-    grid-template-columns: 1fr 120px 36px;
+    grid-template-columns: 1fr 100px 40px; /* ИЗМЕНЕНО: Ширина инпута и кнопки */
     gap: 8px;
     align-items: center;
 }
@@ -112,14 +113,14 @@
     box-sizing: border-box;
 }
 .stock-up-item-row select { grid-column: 1 / 2; }
-.stock-up-item-row input { grid-column: 2 / 3; }
+.stock-up-item-row input { grid-column: 2 / 3; text-align: right; } /* ИЗМЕНЕНО */
 .remove-item-btn {
     grid-column: 3 / 4;
     background-color: #4a4f58;
     color: white;
     border: none;
-    width: 36px;
-    height: 36px;
+    width: 40px; /* ИЗМЕНЕНО */
+    height: 40px; /* ИЗМЕНЕНО */
     border-radius: 8px;
     font-size: 1.8em;
     font-weight: 300;
@@ -127,25 +128,34 @@
     cursor: pointer;
     flex-shrink: 0;
     transition: background-color 0.2s;
+    display: flex; /* ИЗМЕНЕНО */
+    align-items: center; /* ИЗМЕНЕНО */
+    justify-content: center; /* ИЗМЕНЕНО */
 }
 .remove-item-btn:hover {
     background-color: #e06b6b;
 }
 
-.quick-add-buttons.stock-up-quick-add {
-    margin-top: 8px;
+/* НОВЫЕ СТИЛИ для кнопок быстрого добавления */
+.quick-add-buttons {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 6px;
+    margin-top: 8px;
 }
-.stock-up-quick-add button {
+.quick-add-buttons button {
     background-color: #2e3340;
     border: 1px solid #3a3e47;
     color: #a0b0c8;
-    padding: 5px 10px;
+    padding: 8px 5px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 0.8em;
+    font-size: 0.85em;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+.quick-add-buttons button:hover {
+    background-color: #383e4c;
 }
 
 .add-item-btn {
@@ -160,32 +170,67 @@
     margin-top: 16px;
 }
 
-/* Стили для InventoryTransferModal */
-.transfer-route {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
+/* --- Стили для InventoryTransferModal (QuickTransferModal) --- */
+.transfer-route, .quick-transfer-hint {
+    text-align: center;
+    color: #a0b0c8;
+    margin-bottom: 16px;
     background: #282c34;
     padding: 10px;
     border-radius: 8px;
-    margin-bottom: 16px;
-    text-align: center;
 }
-.transfer-route span { font-size: 0.9em; }
-.transfer-route strong { color: #8ae6ff; }
-.transfer-input-group {
+.transfer-route strong, .quick-transfer-hint .highlight { color: #8ae6ff; font-weight: 500; }
+
+.transfer-input-group, .quick-transfer-input-group {
     display: flex;
     flex-direction: column;
 }
-.transfer-input-group label {
+.transfer-input-group label, .quick-transfer-input-group label {
     margin-bottom: 6px;
     color: #a0b0c8;
 }
-.transfer-input-group input {
-    font-size: 18px !important;
+.transfer-input-group input, .quick-transfer-input-group input {
+    font-size: 20px !important;
     padding: 10px;
     border-radius: 6px;
     background: #2e3340;
     border: 1px solid #3a3e47;
     color: #e0e0e0;
+    text-align: center;
+}
+
+.modal-footer.column {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+.preview-text {
+    font-size: 0.9em;
+    color: #c6c6c6;
+    text-align: center;
+    margin: 0;
+}
+.confirm-btn {
+    width: 100%;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 767px) {
+    .modal-overlay {
+        padding: 0;
+        align-items: flex-end; /* Прижимаем модалку к низу для удобства */
+    }
+    .modal-content {
+        max-width: 100%;
+        width: 100%;
+        height: auto;
+        max-height: 90vh; /* Ограничиваем высоту */
+        border-radius: 12px 12px 0 0; /* Скругляем только верхние углы */
+        animation: modal-slide-up 0.3s ease-out;
+    }
+
+    @keyframes modal-slide-up {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
 }
