@@ -1,0 +1,128 @@
+/* frontend/src/pages/WarehousePage.css */
+.warehouse-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+}
+
+.warehouse-header {
+    background: #282c34;
+    padding: 16px;
+    border-radius: 12px;
+}
+.warehouse-header p {
+    margin: 8px 0 0 0;
+    font-size: 0.9em;
+    color: #a0b0c8;
+}
+
+.warehouse-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    width: 100%;
+}
+
+.warehouse-panel {
+    background: #282c34;
+    padding: 16px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+}
+
+.warehouse-panel h3 {
+    margin: 0 0 16px 0;
+    color: #8ae6ff;
+    text-align: center;
+}
+
+.location-selector {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.location-selector button {
+    flex: 1;
+    padding: 8px;
+    background: #2e3340;
+    border: 1px solid #3a3e47;
+    color: #a0b0c8;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.location-selector button.active {
+    background: #3e67e0;
+    color: white;
+    border-color: #3e67e0;
+}
+
+.terminal-selector {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #23272f;
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+.terminal-selector.active {
+    opacity: 1;
+}
+.terminal-selector span {
+    flex-grow: 1;
+    text-align: center;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.terminal-selector button {
+    background: none;
+    border: none;
+    color: #a0b0c8;
+    font-size: 1.2em;
+    cursor: pointer;
+}
+.terminal-selector button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.inventory-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 8px;
+    border-bottom: 1px solid #303548;
+}
+.inventory-list-item:last-child {
+    border-bottom: none;
+}
+.inventory-list-item strong {
+    font-weight: 600;
+    color: #e0e0e0;
+}
+
+.transfer-arrow-btn {
+    background: #3a3e47;
+    color: #8ae6ff;
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    font-size: 1.2em;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+@media (max-width: 767px) {
+    .warehouse-body {
+        grid-template-columns: 1fr;
+    }
+}

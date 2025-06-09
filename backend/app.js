@@ -10,7 +10,9 @@ const transactionsRoutes = require('./routes/transactions');
 const expensesRoutes = require('./routes/expenses');
 const accessRoutes = require('./routes/access');
 const terminalsRoutes = require('./routes/terminals');
-const recipesRoutes = require('./routes/recipes'); // <-- НОВЫЙ ИМПОРТ
+const recipesRoutes = require('./routes/recipes');
+const warehouseRoutes = require('./routes/warehouse'); // <-- НОВЫЙ ИМПОРТ
+const inventoryRoutes = require('./routes/inventory'); // <-- НОВЫЙ ИМПОРТ
 
 const app = express();
 
@@ -24,7 +26,9 @@ app.use('/api/transactions', transactionsRoutes);
 app.use('/api/expenses', expensesRoutes);
 app.use('/api/access', accessRoutes);
 app.use('/api/terminals', terminalsRoutes);
-app.use('/api/recipes', recipesRoutes); // <-- НОВОЕ ПОДКЛЮЧЕНИЕ
+app.use('/api/recipes', recipesRoutes);
+app.use('/api/warehouse', warehouseRoutes); // <-- НОВОЕ ПОДКЛЮЧЕНИЕ
+app.use('/api/inventory', inventoryRoutes); // <-- НОВОЕ ПОДКЛЮЧЕНИЕ
 
 // DB Connection Test Endpoint
 app.get('/api/test-db', async (req, res) => {
