@@ -2,9 +2,13 @@
 import React from 'react';
 import './TerminalListModal.css';
 
-export default function TerminalListModal({ terminals, onSelect, onClose, currentSelection }) {
-    const onlineTerminals = terminals.filter(t => (t.last_hour_online || 0) > 0);
-    const offlineTerminals = terminals.filter(t => (t.last_hour_online || 0) === 0);
+export default function TerminalListModal({ terminals, onSelect, onClose, currentSelection, excludeTerminalId = null }) {
+    
+    // Фильтруем терминалы, исключая тот, что передан в excludeTerminalId
+    const filteredTerminals = terminals.filter(t => t.id !== excludeTerminalId);
+
+    const onlineTerminals = filteredTerminals.filter(t => (t.last_hour_online || 0) > 0);
+    const offlineTerminals = filteredTerminals.filter(t => (t.last_hour_online || 0) === 0);
 
     const handleCardClick = (terminal) => {
         onSelect(terminal);
@@ -19,8 +23,8 @@ export default function TerminalListModal({ terminals, onSelect, onClose, curren
                     <button type="button" className="modal-close-btn" onClick={onClose}>&times;</button>
                 </div>
                 <div className="modal-body">
-                    {terminals.length === 0 ? (
-                        <p className="empty-data-message">Нет доступных стоек.</p>
+                    {filteredTerminals.length === 0 ? (
+                        <p className="empty-data-message">Нет доступных стоек для выбора.</p>
                     ) : (
                         <>
                             {onlineTerminals.length > 0 && (

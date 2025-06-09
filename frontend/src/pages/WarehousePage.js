@@ -99,11 +99,10 @@ export default function WarehousePage() {
         if (newType === 'warehouse') {
             newTerminalName = 'Склад';
         } else if (terminals.length > 0) {
-            // Найдем первый терминал, который не совпадает с 'from' панелью, если мы меняем 'to'
-            let defaultTerminal = terminals[0];
-            if (panel === 'to' && from.type === newType && from.terminalId === defaultTerminal.id) {
-                defaultTerminal = terminals[1] || terminals[0];
-            }
+            let oppositePanelState = panel === 'from' ? to : from;
+            // Выбираем первый терминал, который не совпадает с терминалом на другой панели
+            let defaultTerminal = terminals.find(t => t.id !== oppositePanelState.terminalId) || terminals[0];
+
             newTerminalId = defaultTerminal.id;
             newTerminalName = defaultTerminal.comment;
         } else {
@@ -125,31 +124,29 @@ export default function WarehousePage() {
         updatePanel(setTo, to);
     }, [from, to, updatePanel]);
     
-    // Единая функция для проверки недопустимого перемещения
     const isInvalidMove = (source, destination) => {
         if (!source || !destination) return true;
-        // Нельзя перемещать со склада на склад
-        if (source.type === 'warehouse' && destination.type === 'warehouse') return true;
-        // Нельзя перемещать внутри одного и того же инвентаря (например, Стойка A -> Стойка A)
-        if (source.type === destination.type && source.terminalId === destination.terminalId) return true;
-        return false;
+        // Перемещение разрешено всегда, кроме случая, когда источник и назначение идентичны
+        return source.type === destination.type && source.terminalId === destination.terminalId;
     };
 
 
     const renderLocationSelector = (panel, state) => {
+        const panelTitle = panel === 'from' ? '1. Укажите откуда' : '2. Укажите, куда';
         return (
              <div className="location-panel">
-                <h4>{panel === 'from' ? 'ОТКУДА' : 'КУДА'}</h4>
-                <div className="location-buttons-vertical">
-                    <button className={state.type === 'warehouse' ? 'active' : ''} disabled={panel === 'to' && isInvalidMove(from, {type: 'warehouse'})} onClick={() => handleLocationTypeChange(panel, 'warehouse')}>Склад</button>
-                    <button className={state.type === 'stand' ? 'active' : ''} disabled={panel === 'to' && isInvalidMove(from, {type: 'stand', terminalId: state.terminalId})} onClick={() => handleLocationTypeChange(panel, 'stand')}>Стойка</button>
-                    <button className={state.type === 'machine' ? 'active' : ''} disabled={panel === 'to' && isInvalidMove(from, {type: 'machine', terminalId: state.terminalId})} onClick={() => handleLocationTypeChange(panel, 'machine')}>Машина</button>
+                <h4 className="transfer-panel-header">{panelTitle}</h4>
+                <div className="location-buttons-horizontal">
+                    <button className={state.type === 'warehouse' ? 'active' : ''} onClick={() => handleLocationTypeChange(panel, 'warehouse')}>Склад</button>
+                    <button className={state.type === 'stand' ? 'active' : ''} onClick={() => handleLocationTypeChange(panel, 'stand')}>Стойка</button>
+                    <button className={state.type === 'machine' ? 'active' : ''} onClick={() => handleLocationTypeChange(panel, 'machine')}>Машина</button>
                 </div>
-                {state.type !== 'warehouse' && (
-                    <div className="terminal-display" onClick={() => setTerminalModal({ isOpen: true, panel })}>
-                        {state.terminalName || 'Выберите стойку'}
-                    </div>
-                )}
+                <div 
+                    className={`terminal-display ${state.type === 'warehouse' ? 'disabled' : ''}`} 
+                    onClick={() => state.type !== 'warehouse' && setTerminalModal({ isOpen: true, panel })}
+                >
+                    {state.type === 'warehouse' ? 'Центральный склад' : (state.terminalName || 'Выберите стойку')}
+                </div>
             </div>
         );
     };
@@ -202,14 +199,17 @@ export default function WarehousePage() {
                     <button className="action-btn" onClick={() => setIsStockUpModalOpen(true)}>Приходовать товар</button>
                 </div>
 
-                <div className="warehouse-transfer-container">
-                    {renderLocationSelector('from', from)}
-                    <div className="transfer-arrow-visual">→</div>
-                    {renderLocationSelector('to', to)}
+                <div className="warehouse-block-container">
+                    <h3 className="block-title">Переместить остатки</h3>
+                    <div className="warehouse-transfer-container">
+                        {renderLocationSelector('from', from)}
+                        <div className="transfer-divider"></div>
+                        {renderLocationSelector('to', to)}
+                    </div>
                 </div>
                 
-                <div className="inventory-view-container">
-                    <h3>Остатки</h3>
+                <div className="warehouse-block-container">
+                    <h3 className="block-title">3. Выберите, что переместить</h3>
                     <div className="inventory-grid">
                         <div className="inventory-section">
                             {MACHINE_ITEMS.map(renderInventoryRow)}
@@ -226,10 +226,11 @@ export default function WarehousePage() {
             
             {terminalModal.isOpen && (
                 <TerminalListModal 
-                    terminals={terminals.filter(t => terminalModal.panel === 'from' || !isInvalidMove(from, {type: to.type, terminalId: t.id }))}
+                    terminals={terminals}
                     onClose={() => setTerminalModal({ isOpen: false, panel: null })}
                     onSelect={handleTerminalSelect}
                     currentSelection={terminalModal.panel === 'from' ? from.terminalId : to.terminalId}
+                    excludeTerminalId={terminalModal.panel === 'to' ? from.terminalId : null}
                 />
             )}
 
