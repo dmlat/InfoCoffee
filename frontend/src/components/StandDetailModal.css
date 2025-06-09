@@ -144,3 +144,96 @@
 .progress-bar-fill.normal { background-color: #4caf50; }
 .progress-bar-fill.low { background-color: #ffc107; }
 .progress-bar-fill.critical { background-color: #f44336; }
+
+.placeholder-text {
+    padding: 20px;
+    text-align: center;
+    color: #a0b0c8;
+}
+.placeholder-text-small {
+    font-size: 0.9em;
+    color: #8a9db8;
+}
+
+/* Стили для формы настроек */
+.settings-form {
+    padding-top: 8px;
+}
+
+.helper-text {
+    font-size: 0.9em;
+    color: #8a9db8;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.settings-section {
+    margin-bottom: 24px;
+}
+
+.settings-section h4 {
+    color: #8ae6ff;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #303548;
+    padding-bottom: 8px;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.setting-item label {
+    flex: 1;
+    color: #c6c6c6;
+}
+
+.setting-inputs {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+    justify-content: flex-end;
+}
+
+.setting-inputs input {
+    width: 100px;
+    background: #2e3340;
+    border: 1px solid #3a3e47;
+    color: #e0e0e0;
+    border-radius: 6px;
+    padding: 8px;
+    text-align: right;
+    font-size: 16px; /* Для предотвращения зума на iOS */
+}
+
+/* --- ИСПРАВЛЕНИЕ: Добавлены стандартные свойства --- */
+/* Удаление стрелочек у input[type=number] */
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+
+.form-footer {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.save-status {
+    font-weight: 500;
+}
+.save-status.success {
+    color: #4caf50;
+}
+.save-status.error {
+    color: #f44336;
+}

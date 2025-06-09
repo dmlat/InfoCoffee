@@ -1,10 +1,15 @@
 // frontend/src/components/StandDetailModal.js
 import React, { useState, useEffect } from 'react';
-import apiClient from '../api'; // Теперь будет использоваться
+import apiClient from '../api';
 import './StandDetailModal.css';
 
+// Список всех возможных позиций для инвентаря
+const INVENTORY_ITEMS = {
+    machine: ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода'],
+    stand: ['Стаканы', 'Крышки', 'Размешиватели', 'Сахар']
+};
+
 const ProgressBar = ({ value, max }) => {
-    // Проверка, что value и max - валидные числа
     const numericValue = parseFloat(value) || 0;
     const numericMax = parseFloat(max) || 0;
     
@@ -22,48 +27,102 @@ const ProgressBar = ({ value, max }) => {
 
 export default function StandDetailModal({ terminal, onClose }) {
     const [activeTab, setActiveTab] = useState('stock');
-    const [details, setDetails] = useState({ inventory: [], recipes: [], settings: {} });
+    const [details, setDetails] = useState({ inventory: [] });
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
+    
+    // --- НОВОЕ: Состояние для формы настроек ---
+    const [settings, setSettings] = useState({});
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
 
-    useEffect(() => {
+
+    const fetchDetails = async () => {
         const vendistaId = terminal.id;
         if (!vendistaId) return;
+        
+        setIsLoading(true);
+        setError('');
+        try {
+            const response = await apiClient.get(`/terminals/vendista/${vendistaId}/details`, {
+                params: { name: terminal.comment, serial_number: terminal.serial_number }
+            });
 
-        const fetchDetails = async () => {
-            setIsLoading(true);
-            setError('');
-            try {
-                // Используем реальный API-вызов
-                const response = await apiClient.get(`/terminals/vendista/${vendistaId}/details`, {
-                    // Передаем name и serial_number в query, чтобы бэкенд мог создать запись при необходимости
-                    params: {
-                        name: terminal.comment,
-                        serial_number: terminal.serial_number
-                    }
-                });
-
-                if (response.data.success) {
-                    setDetails(response.data.details);
-                } else {
-                    setError(response.data.error || 'Не удалось загрузить данные.');
-                }
+            if (response.data.success) {
+                const fetchedDetails = response.data.details;
+                setDetails(fetchedDetails);
                 
-            } catch (err) {
-                setError(err.response?.data?.error || 'Ошибка сети при загрузке деталей стойки.');
-            } finally {
-                setIsLoading(false);
-            }
-        };
+                // --- НОВОЕ: Заполняем состояние формы настроек из полученных данных ---
+                const newSettings = {};
+                const allItems = [...INVENTORY_ITEMS.machine, ...INVENTORY_ITEMS.stand];
+                allItems.forEach(itemName => {
+                    const existingItem = fetchedDetails.inventory.find(i => i.item_name === itemName);
+                    newSettings[itemName] = {
+                        max_stock: existingItem?.max_stock || '',
+                        critical_stock: existingItem?.critical_stock || ''
+                    };
+                });
+                setSettings(newSettings);
 
+            } else {
+                setError(response.data.error || 'Не удалось загрузить данные.');
+            }
+        } catch (err) {
+            setError(err.response?.data?.error || 'Ошибка сети при загрузке деталей стойки.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchDetails();
-    }, [terminal.id, terminal.comment, terminal.serial_number]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [terminal.id]);
+
+    const handleSettingsChange = (itemName, field, value) => {
+        setSettings(prev => ({
+            ...prev,
+            [itemName]: {
+                ...prev[itemName],
+                [field]: value
+            }
+        }));
+    };
+
+    const handleSaveSettings = async (e) => {
+        e.preventDefault();
+        setIsSaving(true);
+        setSaveStatus({ message: '', type: '' });
+
+        const inventorySettings = Object.entries(settings).map(([itemName, values]) => {
+            const location = INVENTORY_ITEMS.machine.includes(itemName) ? 'machine' : 'stand';
+            return {
+                item_name: itemName,
+                location,
+                max_stock: values.max_stock || null,
+                critical_stock: values.critical_stock || null
+            }
+        });
+
+        try {
+            const response = await apiClient.post(`/terminals/vendista/${terminal.id}/settings`, { inventorySettings });
+            if (response.data.success) {
+                setSaveStatus({ message: 'Настройки успешно сохранены!', type: 'success' });
+                // Обновляем данные на вкладке Остатки
+                fetchDetails(); 
+            } else {
+                setSaveStatus({ message: response.data.error || 'Ошибка сохранения.', type: 'error' });
+            }
+        } catch (err) {
+            setSaveStatus({ message: err.response?.data?.error || 'Сетевая ошибка.', type: 'error' });
+        } finally {
+            setIsSaving(false);
+            setTimeout(() => setSaveStatus({ message: '', type: '' }), 3000);
+        }
+    };
+
 
     const renderStock = () => {
-        const machineItems = details.inventory.filter(i => i.location === 'machine');
-        const standItems = details.inventory.filter(i => i.location === 'stand');
-        
-        // Отображаем сообщение, если остатки еще не настроены
         if (details.inventory.length === 0) {
             return (
                  <div className="modal-tab-content placeholder-text">
@@ -72,7 +131,8 @@ export default function StandDetailModal({ terminal, onClose }) {
                 </div>
             )
         }
-
+        const machineItems = details.inventory.filter(i => i.location === 'machine');
+        const standItems = details.inventory.filter(i => i.location === 'stand');
         return (
             <div className="modal-tab-content">
                 <div className="inventory-section">
@@ -106,7 +166,44 @@ export default function StandDetailModal({ terminal, onClose }) {
     };
 
     const renderRecipes = () => <div className="modal-tab-content"><p><i>Раздел "Рецепты" в разработке.</i></p></div>;
-    const renderSettings = () => <div className="modal-tab-content"><p><i>Раздел "Настройки" в разработке.</i></p></div>;
+
+    const renderSettings = () => (
+        <form className="modal-tab-content settings-form" onSubmit={handleSaveSettings}>
+            <p className="helper-text">Задайте максимальный объем контейнеров и критические остатки для своевременных уведомлений.</p>
+            
+            <div className="settings-section">
+                <h4>Контейнеры кофемашины (г/мл)</h4>
+                {INVENTORY_ITEMS.machine.map(itemName => (
+                    <div className="setting-item" key={itemName}>
+                        <label>{itemName}</label>
+                        <div className="setting-inputs">
+                            <input type="number" placeholder="Макс." value={settings[itemName]?.max_stock || ''} onChange={e => handleSettingsChange(itemName, 'max_stock', e.target.value)} />
+                            <input type="number" placeholder="Крит." value={settings[itemName]?.critical_stock || ''} onChange={e => handleSettingsChange(itemName, 'critical_stock', e.target.value)} />
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="settings-section">
+                <h4>Расходники в стойке (шт)</h4>
+                 {INVENTORY_ITEMS.stand.map(itemName => (
+                    <div className="setting-item" key={itemName}>
+                        <label>{itemName}</label>
+                        <div className="setting-inputs">
+                            <input type="number" placeholder="Крит." value={settings[itemName]?.critical_stock || ''} onChange={e => handleSettingsChange(itemName, 'critical_stock', e.target.value)} />
+                        </div>
+                    </div>
+                ))}
+            </div>
+            
+            <div className="form-footer">
+                 <button type="submit" className="action-btn" disabled={isSaving}>
+                    {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
+                </button>
+                {saveStatus.message && <span className={`save-status ${saveStatus.type}`}>{saveStatus.message}</span>}
+            </div>
+        </form>
+    );
 
     return (
         <div className="modal-overlay" onClick={onClose}>

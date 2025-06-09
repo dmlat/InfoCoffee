@@ -35,6 +35,25 @@ function decrypt(text) {
     }
 }
 
+// --- Вспомогательная функция для поиска или создания терминала в нашей БД ---
+async function findOrCreateTerminal(client, userId, vendistaId, details = {}) {
+    let terminalRes = await client.query('SELECT id FROM terminals WHERE vendista_terminal_id = $1 AND user_id = $2', [vendistaId, userId]);
+    let internalTerminalId;
+
+    if (terminalRes.rows.length === 0) {
+        const { name, serial_number } = details;
+        const insertRes = await client.query(
+            'INSERT INTO terminals (user_id, vendista_terminal_id, name, serial_number) VALUES ($1, $2, $3, $4) RETURNING id',
+            [userId, vendistaId, name || `Терминал ${vendistaId}`, serial_number || '']
+        );
+        internalTerminalId = insertRes.rows[0].id;
+    } else {
+        internalTerminalId = terminalRes.rows[0].id;
+    }
+    return internalTerminalId;
+}
+
+
 // Получить список всех терминалов (стоек) для пользователя
 router.get('/', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
@@ -53,10 +72,7 @@ router.get('/', authMiddleware, async (req, res) => {
         }
 
         const vendistaResponse = await axios.get(`${VENDISTA_API_URL}/terminals`, {
-            params: {
-                token: vendistaToken,
-                ItemsOnPage: 500
-            },
+            params: { token: vendistaToken, ItemsOnPage: 500 },
             timeout: 20000
         });
 
@@ -88,13 +104,10 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 });
 
-
-// --- ОБНОВЛЕННЫЙ ЭНДПОИНТ ---
 // Получить детали конкретного терминала по его VENDISTA ID
 router.get('/vendista/:vendistaId/details', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
     const { vendistaId } = req.params;
-    const { name, serial_number } = req.query; // Получаем доп. инфо для создания
 
     if (!vendistaId || isNaN(parseInt(vendistaId))) {
         return res.status(400).json({ success: false, error: 'Некорректный ID терминала' });
@@ -102,48 +115,23 @@ router.get('/vendista/:vendistaId/details', authMiddleware, async (req, res) => 
 
     const client = await pool.pool.connect();
     try {
-        await client.query('BEGIN');
+        const internalTerminalId = await findOrCreateTerminal(client, userId, vendistaId, req.query);
         
-        // 1. Ищем терминал в нашей базе
-        let terminalRes = await client.query('SELECT id FROM terminals WHERE vendista_terminal_id = $1 AND user_id = $2', [vendistaId, userId]);
-        let internalTerminalId;
-
-        // 2. Если не нашли - создаем
-        if (terminalRes.rows.length === 0) {
-            const insertRes = await client.query(
-                'INSERT INTO terminals (user_id, vendista_terminal_id, name, serial_number) VALUES ($1, $2, $3, $4) RETURNING id',
-                [userId, vendistaId, name || `Терминал ${vendistaId}`, serial_number || '']
-            );
-            internalTerminalId = insertRes.rows[0].id;
-        } else {
-            internalTerminalId = terminalRes.rows[0].id;
-        }
-
-        // 3. Получаем остатки для этого терминала по его внутреннему ID
         const inventoryRes = await client.query(
             "SELECT item_name, location, current_stock, max_stock, critical_stock FROM inventories WHERE user_id = $1 AND terminal_id = $2 ORDER BY item_name",
             [userId, internalTerminalId]
         );
         
-        await client.query('COMMIT');
-
         res.json({
             success: true,
-            details: {
-                inventory: inventoryRes.rows,
-                // recipes: [], // заглушка
-                // settings: {} // заглушка
-            }
+            details: { inventory: inventoryRes.rows }
         });
 
     } catch (err) {
-        await client.query('ROLLBACK');
         console.error(`[GET /api/terminals/vendista/:id/details] UserID: ${userId} - Error:`, err);
         sendErrorToAdmin({
-            userId: userId,
-            errorContext: `GET /api/terminals/vendista/${vendistaId}/details - UserID: ${userId}`,
-            errorMessage: err.message,
-            errorStack: err.stack,
+            userId: userId, errorContext: `GET /api/terminals/vendista/${vendistaId}/details`,
+            errorMessage: err.message, errorStack: err.stack,
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при получении деталей стойки' });
     } finally {
@@ -151,5 +139,60 @@ router.get('/vendista/:vendistaId/details', authMiddleware, async (req, res) => 
     }
 });
 
+// --- НОВЫЙ ЭНДПОИНТ ДЛЯ СОХРАНЕНИЯ НАСТРОЕК ---
+router.post('/vendista/:vendistaId/settings', authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
+    const { vendistaId } = req.params;
+    const { inventorySettings } = req.body; // Ожидаем массив объектов
+
+    if (!vendistaId || isNaN(parseInt(vendistaId))) {
+        return res.status(400).json({ success: false, error: 'Некорректный ID терминала' });
+    }
+    if (!Array.isArray(inventorySettings)) {
+        return res.status(400).json({ success: false, error: 'Неверный формат данных' });
+    }
+
+    const client = await pool.pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const internalTerminalId = await findOrCreateTerminal(client, userId, vendistaId);
+
+        // Используем цикл для обновления или вставки каждой настройки
+        for (const item of inventorySettings) {
+            const { item_name, location, max_stock, critical_stock } = item;
+            
+            // Валидация
+            if (!item_name || !location) continue;
+            const max = max_stock !== null && !isNaN(parseFloat(max_stock)) ? parseFloat(max_stock) : null;
+            const critical = critical_stock !== null && !isNaN(parseFloat(critical_stock)) ? parseFloat(critical_stock) : null;
+
+            await client.query(
+                `INSERT INTO inventories (user_id, terminal_id, item_name, location, max_stock, critical_stock)
+                 VALUES ($1, $2, $3, $4, $5, $6)
+                 ON CONFLICT (user_id, terminal_id, item_name, location) 
+                 DO UPDATE SET
+                    max_stock = EXCLUDED.max_stock,
+                    critical_stock = EXCLUDED.critical_stock,
+                    updated_at = NOW()`,
+                [userId, internalTerminalId, item_name, location, max, critical]
+            );
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'Настройки успешно сохранены!' });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(`[POST /api/terminals/vendista/:id/settings] UserID: ${userId} - Error:`, err);
+        sendErrorToAdmin({
+            userId: userId, errorContext: `POST /api/terminals/vendista/${vendistaId}/settings`,
+            errorMessage: err.message, errorStack: err.stack,
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при сохранении настроек' });
+    } finally {
+        client.release();
+    }
+});
 
 module.exports = router;
