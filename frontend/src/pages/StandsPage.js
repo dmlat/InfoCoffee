@@ -1,7 +1,7 @@
 // frontend/src/pages/StandsPage.js
 import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api';
-import StandDetailModal from '../components/StandDetailModal'; // <-- Импортируем модальное окно
+import StandDetailModal from '../components/StandDetailModal';
 import './StandsPage.css';
 import '../styles/common.css';
 
@@ -9,7 +9,7 @@ export default function StandsPage() {
     const [terminals, setTerminals] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
-    const [selectedTerminal, setSelectedTerminal] = useState(null); // <-- Состояние для модального окна
+    const [selectedTerminal, setSelectedTerminal] = useState(null);
 
     const fetchTerminals = useCallback(async () => {
         setIsLoading(true);
@@ -31,15 +31,14 @@ export default function StandsPage() {
     useEffect(() => {
         fetchTerminals();
     }, [fetchTerminals]);
-    
-    // Блокируем скролл основной страницы, когда модальное окно открыто
+
     useEffect(() => {
         if (selectedTerminal) {
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = 'auto';
         }
-        return () => { document.body.style.overflow = 'auto'; }; // Очистка при размонтировании
+        return () => { document.body.style.overflow = 'auto'; };
     }, [selectedTerminal]);
 
     if (isLoading) {
@@ -53,6 +52,15 @@ export default function StandsPage() {
     return (
         <>
             <div className="page-container stands-page">
+                <div className="stands-page-header">
+                    <p>Нажмите на Стойку, чтобы отредактировать:</p>
+                    <ul>
+                        <li><b>Рецепты:</b> расчёт расхода ингредиентов и названия напитков</li>
+                        <li><b>Остатки:</b> максимальные и критические остатки в контейнерах</li>
+                        <li><b>Частота обслуживания:</b> уведомления об обслуживании стойки и кофемашины каждые N продаж</li>
+                    </ul>
+                </div>
+
                 <div className="stands-list-container">
                     {terminals.length === 0 ? (
                         <div className="empty-data-message">Стойки не найдены.</div>
@@ -60,15 +68,13 @@ export default function StandsPage() {
                         terminals.map(terminal => {
                             const isOnline = (terminal.last_hour_online || 0) > 0;
                             return (
-                                <div key={terminal.id} className="stand-card">
-                                    <div className="stand-card-header">
-                                        <div className="stand-info">
-                                            <span className={`status-indicator ${isOnline ? 'online' : 'offline'}`}></span>
-                                            <h3 className="stand-name">{terminal.comment || `Терминал #${terminal.id}`}</h3>
-                                        </div>
-                                        <button className="details-btn" onClick={() => setSelectedTerminal(terminal)}>
-                                            Подробнее
-                                        </button>
+                                <div key={terminal.id} className="stand-card" onClick={() => setSelectedTerminal(terminal)}>
+                                    <div className="stand-info">
+                                        <span className={`status-indicator ${isOnline ? 'online' : 'offline'}`}></span>
+                                        <h3 className="stand-name">{terminal.comment || `Терминал #${terminal.id}`}</h3>
+                                    </div>
+                                    <div className="stand-details-arrow">
+                                        →
                                     </div>
                                 </div>
                             )

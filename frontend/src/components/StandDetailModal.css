@@ -14,12 +14,35 @@
 
 .modal-content {
     background: #23272f;
+    border: 1px solid #3a3e47;
+    border-radius: 12px;
     width: 100%;
-    height: 100%;
+    max-width: 600px; /* Максимальная ширина на десктопах */
+    height: 90%; /* Высота на десктопах */
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    animation: modal-fade-in 0.2s ease-out;
 }
+
+@keyframes modal-fade-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Стили для мобильных устройств: модальное окно на весь экран */
+@media (max-width: 767px) {
+    .modal-overlay {
+        padding: 0;
+    }
+    .modal-content {
+        max-width: 100%;
+        height: 100%;
+        border-radius: 0;
+        border: none;
+    }
+}
+
 
 .modal-header {
     display: flex;
@@ -208,8 +231,6 @@
     font-size: 16px; /* Для предотвращения зума на iOS */
 }
 
-/* --- ИСПРАВЛЕНИЕ: Добавлены стандартные свойства --- */
-/* Удаление стрелочек у input[type=number] */
 input[type=number] {
   -moz-appearance: textfield;
   appearance: textfield;
@@ -238,8 +259,7 @@ input[type=number]::-webkit-outer-spin-button {
     color: #f44336;
 }
 
-/* Дополнительные стили для StandDetailModal.css для вкладки Рецепты */
-
+/* Стили для вкладки Рецепты */
 .recipes-form .table-scroll-container {
     overflow-x: auto;
     max-width: 100%;
@@ -279,6 +299,7 @@ input[type=number]::-webkit-outer-spin-button {
     padding: 4px;
     border-radius: 4px;
     transition: background-color 0.2s;
+    font-size: 16px !important;
 }
 
 .recipes-table input:focus {

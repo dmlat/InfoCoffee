@@ -8,51 +8,56 @@
 
 .warehouse-header {
     background: #282c34;
-    padding: 16px;
+    padding: 12px 16px;
     border-radius: 12px;
 }
-.warehouse-header p {
-    margin: 8px 0 0 0;
-    font-size: 0.9em;
-    color: #a0b0c8;
-}
 
-.warehouse-body {
+.warehouse-transfer-container {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    width: 100%;
-}
-
-.warehouse-panel {
+    grid-template-columns: 1fr auto 1fr; /* From, Arrow, To */
+    gap: 12px;
+    align-items: center;
     background: #282c34;
     padding: 16px;
     border-radius: 12px;
-    display: flex;
-    flex-direction: column;
 }
 
-.warehouse-panel h3 {
-    margin: 0 0 16px 0;
-    color: #8ae6ff;
+.transfer-arrow-visual {
+    font-size: 2em;
+    color: #a0b0c8;
     text-align: center;
+}
+
+.location-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.location-panel h4 {
+    margin: 0;
+    text-align: center;
+    color: #8ae6ff;
+    font-size: 1em;
+    font-weight: 600;
 }
 
 .location-selector {
     display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 6px;
 }
 
 .location-selector button {
     flex: 1;
-    padding: 8px;
+    padding: 8px 6px;
     background: #2e3340;
     border: 1px solid #3a3e47;
     color: #a0b0c8;
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s;
+    font-size: 0.85em;
+    white-space: nowrap;
 }
 
 .location-selector button.active {
@@ -67,8 +72,9 @@
     align-items: center;
     background: #23272f;
     border-radius: 6px;
-    padding: 8px;
-    margin-bottom: 16px;
+    padding: 6px;
+    min-height: 34px;
+    box-sizing: border-box;
     opacity: 0.5;
 }
 .terminal-selector.active {
@@ -81,17 +87,37 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    padding: 0 5px;
 }
 .terminal-selector button {
     background: none;
     border: none;
     color: #a0b0c8;
-    font-size: 1.2em;
+    font-size: 1.4em;
+    line-height: 1;
     cursor: pointer;
+    padding: 0 8px;
 }
 .terminal-selector button:disabled {
     opacity: 0.3;
     cursor: not-allowed;
+}
+
+.inventory-view-container {
+    background: #282c34;
+    padding: 16px;
+    border-radius: 12px;
+}
+
+.inventory-view-container h3 {
+    margin: 0 0 16px 0;
+    color: #8ae6ff;
+    text-align: left;
+}
+
+.inventory-list {
+    display: flex;
+    flex-direction: column;
 }
 
 .inventory-list-item {
@@ -104,9 +130,23 @@
 .inventory-list-item:last-child {
     border-bottom: none;
 }
-.inventory-list-item strong {
-    font-weight: 600;
+.inventory-list-item .item-name {
+    font-weight: 500;
     color: #e0e0e0;
+}
+
+.item-stock {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.item-stock strong {
+    font-weight: 600;
+    font-size: 1.1em;
+    color: #e0e0e0;
+    min-width: 50px;
+    text-align: right;
 }
 
 .transfer-arrow-btn {
@@ -118,11 +158,23 @@
     height: 28px;
     font-size: 1.2em;
     cursor: pointer;
-    margin-left: 10px;
+    transition: background-color 0.2s;
+}
+.transfer-arrow-btn:hover {
+    background-color: #4a4f58;
+}
+.transfer-arrow-btn:disabled {
+    opacity: 0.2;
+    cursor: not-allowed;
 }
 
+
 @media (max-width: 767px) {
-    .warehouse-body {
+    .warehouse-transfer-container {
         grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .transfer-arrow-visual {
+        transform: rotate(90deg);
     }
 }

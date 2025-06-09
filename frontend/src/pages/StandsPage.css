@@ -2,12 +2,31 @@
 
 .stands-page {
     width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.stands-page-header {
+    background: #282c34;
+    padding: 10px 16px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    font-size: 0.9em;
+    color: #a0b0c8;
+}
+.stands-page-header p {
+    margin: 0 0 8px 0;
+    font-weight: 500;
+}
+.stands-page-header ul {
+    margin: 0;
+    padding-left: 20px;
+    line-height: 1.5;
 }
 
 .stands-list-container {
     display: grid;
-    /* Уменьшаем минимальную ширину карточки для большей гибкости на малых экранах */
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 16px;
     width: 100%;
 }
@@ -15,33 +34,28 @@
 .stand-card {
     background: #282c34;
     border-radius: 12px;
-    padding: 12px 16px;
+    padding: 14px 18px;
     display: flex;
-    flex-direction: column;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    align-items: center; /* Центрируем по вертикали */
+    justify-content: space-between; /* Распределяем контент по краям */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
     border: 1px solid #303548;
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    min-height: 65px; /* Задаем минимальную высоту для выравнивания */
+    box-sizing: border-box;
 }
 
 .stand-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.25);
-}
-
-.stand-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    width: 100%;
+    background-color: #2f343e;
 }
 
 .stand-info {
     display: flex;
     align-items: center;
-    gap: 10px;
-    overflow: hidden; /* Обязательно для работы text-overflow */
-    min-width: 0; /* <<<----- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ! Позволяет flex-элементу сжиматься меньше его содержимого */
+    gap: 12px;
+    overflow: hidden;
+    min-width: 0; 
 }
 
 .status-indicator {
@@ -53,7 +67,7 @@
 
 .status-indicator.online {
     background-color: #4caf50;
-    box-shadow: 0 0 8px #4caf50;
+    /* Убрано свечение */
 }
 
 .status-indicator.offline {
@@ -62,30 +76,18 @@
 
 .stand-name {
     margin: 0;
-    /* Шрифт заголовка согласован с табами навигации */
-    font-size: clamp(0.8rem, 2.7vw, 0.9rem);
+    font-size: 0.95em;
     color: #e0e0e0;
     font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: wrap; /* Разрешаем перенос */
 }
 
-.details-btn {
-    background-color: #3e67e0;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 6px 12px;
-    font-size: clamp(0.7rem, 2.2vw, 0.8rem); /* Адаптивный шрифт для кнопки */
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    flex-shrink: 0; /* Чтобы кнопка не сжималась */
-}
-
-.details-btn:hover {
-    background-color: #4a75f0;
+.stand-details-arrow {
+    font-size: 1.8em;
+    color: #3e67e0;
+    font-weight: bold;
+    line-height: 1;
+    flex-shrink: 0;
 }
 
 @media (max-width: 767px) {

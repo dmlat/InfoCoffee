@@ -91,15 +91,17 @@
     align-items: center;
 }
 .stock-up-item-row select, .stock-up-item-row input {
-    font-size: 16px;
+    font-size: 16px !important; /* Важно для мобильных */
     background: #2e3340;
     border: 1px solid #3a3e47;
     color: #e0e0e0;
     border-radius: 6px;
     padding: 8px;
+    height: 40px;
+    box-sizing: border-box;
 }
 .stock-up-item-row select { flex: 2; }
-.stock-up-item-row input { flex: 1; }
+.stock-up-item-row input { flex: 1; max-width: 120px; } /* Ограничиваем ширину поля ввода */
 .remove-item-btn {
     background-color: #e06b6b;
     color: white;
@@ -109,6 +111,7 @@
     border-radius: 50%;
     font-size: 1.5em;
     cursor: pointer;
+    flex-shrink: 0;
 }
 .add-item-btn {
     width: 100%;
@@ -144,7 +147,7 @@
     color: #a0b0c8;
 }
 .transfer-input-group input {
-    font-size: 18px;
+    font-size: 18px !important; /* Важно для мобильных */
     padding: 10px;
     border-radius: 6px;
     background: #2e3340;
