@@ -1,8 +1,9 @@
 // frontend/src/components/StockUpModal.js
 import React, { useState } from 'react';
 import apiClient from '../api';
-import './Modals.css'; // Общие стили для оверлея, хедера и футера
-import './StockUpModal.css'; // Новые стили для контента этого модального окна
+// ИСПРАВЛЕНИЕ: меняем импорт на новый файл с "рамой"
+import './ModalFrame.css'; 
+import './StockUpModal.css'; // Стили для контента этого модального окна
 
 const INVENTORY_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода', 'Стаканы', 'Крышки', 'Размешиватели', 'Сахар'];
 const WEIGHT_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф'];
@@ -89,7 +90,6 @@ export default function StockUpModal({ onClose, onSuccess }) {
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            {/* Добавляем специфичный класс к modal-content */}
             <div className="modal-content stock-up-modal" onClick={e => e.stopPropagation()}>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-header">
