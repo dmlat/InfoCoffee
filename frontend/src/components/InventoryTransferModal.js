@@ -4,15 +4,22 @@ import apiClient from '../api';
 import './Modals.css';
 
 export default function InventoryTransferModal({ moveRequest, onClose, onSuccess }) {
-    const { item_name, from, to } = moveRequest;
+    const { item_name, currentStock, from, to } = moveRequest;
     const [quantity, setQuantity] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
     
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!quantity || parseFloat(quantity) <= 0) {
+        const numQuantity = parseFloat(quantity);
+
+        if (!numQuantity || numQuantity <= 0) {
             setError('Введите количество больше нуля.');
+            return;
+        }
+
+        if (numQuantity > currentStock) {
+            setError(`Нельзя переместить больше, чем есть в источнике (${currentStock}).`);
             return;
         }
         
@@ -22,7 +29,7 @@ export default function InventoryTransferModal({ moveRequest, onClose, onSuccess
         try {
             const payload = {
                 item_name,
-                quantity: parseFloat(quantity),
+                quantity: numQuantity,
                 from: { location: from.type, terminal_id: from.terminalId },
                 to: { location: to.type, terminal_id: to.terminalId },
             };
@@ -42,12 +49,12 @@ export default function InventoryTransferModal({ moveRequest, onClose, onSuccess
 
     const getPanelName = (panel) => {
         if (panel.type === 'warehouse') return 'Склад';
-        return `${panel.terminalName} (${panel.type === 'stand' ? 'Стойка' : 'Кофемашина'})`;
+        return `${panel.terminalName || `Стойка #${panel.terminalId}`} (${panel.type === 'stand' ? 'Стойка' : 'Кофемашина'})`;
     };
     
     return (
          <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-content" style={{ maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-header">
                         <h2>Перемещение: {item_name}</h2>
@@ -61,7 +68,7 @@ export default function InventoryTransferModal({ moveRequest, onClose, onSuccess
                         </p>
                         {error && <p className="error-message small">{error}</p>}
                         <div className="transfer-input-group">
-                            <label htmlFor="transfer-quantity">Количество:</label>
+                            <label htmlFor="transfer-quantity">Количество (доступно: {currentStock})</label>
                             <input
                                 id="transfer-quantity"
                                 type="number"
@@ -69,6 +76,7 @@ export default function InventoryTransferModal({ moveRequest, onClose, onSuccess
                                 value={quantity}
                                 onChange={(e) => setQuantity(e.target.value)}
                                 autoFocus
+                                max={currentStock}
                             />
                         </div>
                     </div>

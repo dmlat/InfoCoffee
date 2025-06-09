@@ -25,23 +25,22 @@ export default function WarehousePage() {
     const [isStockUpModalOpen, setIsStockUpModalOpen] = useState(false);
     const [moveRequest, setMoveRequest] = useState(null);
 
+    // --- ИЗМЕНЕНИЕ: Упрощенная функция загрузки инвентаря ---
     const fetchInventory = useCallback(async (location) => {
         if (!location) return [];
-        
         if (location.type === 'warehouse') {
             const res = await apiClient.get('/warehouse');
             return res.data.warehouseStock || [];
         }
-        
         if (location.terminalId && (location.type === 'stand' || location.type === 'machine')) {
              const res = await apiClient.get(`/terminals/vendista/${location.terminalId}/details`);
              return (res.data.details?.inventory || []).filter(item => item.location === location.type);
         }
-        
         return [];
     }, []);
 
-    const fetchAllData = useCallback(async () => {
+    // --- ИЗМЕНЕНИЕ: Основная функция загрузки и обновления данных ---
+    const loadAndSetInitialData = useCallback(async () => {
         setIsLoading(true);
         setError('');
         try {
@@ -60,6 +59,7 @@ export default function WarehousePage() {
 
             setFrom({ ...initialFrom, inventory: fromInventory });
             setTo({ ...initialTo, inventory: toInventory });
+
         } catch (err) {
             setError(err.message || 'Ошибка сети при загрузке данных.');
         } finally {
@@ -67,11 +67,12 @@ export default function WarehousePage() {
         }
     }, [fetchInventory]);
 
+    // --- ИЗМЕНЕНИЕ: Только один useEffect для первоначальной загрузки ---
     useEffect(() => {
-        fetchAllData();
-    }, [fetchAllData]);
+        loadAndSetInitialData();
+    }, [loadAndSetInitialData]);
 
-    const handleLocationTypeChange = (panelSetter, panelState, newType, setIndex) => {
+    const handleLocationTypeChange = async (panelSetter, panelState, newType, setIndex) => {
         let newTerminalId = panelState.terminalId;
         if ((newType === 'stand' || newType === 'machine')) {
             newTerminalId = terminals[0]?.id || null;
@@ -79,35 +80,25 @@ export default function WarehousePage() {
         } else if (newType === 'warehouse') {
             newTerminalId = null;
         }
-        panelSetter({ ...panelState, type: newType, terminalId: newTerminalId });
+        const newState = { ...panelState, type: newType, terminalId: newTerminalId };
+        const inventory = await fetchInventory(newState);
+        panelSetter({ ...newState, inventory });
     };
 
-    const handleTerminalChange = (panelSetter, setIndex, currentIndex, direction) => {
-        if (!terminals || terminals.length === 0) return;
+    const handleTerminalChange = async (panelSetter, setIndex, currentIndex, direction) => {
+        if (!terminals || terminals.length < 2) return;
         const newIndex = (currentIndex + direction + terminals.length) % terminals.length;
         setIndex(newIndex);
-        panelSetter(prev => ({...prev, terminalId: terminals[newIndex].id}));
+        const newTerminalId = terminals[newIndex].id;
+        const newState = {...(panelSetter === setFrom ? from : to), terminalId: newTerminalId};
+        const inventory = await fetchInventory(newState);
+        panelSetter({...newState, inventory});
     };
     
-    // Этот эффект отвечает за обновление инвентаря при смене локации
-    useEffect(() => {
-        const updateInventories = async () => {
-             if (isLoading) return;
-             try {
-                const [fromInventory, toInventory] = await Promise.all([
-                    fetchInventory(from),
-                    fetchInventory(to)
-                ]);
-                setFrom(prev => ({...prev, inventory: fromInventory}));
-                setTo(prev => ({...prev, inventory: toInventory}));
-             } catch(e) {
-                setError("Ошибка загрузки остатков");
-             }
-        }
-        updateInventories();
-    // --- ИСПРАВЛЕНИЕ: Добавляем целые объекты `from` и `to` в зависимости ---
-    }, [from, to, isLoading, fetchInventory]);
-
+    const handleSuccessAction = () => {
+        // Просто перезагружаем все данные после успешного действия
+        loadAndSetInitialData();
+    };
 
     const renderPanel = (panelState, panelSetter, index, setIndex, title) => {
         const isStandSelectorActive = panelState.type === 'stand' || panelState.type === 'machine';
@@ -115,29 +106,25 @@ export default function WarehousePage() {
         
         const isFromPanel = title === 'ОТКУДА';
         const otherPanel = isFromPanel ? to : from;
-        const isSelfSelection = panelState.type === otherPanel.type && panelState.terminalId === otherPanel.terminalId;
-
+        
         return (
             <div className="warehouse-panel">
                 <h3>{title}</h3>
                 <div className="location-selector">
-                    <button className={panelState.type === 'warehouse' ? 'active' : ''} 
-                            onClick={() => handleLocationTypeChange(panelSetter, panelState, 'warehouse', setIndex)}
-                            disabled={!isFromPanel && otherPanel.type === 'warehouse'}>Склад</button>
-                    <button className={panelState.type === 'stand' ? 'active' : ''} 
-                            onClick={() => handleLocationTypeChange(panelSetter, panelState, 'stand', setIndex)}>Стойка</button>
-                    <button className={panelState.type === 'machine' ? 'active' : ''} 
-                            onClick={() => handleLocationTypeChange(panelSetter, panelState, 'machine', setIndex)}>Кофемашина</button>
+                    <button className={panelState.type === 'warehouse' ? 'active' : ''} onClick={() => handleLocationTypeChange(panelSetter, panelState, 'warehouse', setIndex)} disabled={!isFromPanel && otherPanel.type === 'warehouse'}>Склад</button>
+                    <button className={panelState.type === 'stand' ? 'active' : ''} onClick={() => handleLocationTypeChange(panelSetter, panelState, 'stand', setIndex)}>Стойка</button>
+                    <button className={panelState.type === 'machine' ? 'active' : ''} onClick={() => handleLocationTypeChange(panelSetter, panelState, 'machine', setIndex)}>Кофемашина</button>
                 </div>
                  <div className={`terminal-selector ${isStandSelectorActive ? 'active' : ''}`}>
-                    <button onClick={() => handleTerminalChange(panelSetter, setIndex, index, -1)} disabled={!isStandSelectorActive}>&lt;</button>
+                    <button onClick={() => handleTerminalChange(panelSetter, setIndex, index, -1)} disabled={!isStandSelectorActive || terminals.length < 2}>&lt;</button>
                     <span>{isStandSelectorActive ? (currentTerminal?.comment || 'Нет стоек') : '---'}</span>
-                    <button onClick={() => handleTerminalChange(panelSetter, setIndex, index, 1)} disabled={!isStandSelectorActive}>&gt;</button>
+                    <button onClick={() => handleTerminalChange(panelSetter, setIndex, index, 1)} disabled={!isStandSelectorActive || terminals.length < 2}>&gt;</button>
                 </div>
                 <div className="inventory-list">
                     {INVENTORY_ITEMS.map(itemName => {
                          const item = panelState.inventory && panelState.inventory.find(i => i.item_name === itemName);
                          const stock = item ? item.current_stock : 0;
+                         const isSelfSelection = panelState.type !== 'warehouse' && panelState.type === otherPanel.type && panelState.terminalId === otherPanel.terminalId;
                          return (
                             <div className="inventory-list-item" key={itemName}>
                                 <span>{itemName}</span>
@@ -167,8 +154,8 @@ export default function WarehousePage() {
                 </div>
             </div>
 
-            {isStockUpModalOpen && <StockUpModal onClose={() => setIsStockUpModalOpen(false)} onSuccess={fetchAllData} />}
-            {moveRequest && <InventoryTransferModal moveRequest={moveRequest} onClose={() => setMoveRequest(null)} onSuccess={fetchAllData} />}
+            {isStockUpModalOpen && <StockUpModal onClose={() => setIsStockUpModalOpen(false)} onSuccess={handleSuccessAction} />}
+            {moveRequest && <InventoryTransferModal moveRequest={moveRequest} onClose={() => setMoveRequest(null)} onSuccess={handleSuccessAction} />}
         </>
     );
 }
