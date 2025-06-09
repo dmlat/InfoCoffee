@@ -1,0 +1,85 @@
+/* frontend/src/pages/StandsPage.css */
+
+.stands-page {
+    width: 100%;
+}
+
+.stands-list-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    width: 100%;
+}
+
+.stand-card {
+    background: #282c34;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    border: 1px solid #303548;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.stand-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.25);
+}
+
+.stand-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #3a3e47;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+}
+
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-indicator.online {
+    background-color: #4caf50;
+    box-shadow: 0 0 8px #4caf50;
+}
+
+.status-indicator.offline {
+    background-color: #f44336;
+}
+
+.stand-name {
+    margin: 0;
+    font-size: 1.1em;
+    color: #e0e0e0;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stand-card-body {
+    flex-grow: 1;
+}
+
+.stand-card-body p {
+    margin: 0 0 8px 0;
+    font-size: 0.9em;
+    color: #a0b0c8;
+}
+
+.stand-card-footer {
+    margin-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+@media (max-width: 767px) {
+    .stands-list-container {
+        grid-template-columns: 1fr; /* Одна колонка на мобильных */
+    }
+}

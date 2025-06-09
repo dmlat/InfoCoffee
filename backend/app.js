@@ -8,7 +8,8 @@ const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
 const transactionsRoutes = require('./routes/transactions');
 const expensesRoutes = require('./routes/expenses');
-const accessRoutes = require('./routes/access'); // <-- НОВЫЙ ИМПОРТ
+const accessRoutes = require('./routes/access');
+const terminalsRoutes = require('./routes/terminals'); // <-- НОВЫЙ ИМПОРТ
 
 const app = express();
 
@@ -20,10 +21,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/transactions', transactionsRoutes);
 app.use('/api/expenses', expensesRoutes);
-app.use('/api/access', accessRoutes); // <-- НОВОЕ ПОДКЛЮЧЕНИЕ
-
-// Старый /api/vendista роут больше не нужен, т.к. его функционал переехал в /api/auth
-// Если у тебя были другие утилитарные функции в routes/vendista.js, их нужно пересмотреть.
+app.use('/api/access', accessRoutes);
+app.use('/api/terminals', terminalsRoutes); // <-- НОВОЕ ПОДКЛЮЧЕНИЕ
 
 // DB Connection Test Endpoint
 app.get('/api/test-db', async (req, res) => {
