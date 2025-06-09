@@ -2,19 +2,27 @@
 import React from 'react';
 import './TerminalListModal.css';
 
-export default function TerminalListModal({ terminals, onSelect, onClose, currentSelection, excludeTerminalId = null }) {
+export default function TerminalListModal({ terminals, onSelect, onClose, currentSelection, excludeLocation = null }) {
     
     const onlineTerminals = terminals.filter(t => (t.last_hour_online || 0) > 0);
     const offlineTerminals = terminals.filter(t => (t.last_hour_online || 0) === 0);
 
+    const isTerminalExcluded = (terminal) => {
+        if (!excludeLocation) return false;
+        // Блокируем, только если и ID терминала, и тип локации совпадают
+        // Это позволит перемещать из "Стойка А" в "Машина А"
+        return terminal.id === excludeLocation.terminalId && 
+               (excludeLocation.type === 'stand' || excludeLocation.type === 'machine');
+    };
+
     const handleCardClick = (terminal) => {
-        if (terminal.id === excludeTerminalId) return; // Не даем выбрать неактивный
+        if (isTerminalExcluded(terminal)) return;
         onSelect(terminal);
         onClose();
     };
 
     const renderTerminal = (terminal) => {
-        const isExcluded = terminal.id === excludeTerminalId;
+        const isExcluded = isTerminalExcluded(terminal);
         return (
             <div
                 key={terminal.id}

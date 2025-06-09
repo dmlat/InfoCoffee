@@ -4,10 +4,10 @@ import apiClient from '../api';
 import './Modals.css'; // Общие стили для модальных окон
 
 const INVENTORY_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода', 'Стаканы', 'Крышки', 'Размешиватели', 'Сахар'];
-const GRAMS_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф'];
+const WEIGHT_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф'];
 
 const getUnitForPlaceholder = (itemName) => {
-    if (GRAMS_ITEMS.includes(itemName)) return 'кг';
+    if (WEIGHT_ITEMS.includes(itemName)) return 'кг';
     if (itemName === 'Вода') return 'л';
     return 'шт';
 };
@@ -28,16 +28,14 @@ export default function StockUpModal({ onClose, onSuccess }) {
     };
 
     const handleAddItem = () => {
-        setItems([...items, { itemName: 'Кофе', quantity: '' }]);
+        const nextItem = INVENTORY_ITEMS.find(invItem => !items.some(i => i.itemName === invItem)) || 'Кофе';
+        setItems([...items, { itemName: nextItem, quantity: '' }]);
     };
     
     const handleAddQuantity = (index, amount) => {
         const newItems = [...items];
         const currentVal = parseFloat(newItems[index].quantity) || 0;
-        const unit = getUnitForPlaceholder(newItems[index].itemName);
-        // Для кг и л добавляем в тысячах (г, мл), для шт - как есть
-        const amountToAdd = (unit === 'кг' || unit === 'л') ? amount * 1000 : amount;
-        newItems[index].quantity = String(currentVal + amountToAdd);
+        newItems[index].quantity = String(currentVal + amount);
         setItems(newItems);
     };
 
@@ -51,10 +49,17 @@ export default function StockUpModal({ onClose, onSuccess }) {
         setIsSaving(true);
         setError('');
         
-        const itemsToStockUp = items.map(item => ({
-            ...item,
-            quantity: parseFloat(item.quantity)
-        })).filter(item => item.itemName && item.quantity > 0);
+        const itemsToStockUp = items.map(item => {
+            let finalQuantity = parseFloat(item.quantity);
+            if (!item.itemName || isNaN(finalQuantity) || finalQuantity <= 0) return null;
+
+            // Конвертируем кг и л в граммы и мл для бэкенда
+            const unit = getUnitForPlaceholder(item.itemName);
+            if (unit === 'кг' || unit === 'л') {
+                finalQuantity *= 1000;
+            }
+            return { itemName: item.itemName, quantity: finalQuantity };
+        }).filter(Boolean); // Отфильтровываем null
 
         if (itemsToStockUp.length === 0) {
             setError('Добавьте хотя бы один товар с количеством больше нуля.');
@@ -89,7 +94,9 @@ export default function StockUpModal({ onClose, onSuccess }) {
                         {error && <p className="error-message small">{error}</p>}
                         {items.map((item, index) => {
                             const unit = getUnitForPlaceholder(item.itemName);
-                            const quickAddAmounts = (unit === 'кг' || unit === 'л') ? [10, 5, 1] : [1000, 500, 100];
+                            let quickAddAmounts = [1000, 500, 100]; // Для шт
+                            if (unit === 'кг') quickAddAmounts = [1, 0.1, 0.01];
+                            if (unit === 'л') quickAddAmounts = [19, 5, 1];
                             
                             return (
                                 <div className="stock-up-item-container" key={index}>
@@ -98,8 +105,9 @@ export default function StockUpModal({ onClose, onSuccess }) {
                                             {INVENTORY_ITEMS.map(name => <option key={name} value={name}>{name}</option>)}
                                         </select>
                                         <input
-                                            type="number"
-                                            placeholder={`Кол-во, ${unit === 'кг' ? 'г' : (unit === 'л' ? 'мл' : unit)}`}
+                                            type="text" // Используем text для гибкого ввода с запятой
+                                            inputMode="decimal" // Подсказка для мобильных
+                                            placeholder={`Кол-во, ${unit}`}
                                             value={item.quantity}
                                             onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                                         />
@@ -109,6 +117,7 @@ export default function StockUpModal({ onClose, onSuccess }) {
                                         {quickAddAmounts.map(amount => (
                                             <button key={amount} type="button" onClick={() => handleAddQuantity(index, amount)}>+{amount}</button>
                                         ))}
+                                        <button type="button" onClick={() => handleItemChange(index, 'quantity', '')}>Обнулить</button>
                                     </div>
                                 </div>
                             );

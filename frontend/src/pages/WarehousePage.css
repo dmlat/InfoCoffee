@@ -129,11 +129,15 @@
 
 .inventory-grid-header {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 80px; /* Соотносится с gap и шириной стрелок в inventory-row */
+    grid-template-columns: 2fr 60px 2fr;
+    align-items: center;
+    gap: 8px;
     padding: 0 8px 8px 8px;
     font-size: 0.8em;
     color: #a0b0c8;
+}
+.inventory-grid-header span:first-child {
+    text-align: left;
 }
 .inventory-grid-header span:last-child {
     text-align: right;
@@ -213,6 +217,7 @@
         margin: 0;
     }
     .inventory-grid-header {
+        grid-template-columns: 1fr 1fr;
         gap: 10px;
     }
     .inv-item-name, .inv-item-name-right { font-size: 0.85em; }

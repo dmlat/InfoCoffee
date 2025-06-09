@@ -10,7 +10,7 @@ router.get('/', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
     try {
         const warehouseRes = await pool.query(
-            "SELECT item_name, current_stock FROM inventories WHERE user_id = $1 AND location = 'warehouse'",
+            "SELECT item_name, current_stock FROM inventories WHERE user_id = $1 AND location = 'warehouse' AND terminal_id IS NULL",
             [userId]
         );
         res.json({ success: true, warehouseStock: warehouseRes.rows });
@@ -25,10 +25,10 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 });
 
-// "Приходовать" товар на склад
+// "Приходовать" товар на склад (переработано для надежности)
 router.post('/stock-up', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
-    const { items } = req.body; // Ожидаем массив [{ item_name: 'Кофе', quantity: 5000 }]
+    const { items } = req.body;
 
     if (!Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ success: false, error: 'Неверный формат данных' });
@@ -42,17 +42,29 @@ router.post('/stock-up', authMiddleware, async (req, res) => {
             if (!item.item_name || isNaN(parseFloat(item.quantity)) || item.quantity <= 0) {
                 continue; // Пропускаем некорректные записи
             }
-
-            await client.query(
-                `INSERT INTO inventories (user_id, location, item_name, current_stock)
-                 VALUES ($1, 'warehouse', $2, $3)
-                 ON CONFLICT (user_id, terminal_id, item_name, location)
-                 DO UPDATE SET
-                    current_stock = inventories.current_stock + EXCLUDED.current_stock,
-                    updated_at = NOW()
-                 WHERE inventories.user_id = $1 AND inventories.location = 'warehouse' AND inventories.item_name = $2`,
-                [userId, item.item_name, item.quantity]
+            
+            // 1. Пытаемся найти существующую запись
+            const existingItem = await client.query(
+                `SELECT id FROM inventories 
+                 WHERE user_id = $1 AND location = 'warehouse' AND item_name = $2 AND terminal_id IS NULL`,
+                [userId, item.item_name]
             );
+
+            if (existingItem.rows.length > 0) {
+                // 2a. Если запись есть - обновляем
+                await client.query(
+                    `UPDATE inventories SET current_stock = current_stock + $1, updated_at = NOW()
+                     WHERE id = $2`,
+                    [item.quantity, existingItem.rows[0].id]
+                );
+            } else {
+                // 2b. Если записи нет - создаем новую
+                await client.query(
+                    `INSERT INTO inventories (user_id, location, terminal_id, item_name, current_stock)
+                     VALUES ($1, 'warehouse', NULL, $2, $3)`,
+                    [userId, item.item_name, item.quantity]
+                );
+            }
         }
         
         await client.query('COMMIT');

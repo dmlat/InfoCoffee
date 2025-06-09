@@ -83,7 +83,7 @@
     margin-bottom: 12px;
 }
 
-/* Стили для StockUpModal */
+/* --- Стили для StockUpModal --- */
 .stock-up-item-container {
     margin-bottom: 12px;
     padding-bottom: 12px;
@@ -91,10 +91,13 @@
 }
 .stock-up-item-container:last-of-type {
     border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
 }
 
 .stock-up-item-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 120px 36px;
     gap: 8px;
     align-items: center;
 }
@@ -108,9 +111,10 @@
     height: 40px;
     box-sizing: border-box;
 }
-.stock-up-item-row select { flex: 2; }
-.stock-up-item-row input { flex: 1; max-width: 150px; }
+.stock-up-item-row select { grid-column: 1 / 2; }
+.stock-up-item-row input { grid-column: 2 / 3; }
 .remove-item-btn {
+    grid-column: 3 / 4;
     background-color: #4a4f58;
     color: white;
     border: none;
@@ -128,11 +132,11 @@
     background-color: #e06b6b;
 }
 
-.stock-up-quick-add {
+.quick-add-buttons.stock-up-quick-add {
     margin-top: 8px;
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     gap: 6px;
-    justify-content: flex-end;
 }
 .stock-up-quick-add button {
     background-color: #2e3340;
@@ -153,7 +157,7 @@
     padding: 8px;
     border-radius: 6px;
     cursor: pointer;
-    margin-top: 8px;
+    margin-top: 16px;
 }
 
 /* Стили для InventoryTransferModal */

@@ -7,7 +7,7 @@ import TerminalListModal from '../components/TerminalListModal';
 import QuickTransferModal from '../components/QuickTransferModal';
 
 const MACHINE_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода'];
-const STAND_ITEMS = ['Стаканы', 'Крышки', 'Размешиватели', 'Сахар'];
+const STAND_ITEMS = ['Стаканы', 'Крышки', 'Размеш.', 'Сахар']; // Сократили "Размешиватели"
 const ABBREVIATIONS = {
     'Размешиватели': 'Размеш.'
 };
@@ -262,7 +262,7 @@ export default function WarehousePage() {
                     onClose={() => setTerminalModal({ isOpen: false, panel: null })}
                     onSelect={handleTerminalSelect}
                     currentSelection={terminalModal.panel === 'from' ? from.terminalId : to.terminalId}
-                    excludeTerminalId={terminalModal.panel === 'to' && from.type !== 'warehouse' ? from.terminalId : null}
+                    excludeLocation={terminalModal.panel === 'to' ? from : null}
                 />
             )}
 
