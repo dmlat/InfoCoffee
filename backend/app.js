@@ -9,7 +9,8 @@ const profileRoutes = require('./routes/profile');
 const transactionsRoutes = require('./routes/transactions');
 const expensesRoutes = require('./routes/expenses');
 const accessRoutes = require('./routes/access');
-const terminalsRoutes = require('./routes/terminals'); // <-- НОВЫЙ ИМПОРТ
+const terminalsRoutes = require('./routes/terminals');
+const recipesRoutes = require('./routes/recipes'); // <-- НОВЫЙ ИМПОРТ
 
 const app = express();
 
@@ -22,7 +23,8 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/transactions', transactionsRoutes);
 app.use('/api/expenses', expensesRoutes);
 app.use('/api/access', accessRoutes);
-app.use('/api/terminals', terminalsRoutes); // <-- НОВОЕ ПОДКЛЮЧЕНИЕ
+app.use('/api/terminals', terminalsRoutes);
+app.use('/api/recipes', recipesRoutes); // <-- НОВОЕ ПОДКЛЮЧЕНИЕ
 
 // DB Connection Test Endpoint
 app.get('/api/test-db', async (req, res) => {

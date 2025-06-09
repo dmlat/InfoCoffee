@@ -35,7 +35,7 @@ function decrypt(text) {
     }
 }
 
-// --- Вспомогательная функция для поиска или создания терминала в нашей БД ---
+// Вспомогательная функция для поиска или создания терминала в нашей БД
 async function findOrCreateTerminal(client, userId, vendistaId, details = {}) {
     let terminalRes = await client.query('SELECT id FROM terminals WHERE vendista_terminal_id = $1 AND user_id = $2', [vendistaId, userId]);
     let internalTerminalId;
@@ -95,10 +95,7 @@ router.get('/', authMiddleware, async (req, res) => {
     } catch (err) {
         console.error(`[GET /api/terminals] UserID: ${userId} - Error:`, err);
         sendErrorToAdmin({
-            userId: userId,
-            errorContext: `GET /api/terminals - UserID: ${userId}`,
-            errorMessage: err.message,
-            errorStack: err.stack,
+            userId, errorContext: `GET /api/terminals`, errorMessage: err.message, errorStack: err.stack
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при получении списка стоек' });
     }
@@ -124,13 +121,14 @@ router.get('/vendista/:vendistaId/details', authMiddleware, async (req, res) => 
         
         res.json({
             success: true,
+            internalId: internalTerminalId, // <<<--- ВОТ ИСПРАВЛЕНИЕ: ДОБАВЛЕНА ЭТА СТРОКА
             details: { inventory: inventoryRes.rows }
         });
 
     } catch (err) {
         console.error(`[GET /api/terminals/vendista/:id/details] UserID: ${userId} - Error:`, err);
         sendErrorToAdmin({
-            userId: userId, errorContext: `GET /api/terminals/vendista/${vendistaId}/details`,
+            userId, errorContext: `GET /api/terminals/vendista/${vendistaId}/details`,
             errorMessage: err.message, errorStack: err.stack,
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при получении деталей стойки' });
@@ -139,16 +137,13 @@ router.get('/vendista/:vendistaId/details', authMiddleware, async (req, res) => 
     }
 });
 
-// --- НОВЫЙ ЭНДПОИНТ ДЛЯ СОХРАНЕНИЯ НАСТРОЕК ---
+// Сохранить/обновить настройки остатков
 router.post('/vendista/:vendistaId/settings', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
     const { vendistaId } = req.params;
-    const { inventorySettings } = req.body; // Ожидаем массив объектов
+    const { inventorySettings } = req.body; 
 
-    if (!vendistaId || isNaN(parseInt(vendistaId))) {
-        return res.status(400).json({ success: false, error: 'Некорректный ID терминала' });
-    }
-    if (!Array.isArray(inventorySettings)) {
+    if (!vendistaId || isNaN(parseInt(vendistaId)) || !Array.isArray(inventorySettings)) {
         return res.status(400).json({ success: false, error: 'Неверный формат данных' });
     }
 
@@ -158,11 +153,9 @@ router.post('/vendista/:vendistaId/settings', authMiddleware, async (req, res) =
 
         const internalTerminalId = await findOrCreateTerminal(client, userId, vendistaId);
 
-        // Используем цикл для обновления или вставки каждой настройки
         for (const item of inventorySettings) {
             const { item_name, location, max_stock, critical_stock } = item;
             
-            // Валидация
             if (!item_name || !location) continue;
             const max = max_stock !== null && !isNaN(parseFloat(max_stock)) ? parseFloat(max_stock) : null;
             const critical = critical_stock !== null && !isNaN(parseFloat(critical_stock)) ? parseFloat(critical_stock) : null;
@@ -186,12 +179,35 @@ router.post('/vendista/:vendistaId/settings', authMiddleware, async (req, res) =
         await client.query('ROLLBACK');
         console.error(`[POST /api/terminals/vendista/:id/settings] UserID: ${userId} - Error:`, err);
         sendErrorToAdmin({
-            userId: userId, errorContext: `POST /api/terminals/vendista/${vendistaId}/settings`,
+            userId, errorContext: `POST /api/terminals/vendista/${vendistaId}/settings`,
             errorMessage: err.message, errorStack: err.stack,
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при сохранении настроек' });
     } finally {
         client.release();
+    }
+});
+
+// Получить уникальные ID кнопок (напитков) для терминала из транзакций
+router.get('/vendista/:vendistaId/machine-items', authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
+    const { vendistaId } = req.params;
+
+    try {
+        const itemsRes = await pool.query(
+            `SELECT DISTINCT machine_item_id FROM transactions
+             WHERE user_id = $1 AND coffee_shop_id = $2 AND machine_item_id IS NOT NULL
+             ORDER BY machine_item_id ASC`,
+            [userId, vendistaId]
+        );
+        res.json({ success: true, machineItems: itemsRes.rows.map(row => row.machine_item_id) });
+    } catch(err) {
+        console.error(`[GET /api/terminals/:id/machine-items] UserID: ${userId} - Error:`, err);
+        sendErrorToAdmin({
+            userId, errorContext: `GET /api/terminals/vendista/${vendistaId}/machine-items`,
+            errorMessage: err.message, errorStack: err.stack,
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при получении списка напитков' });
     }
 });
 

@@ -237,3 +237,56 @@ input[type=number]::-webkit-outer-spin-button {
 .save-status.error {
     color: #f44336;
 }
+
+/* Дополнительные стили для StandDetailModal.css для вкладки Рецепты */
+
+.recipes-form .table-scroll-container {
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+.recipes-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+.recipes-table th, .recipes-table td {
+    padding: 8px;
+    text-align: center;
+    border: 1px solid #3a3e47;
+    white-space: nowrap;
+}
+
+.recipes-table th {
+    background-color: #2e3340;
+    color: #a0b0c8;
+}
+
+.recipes-table .item-id-cell {
+    font-weight: bold;
+    color: #8ae6ff;
+    background-color: #2e3340;
+}
+
+.recipes-table input {
+    background-color: transparent;
+    border: none;
+    color: #e0e0e0;
+    text-align: center;
+    width: 100%;
+    min-width: 50px;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.recipes-table input:focus {
+    outline: none;
+    background-color: #3e67e0;
+}
+
+.recipes-table td:nth-child(2) input {
+    min-width: 120px;
+    text-align: left;
+}
