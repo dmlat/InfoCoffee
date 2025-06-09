@@ -65,7 +65,11 @@ export default function StockUpModal({ onClose, onSuccess }) {
             let finalQuantity = parseFloat(normalizedQuantity);
             if (!item.itemName || isNaN(finalQuantity) || finalQuantity <= 0) return null;
 
-            return { itemName: item.item_name, quantity: finalQuantity };
+            // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+            // Было: { itemName: item.item_name, quantity: finalQuantity }
+            // Стало: { item_name: item.itemName, quantity: finalQuantity }
+            // Бэкенд ожидает ключ `item_name`, а в состоянии у нас `itemName`.
+            return { item_name: item.itemName, quantity: finalQuantity };
         }).filter(Boolean);
 
         if (itemsToStockUp.length === 0) {
