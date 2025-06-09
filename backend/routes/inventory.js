@@ -9,10 +9,17 @@ const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 router.post('/move', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
     const { from, to, item_name, quantity } = req.body;
-    // from, to - объекты вида { location: 'warehouse', terminal_id: null } или { location: 'stand', terminal_id: 1 }
+    // from, to - объекты вида { location: 'warehouse', terminal_id: null } или { location: 'stand', terminal_id: 123 (НАШ ВНУТРЕННИЙ ID) }
+
+    console.log(`[POST /api/inventory/move] UserID: ${userId} - Received request body:`, JSON.stringify(req.body, null, 2));
 
     if (!from || !to || !item_name || isNaN(parseFloat(quantity)) || quantity <= 0) {
         return res.status(400).json({ success: false, error: 'Не все поля для перемещения заполнены корректно.' });
+    }
+
+    // Проверка, что ID терминалов (если они есть) являются числами
+    if ((from.terminal_id && isNaN(parseInt(from.terminal_id))) || (to.terminal_id && isNaN(parseInt(to.terminal_id)))) {
+        return res.status(400).json({ success: false, error: 'Некорректный внутренний ID терминала.' });
     }
 
     const client = await pool.pool.connect();

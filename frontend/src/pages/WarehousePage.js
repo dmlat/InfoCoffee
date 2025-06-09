@@ -7,7 +7,7 @@ import TerminalListModal from '../components/TerminalListModal';
 import QuickTransferModal from '../components/QuickTransferModal';
 
 const MACHINE_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода'];
-const STAND_ITEMS = ['Стаканы', 'Крышки', 'Размеш.', 'Сахар']; // Сократили "Размешиватели"
+const STAND_ITEMS = ['Стаканы', 'Крышки', 'Размеш.', 'Сахар'];
 const ABBREVIATIONS = {
     'Размешиватели': 'Размеш.'
 };
@@ -26,8 +26,9 @@ const formatStock = (item_name, stock) => {
 
 export default function WarehousePage() {
     const [terminals, setTerminals] = useState([]);
-    const [from, setFrom] = useState({ type: 'warehouse', terminalId: null, terminalName: 'Склад', inventory: [] });
-    const [to, setTo] = useState({ type: 'stand', terminalId: null, terminalName: '', inventory: [] });
+    // ИЗМЕНЕНО: Добавляем internalId в состояние панелей
+    const [from, setFrom] = useState({ type: 'warehouse', terminalId: null, internalId: null, terminalName: 'Склад', inventory: [] });
+    const [to, setTo] = useState({ type: 'stand', terminalId: null, internalId: null, terminalName: '', inventory: [] });
     
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -36,29 +37,32 @@ export default function WarehousePage() {
     const [terminalModal, setTerminalModal] = useState({ isOpen: false, panel: null });
     const [quickTransferModal, setQuickTransferModal] = useState({ isOpen: false, request: null });
 
-    const fetchInventory = useCallback(async (location) => {
-        if (!location) return [];
+    const fetchPanelData = useCallback(async (location) => {
+        if (!location) return { inventory: [], internalId: null };
         try {
             if (location.type === 'warehouse') {
                 const res = await apiClient.get('/warehouse');
-                return res.data.success ? res.data.warehouseStock || [] : [];
+                const inventory = res.data.success ? res.data.warehouseStock || [] : [];
+                return { inventory, internalId: null };
             }
             if (location.terminalId && (location.type === 'stand' || location.type === 'machine')) {
                 const res = await apiClient.get(`/terminals/vendista/${location.terminalId}/details`);
                 const inventory = res.data.success ? res.data.details?.inventory || [] : [];
-                return inventory.filter(item => item.location === location.type);
+                const internalId = res.data.success ? res.data.internalId : null;
+                const filteredInventory = inventory.filter(item => item.location === location.type);
+                return { inventory: filteredInventory, internalId };
             }
         } catch(err) {
             console.error(`Failed to fetch inventory for`, location, err);
-            setError(`Ошибка загрузки данных.`);
+            setError(`Ошибка загрузки данных для ${location.terminalName || 'склада'}.`);
         }
-        return [];
+        return { inventory: [], internalId: null };
     }, []);
 
     const updatePanel = useCallback(async (panelSetter, panelState) => {
-        const inventory = await fetchInventory(panelState);
-        panelSetter(prev => ({ ...prev, ...panelState, inventory }));
-    }, [fetchInventory]);
+        const { inventory, internalId } = await fetchPanelData(panelState);
+        panelSetter(prev => ({ ...prev, ...panelState, inventory, internalId }));
+    }, [fetchPanelData]);
     
     useEffect(() => {
         const loadInitialData = async () => {
@@ -71,25 +75,24 @@ export default function WarehousePage() {
                 const fetchedTerminals = terminalsResponse.data.terminals || [];
                 setTerminals(fetchedTerminals);
 
-                const initialFrom = { type: 'warehouse', terminalId: null, terminalName: 'Склад' };
-                let initialTo = { type: 'stand', terminalId: null, terminalName: 'Выберите стойку' };
+                const initialFromState = { type: 'warehouse', terminalId: null, terminalName: 'Склад' };
+                let initialToState = { type: 'stand', terminalId: null, terminalName: 'Выберите стойку' };
 
                 if (fetchedTerminals.length > 0) {
-                    initialTo = { 
+                    initialToState = { 
                         type: 'stand', 
                         terminalId: fetchedTerminals[0]?.id, 
                         terminalName: fetchedTerminals[0]?.comment || `Стойка #${fetchedTerminals[0]?.id}`
                     };
                 }
 
-
-                const [fromInventory, toInventory] = await Promise.all([
-                    fetchInventory(initialFrom),
-                    fetchInventory(initialTo)
+                const [fromData, toData] = await Promise.all([
+                    fetchPanelData(initialFromState),
+                    fetchPanelData(initialToState)
                 ]);
 
-                setFrom({ ...initialFrom, inventory: fromInventory });
-                setTo({ ...initialTo, inventory: toInventory });
+                setFrom({ ...initialFromState, inventory: fromData.inventory, internalId: fromData.internalId });
+                setTo({ ...initialToState, inventory: toData.inventory, internalId: toData.internalId });
 
             } catch (err) {
                 setError(err.response?.data?.error || err.message || 'Ошибка сети при загрузке данных.');
@@ -98,7 +101,7 @@ export default function WarehousePage() {
             }
         };
         loadInitialData();
-    }, [fetchInventory]);
+    }, [fetchPanelData]);
 
     const handleLocationTypeChange = (panel, newType) => {
         const panelSetter = panel === 'from' ? setFrom : setTo;
@@ -111,10 +114,6 @@ export default function WarehousePage() {
             const oppositePanelState = panel === 'from' ? to : from;
             let defaultTerminal = terminals.find(t => t.id !== oppositePanelState.terminalId) || terminals[0];
             
-            if (isInvalidMove({type: newType, terminalId: defaultTerminal.id }, oppositePanelState)) {
-                 defaultTerminal = terminals.find(t => t.id !== oppositePanelState.terminalId && t.id !== defaultTerminal.id) || defaultTerminal;
-            }
-
             newTerminalId = defaultTerminal.id;
             newTerminalName = defaultTerminal.comment;
         } else {
@@ -128,7 +127,7 @@ export default function WarehousePage() {
         if (!terminalModal.panel) return;
         const panelSetter = terminalModal.panel === 'from' ? setFrom : setTo;
         const currentPanelState = terminalModal.panel === 'from' ? from : to;
-        updatePanel(panelSetter, { type: currentPanelState.type, terminalId: terminal.id, terminalName: terminal.comment });
+        updatePanel(panelSetter, { ...currentPanelState, terminalId: terminal.id, terminalName: terminal.comment });
     };
 
     const handleSuccessAction = useCallback(() => {
@@ -178,14 +177,17 @@ export default function WarehousePage() {
             
             if (isInvalidMove(source, destination)) return;
 
+            // ИЗМЕНЕНО: в from и to теперь передаем объект с internalId
+            const request = {
+                item_name: itemName,
+                currentStock: source.inventory.find(i => i.item_name === itemName)?.current_stock || 0,
+                from: { type: source.type, terminalId: source.internalId, terminalName: source.terminalName },
+                to: { type: destination.type, terminalId: destination.internalId, terminalName: destination.terminalName },
+            };
+
             setQuickTransferModal({ 
                 isOpen: true,
-                request: { 
-                    item_name: itemName, 
-                    currentStock: source.inventory.find(i=>i.item_name === itemName)?.current_stock || 0, 
-                    from: source, 
-                    to: destination 
-                }
+                request: request
             });
         };
 
@@ -262,7 +264,6 @@ export default function WarehousePage() {
                     onClose={() => setTerminalModal({ isOpen: false, panel: null })}
                     onSelect={handleTerminalSelect}
                     currentSelection={terminalModal.panel === 'from' ? from.terminalId : to.terminalId}
-                    excludeLocation={terminalModal.panel === 'to' ? from : null}
                 />
             )}
 

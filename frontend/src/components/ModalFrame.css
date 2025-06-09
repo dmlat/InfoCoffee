@@ -1,0 +1,64 @@
+/* frontend/src/components/ModalFrame.css */
+/* Этот файл содержит ТОЛЬКО базовые стили для "рамы" модального окна:
+  - оверлей (полупрозрачный фон)
+  - основной контейнер, который становится полноэкранным на мобильных.
+  
+  Компоненты модальных окон должны импортировать этот файл для общего вида,
+  а все внутренние стили (шапку, тело, кнопки) определять в своих CSS файлах.
+*/
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.modal-content {
+    background: #23272f;
+    border: 1px solid #3a3e47;
+    border-radius: 12px;
+    width: 100%;
+    /* max-width у каждого модального окна будет свой */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: modal-fade-in 0.2s ease-out;
+}
+
+@keyframes modal-fade-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Полноэкранный режим для всех модальных окон на мобильных устройствах.
+  Обеспечивает адаптивность и предотвращает горизонтальный скролл.
+*/
+@media (max-width: 767px) {
+    .modal-overlay {
+        padding: 0;
+        align-items: flex-end; /* Модальное окно "выезжает" снизу */
+    }
+    .modal-content {
+        max-width: 100%;
+        width: 100%;
+        height: auto;
+        max-height: 90vh; /* Ограничиваем высоту, чтобы было видно что сзади */
+        border-radius: 12px 12px 0 0;
+        animation: modal-slide-up 0.3s ease-out;
+        border: none;
+    }
+
+    @keyframes modal-slide-up {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+}

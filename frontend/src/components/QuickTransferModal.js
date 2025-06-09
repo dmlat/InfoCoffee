@@ -1,8 +1,8 @@
 // frontend/src/components/QuickTransferModal.js
 import React, { useState, useMemo } from 'react';
 import apiClient from '../api';
-import './Modals.css';
-import './QuickTransferModal.css'; // Импортируем свой CSS
+import './ModalFrame.css'; // Используем новую "раму"
+import './QuickTransferModal.css';
 
 const GRAMS_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф'];
 const ML_ITEMS = ['Вода'];
@@ -14,9 +14,9 @@ export default function QuickTransferModal({ moveRequest, onClose, onSuccess }) 
     const [error, setError] = useState('');
 
     const unitInfo = useMemo(() => {
-        if (GRAMS_ITEMS.includes(item_name)) return { name: 'килограммах', short: 'кг', multiplier: 1000 };
-        if (ML_ITEMS.includes(item_name)) return { name: 'литрах', short: 'л', multiplier: 1000 };
-        return { name: 'штуках', short: 'шт', multiplier: 1 };
+        if (GRAMS_ITEMS.includes(item_name)) return { name: 'килограммах', short: 'кг', multiplier: 1000, buttons: [1, 0.5, 0.1, 0.05] };
+        if (ML_ITEMS.includes(item_name)) return { name: 'литрах', short: 'л', multiplier: 1000, buttons: [5, 1, 0.5, 0.1] };
+        return { name: 'штуках', short: 'шт', multiplier: 1, buttons: [100, 50, 10, 1] };
     }, [item_name]);
 
     const availableStock = useMemo(() => {
@@ -41,7 +41,6 @@ export default function QuickTransferModal({ moveRequest, onClose, onSuccess }) 
         setError('');
 
         try {
-            // Конвертируем обратно в граммы/мл для бэкенда
             const payloadQuantity = numQuantity * unitInfo.multiplier;
 
             const payload = {
@@ -86,11 +85,14 @@ export default function QuickTransferModal({ moveRequest, onClose, onSuccess }) 
                     </div>
                     <div className="modal-body">
                         <p className="quick-transfer-hint">
-                            Остатки <span className="highlight">{item_name}</span> считаются в <span className="highlight">{unitInfo.name}</span>.
+                            Введите количество для перемещения в <span className="highlight">{unitInfo.name}</span>.
                         </p>
                         
                         <div className="quick-transfer-input-group">
-                            <label htmlFor="transfer-quantity">Количество ({unitInfo.short}), доступно: {availableStock}</label>
+                            <label htmlFor="transfer-quantity">
+                                Количество <span className="highlight">({unitInfo.short})</span>, 
+                                доступно: <span className="highlight">{availableStock}</span>
+                            </label>
                             <input
                                 id="transfer-quantity"
                                 type="text"
@@ -98,15 +100,13 @@ export default function QuickTransferModal({ moveRequest, onClose, onSuccess }) 
                                 placeholder="0"
                                 value={quantity}
                                 onChange={(e) => setQuantity(e.target.value.replace(/[^0-9,.]/g, ''))}
-                                autoFocus
                             />
                         </div>
 
                         <div className="quick-add-buttons">
-                            <button type="button" onClick={() => addQuantity(100)}>+100</button>
-                            <button type="button" onClick={() => addQuantity(10)}>+10</button>
-                            <button type="button" onClick={() => addQuantity(1)}>+1</button>
-                            <button type="button" onClick={() => setQuantity('')}>Сброс</button>
+                            {unitInfo.buttons.map(amount => (
+                                <button key={amount} type="button" onClick={() => addQuantity(amount)}>+{amount}</button>
+                            ))}
                         </div>
                         
                         {error && <p className="error-message small">{error}</p>}
