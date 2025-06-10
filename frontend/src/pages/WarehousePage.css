@@ -34,27 +34,28 @@
 }
 
 .step-selector-container {
-    margin-bottom: 16px;
+    margin-bottom: 20px;
 }
 .step-selector {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
 }
 .step-group {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
 }
 .step-label {
     font-size: 0.85em;
     color: #a0b0c8;
     white-space: nowrap;
     flex-shrink: 0;
+    min-width: 75px;
 }
 .step-buttons {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+    grid-template-columns: repeat(5, 1fr);
     gap: 6px;
     width: 100%;
 }
@@ -80,6 +81,7 @@
     flex-direction: column;
     gap: 4px;
 }
+
 .grid-header {
     display: grid;
     grid-template-columns: 1.5fr 40px 1fr 40px 1.5fr;
@@ -89,6 +91,7 @@
     font-weight: 600;
     color: #8ae6ff;
     align-items: center;
+    border-bottom: 1px solid #3a3e47;
 }
 .grid-header .terminal-selector-btn {
     background: #23272f;
@@ -102,25 +105,38 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.grid-header span { text-align: center; }
+.grid-header .col-wh { text-align: left; }
+.grid-header .col-machine { text-align: center; }
+.grid-header .terminal-selector-btn { text-align: center; }
 
 .inventory-row {
     display: grid;
     grid-template-columns: 1.5fr 40px 1fr 40px 1.5fr;
     gap: 8px;
-    padding: 6px 8px;
+    padding: 6px;
     border-radius: 6px;
     align-items: center;
-    min-height: 40px;
-}
-.inventory-row:nth-child(odd) {
-    background-color: #2f343e;
+    min-height: 44px;
+    transition: background-color 0.3s;
 }
 
+.inventory-row.loading {
+    background-color: rgba(62, 103, 224, 0.15);
+}
+
+.inventory-row:nth-child(even) {
+    background-color: #2f343e;
+}
+.inventory-row:nth-child(even).loading {
+    background-color: rgba(62, 103, 224, 0.25);
+}
+
+
 .wh-item-cell {
-    display: flex;
+    display: grid;
+    grid-template-columns: 28px 1fr auto 28px;
     align-items: center;
-    justify-content: space-between;
+    gap: 5px;
 }
 .item-name-group {
     display: flex;
@@ -130,20 +146,29 @@
 .item-name-group .item-name { font-weight: 500; color: #c6c6c6; }
 .item-name-group .item-unit { font-size: 0.8em; color: #8a9db8; }
 .adjust-btn {
-    font-size: 1.4em;
+    font-size: 1.5em;
+    font-weight: 600;
     background: none;
     border: none;
     cursor: pointer;
     color: #8a9db8;
-    padding: 2px 4px;
+    padding: 0;
+    width: 28px;
+    height: 28px;
+    line-height: 28px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
 }
-.adjust-btn:disabled { cursor: not-allowed; opacity: 0.3; }
+.adjust-btn:hover:not(:disabled) {
+    background-color: #3e4452;
+}
+.adjust-btn:disabled { cursor: not-allowed; opacity: 0.2; }
 
 .transfer-arrows {
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
 }
 .transfer-arrow {
     background: none;
@@ -152,32 +177,43 @@
     color: #a0b0c8;
     cursor: pointer;
     width: 28px;
-    height: 18px;
+    height: 20px;
+    font-size: 1.1em;
+    font-weight: bold;
     line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-.transfer-arrow:disabled { cursor: not-allowed; opacity: 0.2; }
+.transfer-arrow:disabled { cursor: not-allowed; opacity: 0.2; border-color: #4a4f58 !important; color: #a0b0c8 !important; }
 .transfer-arrow.right:not(:disabled) { border-color: #4caf50; color: #4caf50; }
 .transfer-arrow.left:not(:disabled) { border-color: #e06b6b; color: #e06b6b; }
+.no-transfer-placeholder { color: #4a4f58; }
 
 
 .stock-cell {
     font-weight: 500;
     text-align: center;
+    font-size: 1.1em;
 }
 
 .machine-cell {
     width: 100%;
 }
 .machine-info-placeholder {
+    display: block;
     font-size: 0.8em;
     text-align: center;
     color: #ff8a8a;
     cursor: pointer;
     text-decoration: underline;
+    padding: 5px;
 }
+
 .progress-bar-container {
-    height: 24px;
-    background-color: #3a3e47;
+    height: 28px;
+    background-color: #23272f;
+    border: 1px solid #3a3e47;
     border-radius: 5px;
     overflow: hidden;
     position: relative;
@@ -187,7 +223,7 @@
 }
 .progress-bar-fill {
     height: 100%;
-    background-color: #4caf50;
+    background-color: #3e67e0; /* Синий цвет для хорошего контраста с белым текстом */
     position: absolute;
     left: 0;
     top: 0;
@@ -198,13 +234,68 @@
     top: 0;
     bottom: 0;
     width: 2px;
-    background-color: #ffc107;
+    background-color: #e06b6b; /* Ярко-красный */
+    z-index: 2;
 }
 .progress-bar-text {
     position: relative;
     z-index: 1;
     color: white;
-    font-size: 0.8em;
+    font-size: 0.85em;
     font-weight: bold;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+
+.info-notification {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #e06b6b;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    z-index: 2000;
+    font-size: 0.9em;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    animation: fade-in-out 3s ease-in-out;
+}
+
+@keyframes fade-in-out {
+    0% { opacity: 0; transform: translate(-50%, 20px); }
+    15% { opacity: 1; transform: translate(-50%, 0); }
+    85% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, 20px); }
+}
+
+@media (max-width: 767px) {
+    .inventory-block {
+        padding: 10px;
+    }
+    .grid-header, .inventory-row {
+        grid-template-columns: 1.2fr 35px 0.8fr 35px 1.2fr;
+        gap: 4px;
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+    .wh-item-cell {
+        gap: 2px;
+        grid-template-columns: 24px 1fr auto 24px;
+    }
+    .item-name-group .item-name { font-size: 0.9em; }
+    .item-name-group .item-unit { font-size: 0.7em; }
+    .adjust-btn, .transfer-arrow {
+        width: 24px;
+        height: 24px;
+    }
+    .transfer-arrow {
+        height: 18px;
+        font-size: 1em;
+    }
+     .stock-cell {
+        font-size: 1em;
+    }
+    .step-label {
+        min-width: 65px;
+    }
 }

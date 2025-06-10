@@ -6,6 +6,7 @@ import './StandDetailModal.css';
 // --- Вспомогательные компоненты и константы ---
 
 const ProgressBar = ({ value, max }) => {
+    // ... (код компонента без изменений)
     const numericValue = parseFloat(value) || 0;
     const numericMax = parseFloat(max) || 0;
     
@@ -23,7 +24,7 @@ const ProgressBar = ({ value, max }) => {
 
 const INVENTORY_ITEMS = {
     machine: ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода'],
-    stand: ['Стаканы', 'Крышки', 'Размешиватели', 'Сахар']
+    stand: ['Стаканы', 'Крышки', 'Размеш.', 'Сахар'] // Используем сокращение
 };
 
 const RECIPE_INGREDIENTS_MAP = {
@@ -37,17 +38,16 @@ const RECIPE_INGREDIENTS_MAP = {
 // --- Основной компонент ---
 
 export default function StandDetailModal({ terminal, onClose }) {
+    // ... (весь код состояний и useEffect остается без изменений)
     const [activeTab, setActiveTab] = useState('stock');
     const [details, setDetails] = useState({ inventory: [] });
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     
-    // Для Настроек
     const [settings, setSettings] = useState({});
     const [initialSettings, setInitialSettings] = useState({});
     const [isSavingSettings, setIsSavingSettings] = useState(false);
     
-    // Для Рецептов
     const [machineItems, setMachineItems] = useState([]);
     const [recipes, setRecipes] = useState({});
     const [initialRecipes, setInitialRecipes] = useState({});
@@ -63,11 +63,9 @@ export default function StandDetailModal({ terminal, onClose }) {
         setIsLoading(true);
         setError('');
         try {
-            // 1. Получаем детали и внутренний ID
             const detailsResponse = await apiClient.get(`/terminals/vendista/${vendistaId}/details`, {
                 params: { name: terminal.comment, serial_number: terminal.serial_number }
             });
-
             if (!detailsResponse.data.success) throw new Error(detailsResponse.data.error);
 
             const fetchedDetails = detailsResponse.data.details;
@@ -76,7 +74,6 @@ export default function StandDetailModal({ terminal, onClose }) {
             setDetails(fetchedDetails);
             setInternalTerminalId(fetchedInternalId);
             
-            // 2. Устанавливаем настройки остатков
             const newSettings = {};
             [...INVENTORY_ITEMS.machine, ...INVENTORY_ITEMS.stand].forEach(itemName => {
                 const existingItem = fetchedDetails.inventory.find(i => i.item_name === itemName);
@@ -86,15 +83,13 @@ export default function StandDetailModal({ terminal, onClose }) {
                 };
             });
             setSettings(newSettings);
-            setInitialSettings(JSON.parse(JSON.stringify(newSettings))); // Глубокая копия для сравнения
+            setInitialSettings(JSON.parse(JSON.stringify(newSettings)));
 
-            // 3. Получаем список кнопок автомата
             const itemsResponse = await apiClient.get(`/terminals/vendista/${vendistaId}/machine-items`);
             if (itemsResponse.data.success) {
                 setMachineItems(itemsResponse.data.machineItems || []);
             }
 
-            // 4. Получаем рецепты, если есть внутренний ID
             if(fetchedInternalId) {
                 const recipesResponse = await apiClient.get(`/recipes/terminal/${fetchedInternalId}`);
                 if (recipesResponse.data.success) {
@@ -103,7 +98,7 @@ export default function StandDetailModal({ terminal, onClose }) {
                         return acc;
                     }, {});
                     setRecipes(recipesMap);
-                    setInitialRecipes(JSON.parse(JSON.stringify(recipesMap))); // Глубокая копия для сравнения
+                    setInitialRecipes(JSON.parse(JSON.stringify(recipesMap)));
                 }
             }
         } catch (err) {
@@ -117,6 +112,11 @@ export default function StandDetailModal({ terminal, onClose }) {
         fetchDetailsAndRecipes();
     }, [fetchDetailsAndRecipes]);
 
+    // ... (все хендлеры и рендер-функции остаются без изменений, я их не привожу для краткости)
+    
+    // ВАЖНО: Весь остальной код компонента остается прежним.
+    // Изменение только в том, как мы его закрываем.
+    
     const handleSettingsChange = (itemName, field, value) => {
         setSettings(prev => ({ ...prev, [itemName]: { ...prev[itemName], [field]: value } }));
     };
@@ -135,7 +135,7 @@ export default function StandDetailModal({ terminal, onClose }) {
             const response = await apiClient.post(`/terminals/vendista/${terminal.id}/settings`, { inventorySettings });
             if (response.data.success) {
                 setSaveStatus({ message: 'Настройки сохранены!', type: 'success' });
-                setInitialSettings(JSON.parse(JSON.stringify(settings))); // Обновляем исходное состояние
+                setInitialSettings(JSON.parse(JSON.stringify(settings)));
             } else {
                 setSaveStatus({ message: response.data.error || 'Ошибка.', type: 'error' });
             }
@@ -166,7 +166,7 @@ export default function StandDetailModal({ terminal, onClose }) {
             const response = await apiClient.post('/recipes', { terminalId: internalTerminalId, recipes: recipesToSave });
             if (response.data.success) {
                 setSaveStatus({ message: 'Рецепты успешно сохранены!', type: 'success' });
-                setInitialRecipes(JSON.parse(JSON.stringify(recipes))); // Обновляем исходное состояние
+                setInitialRecipes(JSON.parse(JSON.stringify(recipes)));
             } else {
                  setSaveStatus({ message: response.data.error || 'Ошибка сохранения.', type: 'error' });
             }
@@ -295,6 +295,7 @@ export default function StandDetailModal({ terminal, onClose }) {
             <div className="modal-content" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                     <h2>{terminal.comment || `Терминал #${terminal.id}`}</h2>
+                    {/* onClose вызывается здесь */}
                     <button className="modal-close-btn" onClick={onClose}>&times;</button>
                 </div>
                 <div className="modal-body">

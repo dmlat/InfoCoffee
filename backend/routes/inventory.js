@@ -9,39 +9,46 @@ const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 router.post('/move', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
     const { from, to, item_name, quantity } = req.body;
-    // from, to - объекты вида { location: 'warehouse', terminal_id: null } или { location: 'stand', terminal_id: 123 (НАШ ВНУТРЕННИЙ ID) }
+    // from, to - объекты вида { location: 'warehouse' | 'stand' | 'machine', terminal_id: 123 (НАШ ВНУТРЕННИЙ ID) }
 
-    console.log(`[POST /api/inventory/move] UserID: ${userId} - Received request body:`, JSON.stringify(req.body, null, 2));
+    console.log(`[POST /api/inventory/move] UserID: ${userId} - Request: ${item_name} (${quantity}) from ${JSON.stringify(from)} to ${JSON.stringify(to)}`);
 
     if (!from || !to || !item_name || isNaN(parseFloat(quantity)) || quantity <= 0) {
         return res.status(400).json({ success: false, error: 'Не все поля для перемещения заполнены корректно.' });
     }
-
-    // Проверка, что ID терминалов (если они есть) являются числами
-    if ((from.terminal_id && isNaN(parseInt(from.terminal_id))) || (to.terminal_id && isNaN(parseInt(to.terminal_id)))) {
-        return res.status(400).json({ success: false, error: 'Некорректный внутренний ID терминала.' });
+    
+    const validLocations = ['warehouse', 'stand', 'machine'];
+    if (!validLocations.includes(from.location) || !validLocations.includes(to.location)) {
+        return res.status(400).json({ success: false, error: 'Некорректная локация источника или назначения.' });
     }
 
+    if ((from.location !== 'warehouse' && !from.terminal_id) || (to.location !== 'warehouse' && !to.terminal_id)) {
+        return res.status(400).json({ success: false, error: 'Для локаций "stand" и "machine" требуется terminal_id.' });
+    }
+    
     const client = await pool.pool.connect();
     try {
         await client.query('BEGIN');
 
-        // 1. Уменьшаем остаток в источнике
+        // 1. УМЕНЬШАЕМ остаток в источнике
+        const fromTerminalId = from.location === 'warehouse' ? null : from.terminal_id;
         const fromUpdateRes = await client.query(
             `UPDATE inventories
              SET current_stock = current_stock - $1, updated_at = NOW()
              WHERE user_id = $2 AND location = $3 AND item_name = $4 AND (terminal_id = $5 OR (terminal_id IS NULL AND $5 IS NULL))
              AND current_stock >= $1
              RETURNING id`,
-            [quantity, userId, from.location, item_name, from.terminal_id]
+            [quantity, userId, from.location, item_name, fromTerminalId]
         );
         
         if (fromUpdateRes.rowCount === 0) {
             await client.query('ROLLBACK');
-            return res.status(400).json({ success: false, error: `Недостаточно остатков "${item_name}" в источнике.` });
+            const sourceName = from.location === 'warehouse' ? 'на складе' : `в локации "${from.location}"`;
+            return res.status(400).json({ success: false, error: `Недостаточно остатков "${item_name}" ${sourceName}.` });
         }
 
-        // 2. Увеличиваем остаток в назначении (или создаем запись, если ее нет)
+        // 2. УВЕЛИЧИВАЕМ остаток в назначении (или создаем запись, если ее нет)
+        const toTerminalId = to.location === 'warehouse' ? null : to.terminal_id;
         await client.query(
             `INSERT INTO inventories (user_id, location, terminal_id, item_name, current_stock)
              VALUES ($1, $2, $3, $4, $5)
@@ -49,7 +56,7 @@ router.post('/move', authMiddleware, async (req, res) => {
              DO UPDATE SET
                 current_stock = inventories.current_stock + EXCLUDED.current_stock,
                 updated_at = NOW()`,
-            [userId, to.location, to.terminal_id, item_name, quantity]
+            [userId, to.location, toTerminalId, item_name, quantity]
         );
 
         await client.query('COMMIT');

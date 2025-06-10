@@ -7,18 +7,70 @@ const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 
 // Получить остатки на центральном складе
 router.get('/', authMiddleware, async (req, res) => {
-    // ... (код без изменений)
+    const userId = req.user.userId;
+    try {
+        const result = await pool.query(
+            `SELECT item_name, current_stock FROM inventories WHERE user_id = $1 AND location = 'warehouse' AND terminal_id IS NULL`,
+            [userId]
+        );
+        res.json({ success: true, warehouseStock: result.rows });
+    } catch (err) {
+        console.error(`[GET /api/warehouse] UserID: ${userId} - Error:`, err);
+        sendErrorToAdmin({
+            userId, errorContext: `GET /api/warehouse`,
+            errorMessage: err.message, errorStack: err.stack
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при получении остатков склада.' });
+    }
 });
 
 // "Приходовать" товар на склад (через модальное окно)
 router.post('/stock-up', authMiddleware, async (req, res) => {
-    // ... (код без изменений)
+    const userId = req.user.userId;
+    const { items } = req.body; // Ожидаем массив { item_name, quantity }
+
+    if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ success: false, error: 'Не предоставлены товары для приходования.' });
+    }
+
+    const client = await pool.pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        for (const item of items) {
+            if (!item.item_name || isNaN(parseFloat(item.quantity)) || item.quantity <= 0) continue;
+            
+            await client.query(
+                `INSERT INTO inventories (user_id, location, terminal_id, item_name, current_stock)
+                 VALUES ($1, 'warehouse', NULL, $2, $3)
+                 ON CONFLICT (user_id, terminal_id, item_name, location)
+                 DO UPDATE SET
+                    current_stock = inventories.current_stock + EXCLUDED.current_stock,
+                    updated_at = NOW()`,
+                [userId, item.item_name, item.quantity]
+            );
+        }
+
+        await client.query('COMMIT');
+        res.status(201).json({ success: true, message: 'Товары успешно оприходованы.' });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(`[POST /api/warehouse/stock-up] UserID: ${userId} - Error:`, err);
+        sendErrorToAdmin({
+            userId, errorContext: `POST /api/warehouse/stock-up`,
+            errorMessage: err.message, errorStack: err.stack, additionalInfo: { body: req.body }
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при приходовании товара.' });
+    } finally {
+        client.release();
+    }
 });
 
-// НОВЫЙ ЭНДПОИНТ: Изменить количество товара на складе (для кнопок +/-)
+// Изменить количество товара на складе (для кнопок +/-)
 router.post('/adjust', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
-    const { item_name, quantity } = req.body; // quantity может быть отрицательным
+    const { item_name, quantity } = req.body; // quantity может быть отрицательным для списания
 
     console.log(`[POST /api/warehouse/adjust] UserID: ${userId}, Item: ${item_name}, Quantity: ${quantity}`);
 
@@ -47,9 +99,8 @@ router.post('/adjust', authMiddleware, async (req, res) => {
             );
 
             if (updateRes.rowCount === 0) {
-                // Это сработает, если остаток уходит в минус
                 await client.query('ROLLBACK');
-                return res.status(400).json({ success: false, error: 'Недостаточно остатков для списания.' });
+                return res.status(400).json({ success: false, error: `Недостаточно остатков "${item_name}" для списания.` });
             }
              await client.query('COMMIT');
              res.json({ success: true, new_stock: updateRes.rows[0].current_stock });
@@ -66,7 +117,7 @@ router.post('/adjust', authMiddleware, async (req, res) => {
         } else {
             // Если позиции нет и пытаемся списать - ошибка
             await client.query('ROLLBACK');
-            return res.status(404).json({ success: false, error: 'Товар не найден на складе для списания.' });
+            return res.status(404).json({ success: false, error: `Товар "${item_name}" не найден на складе для списания.` });
         }
     } catch (err) {
         await client.query('ROLLBACK');

@@ -11,7 +11,7 @@ const expensesRoutes = require('./routes/expenses');
 const accessRoutes = require('./routes/access');
 const terminalsRoutes = require('./routes/terminals');
 const recipesRoutes = require('./routes/recipes');
-const warehouseRoutes = require('./routes/warehouse'); // <-- НОВЫЙ ИМПОРТ
+const warehouseRoutes = require('./routes/warehouse'); // <-- Убедимся, что он есть
 const inventoryRoutes = require('./routes/inventory'); // <-- НОВЫЙ ИМПОРТ
 
 const app = express();
@@ -27,7 +27,7 @@ app.use('/api/expenses', expensesRoutes);
 app.use('/api/access', accessRoutes);
 app.use('/api/terminals', terminalsRoutes);
 app.use('/api/recipes', recipesRoutes);
-app.use('/api/warehouse', warehouseRoutes); // <-- НОВОЕ ПОДКЛЮЧЕНИЕ
+app.use('/api/warehouse', warehouseRoutes); 
 app.use('/api/inventory', inventoryRoutes); // <-- НОВОЕ ПОДКЛЮЧЕНИЕ
 
 // DB Connection Test Endpoint
