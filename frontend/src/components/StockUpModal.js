@@ -1,57 +1,41 @@
 // frontend/src/components/StockUpModal.js
 import React, { useState } from 'react';
 import apiClient from '../api';
-// ИСПРАВЛЕНИЕ: меняем импорт на новый файл с "рамой"
-import './ModalFrame.css'; 
-import './StockUpModal.css'; // Стили для контента этого модального окна
+import './StockUpModal.css';
 
-const INVENTORY_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода', 'Стаканы', 'Крышки', 'Размешиватели', 'Сахар'];
-const WEIGHT_ITEMS = ['Кофе', 'Сливки', 'Какао', 'Раф'];
+const INGREDIENTS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода'];
+const CONSUMABLES = ['Стаканы', 'Крышки', 'Размеш.', 'Сахар', 'Трубочки'];
 
-const getUnitForPlaceholder = (itemName) => {
-    if (WEIGHT_ITEMS.includes(itemName)) return 'кг';
-    if (itemName === 'Вода') return 'л';
-    return 'шт';
+const STEPS = {
+    kg: ['20', '10', '5', '1', '0.1', '0.01'],
+    l: ['38', '19', '10', '5', '2', '1'],
+    pcs: ['10000', '5000', '1000', '100', '10', '1'],
 };
 
 export default function StockUpModal({ onClose, onSuccess }) {
-    const [items, setItems] = useState([{ itemName: 'Кофе', quantity: '' }]);
+    const [activeSteps, setActiveSteps] = useState({ kg: '1', l: '1', pcs: '100' });
+    const [deltas, setDeltas] = useState({});
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
 
-    const handleItemChange = (index, field, value) => {
-        const newItems = [...items];
-        if (field === 'quantity') {
-            newItems[index][field] = value.replace(/[^0-9,.]/g, '');
-        } else {
-            newItems[index][field] = value;
-        }
-        setItems(newItems);
+    const handleStepChange = (type, step) => {
+        setActiveSteps(prev => ({ ...prev, [type]: step }));
     };
 
-    const handleAddItem = () => {
-        const nextItem = INVENTORY_ITEMS.find(invItem => !items.some(i => i.itemName === invItem)) || 'Кофе';
-        setItems([...items, { itemName: nextItem, quantity: '' }]);
-    };
+    const handleAdjust = (itemName, increment) => {
+        const itemType = itemName === 'Вода' ? 'l' : (INGREDIENTS.includes(itemName) ? 'kg' : 'pcs');
+        const step = parseFloat(activeSteps[itemType]);
     
-    const handleAddQuantity = (index, amount) => {
-        const newItems = [...items];
-        const currentItem = newItems[index];
-        const currentVal = parseFloat(String(currentItem.quantity).replace(',', '.')) || 0;
-        const unit = getUnitForPlaceholder(currentItem.itemName);
+        setDeltas(prev => {
+            const currentDelta = prev[itemName] || 0;
+        // Используем Math.max, чтобы не уйти в минус
+            const newDelta = Math.max(0, currentDelta + (step * increment)); 
         
-        const precision = (unit === 'кг' || unit === 'л') ? 3 : 0;
-        
-        let newVal = (currentVal + amount);
-        
-        newItems[index].quantity = String(parseFloat(newVal.toFixed(precision)));
-        
-        setItems(newItems);
-    };
+        // Для штучных товаров округляем до целого, для остальных - до 3 знаков
+            const finalValue = itemType === 'pcs' ? Math.round(newDelta) : parseFloat(newDelta.toFixed(3));
 
-    const handleRemoveItem = (index) => {
-        const newItems = items.filter((_, i) => i !== index);
-        setItems(newItems);
+            return { ...prev, [itemName]: finalValue };
+        });
     };
 
     const handleSubmit = async (e) => {
@@ -59,16 +43,12 @@ export default function StockUpModal({ onClose, onSuccess }) {
         setIsSaving(true);
         setError('');
         
-        const itemsToStockUp = items.map(item => {
-            const normalizedQuantity = String(item.quantity).replace(',', '.');
-            let finalQuantity = parseFloat(normalizedQuantity);
-            if (!item.itemName || isNaN(finalQuantity) || finalQuantity <= 0) return null;
-
-            return { item_name: item.itemName, quantity: finalQuantity };
-        }).filter(Boolean);
+        const itemsToStockUp = Object.entries(deltas)
+            .map(([itemName, quantity]) => ({ item_name: itemName, quantity }))
+            .filter(item => item.quantity > 0);
 
         if (itemsToStockUp.length === 0) {
-            setError('Добавьте хотя бы один товар с количеством больше нуля.');
+            setError('Добавьте хотя бы один товар.');
             setIsSaving(false);
             return;
         }
@@ -88,51 +68,66 @@ export default function StockUpModal({ onClose, onSuccess }) {
         }
     };
 
+    const renderStepSelector = (type, label, steps) => (
+        <div className="step-selector-row">
+            <h4 className="step-selector-title">{label}</h4>
+            <div className="step-selector-buttons">
+                {steps.map(step => (
+                    <button type="button" key={step}
+                        className={`step-btn ${activeSteps[type] === step ? 'active' : ''}`}
+                        onClick={() => handleStepChange(type, step)}>
+                        {step}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+
+    const renderItemControl = (name) => (
+        <div className="item-control" key={name}>
+            <span className="item-control-name">{name}</span>
+            <div className="item-control-buttons">
+                <button type="button" className="adjust-btn-modal minus" onClick={() => handleAdjust(name, -1)}>-</button>
+                <span className="item-control-delta">{deltas[name] || 0}</span>
+                <button type="button" className="adjust-btn-modal plus" onClick={() => handleAdjust(name, 1)}>+</button>
+            </div>
+        </div>
+    );
+
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content stock-up-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-content stock-up-modal-fullscreen" onClick={e => e.stopPropagation()}>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-header">
-                        <h2>Приходовать товар на склад</h2>
+                        <h2>Пополнить склад</h2>
                         <button type="button" className="modal-close-btn" onClick={onClose}>&times;</button>
                     </div>
                     <div className="modal-body">
                         {error && <p className="error-message small">{error}</p>}
-                        {items.map((item, index) => {
-                            const unit = getUnitForPlaceholder(item.itemName);
-                            let quickAddAmounts = [1000, 500, 100, 10];
-                            if (unit === 'кг') quickAddAmounts = [1, 0.5, 0.1, 0.01];
-                            if (unit === 'л') quickAddAmounts = [19, 5, 1, 0.5];
-                            
-                            return (
-                                <div className="stock-up-item-container" key={index}>
-                                    <div className="stock-up-item-row">
-                                        <select value={item.itemName} onChange={(e) => handleItemChange(index, 'itemName', e.target.value)}>
-                                            {INVENTORY_ITEMS.map(name => <option key={name} value={name}>{name}</option>)}
-                                        </select>
-                                        <input
-                                            type="text"
-                                            inputMode="decimal"
-                                            placeholder={`Кол-во, ${unit}`}
-                                            value={item.quantity}
-                                            onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                                        />
-                                        <button type="button" className="remove-item-btn" onClick={() => handleRemoveItem(index)} title="Удалить строку">&times;</button>
-                                    </div>
-                                    <div className="stock-up-quick-add">
-                                        {quickAddAmounts.map(amount => (
-                                            <button key={amount} type="button" onClick={() => handleAddQuantity(index, amount)}>+{amount} {unit}</button>
-                                        ))}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        <button type="button" className="add-item-btn" onClick={handleAddItem}>+ Добавить позицию</button>
+                        
+                        <div className="step-selectors-container">
+                            {renderStepSelector('kg', 'Шаг для Кофе, Сливок, Какао, Раф (кг)', STEPS.kg)}
+                            {renderStepSelector('l', 'Шаг для Воды (л)', STEPS.l)}
+                            {renderStepSelector('pcs', 'Шаг для Расходников (шт)', STEPS.pcs)}
+                        </div>
+
+                        <div className="item-columns-container">
+                            <div className="item-column">
+                                <h3>Ингредиенты</h3>
+                                {INGREDIENTS.map(renderItemControl)}
+                            </div>
+                            <div className="column-separator"></div>
+                            <div className="item-column">
+                                <h3>Расходники</h3>
+                                {CONSUMABLES.map(renderItemControl)}
+                            </div>
+                        </div>
+
                     </div>
                     <div className="modal-footer">
                         <button type="button" className="action-btn secondary" onClick={onClose}>Отмена</button>
                         <button type="submit" className="action-btn" disabled={isSaving}>
-                            {isSaving ? 'Сохранение...' : 'Сохранить'}
+                            {isSaving ? 'Сохранение...' : 'Пополнить'}
                         </button>
                     </div>
                 </form>

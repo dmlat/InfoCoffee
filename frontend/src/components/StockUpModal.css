@@ -1,95 +1,122 @@
 /* frontend/src/components/StockUpModal.css */
 
-/* Этот класс применяется к .modal-content */
-.stock-up-modal {
-    max-width: 450px;
+.stock-up-modal-fullscreen {
+    width: 100%;
+    height: 100%;
+    max-width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+    animation: none;
 }
 
-.stock-up-item-container {
-    margin-bottom: 16px;
+.stock-up-modal-fullscreen .modal-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+}
+
+.step-selectors-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     padding-bottom: 16px;
     border-bottom: 1px solid #3a3e47;
 }
-.stock-up-item-container:last-of-type {
-    border-bottom: none;
-    margin-bottom: 0;
-    padding-bottom: 0;
-}
-
-.stock-up-item-row {
-    display: grid;
-    grid-template-columns: 1fr 110px 40px; /* Скорректирована ширина инпута */
+.step-selector-row {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
+}
+.step-selector-title {
+    font-size: 0.9em;
+    color: #a0b0c8;
+    margin: 0;
+    font-weight: 500;
+}
+.step-selector-buttons {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+}
+.step-selector-buttons .step-btn {
+    height: 36px;
+    font-size: 0.95em;
+}
+
+.item-columns-container {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    gap: 20px;
+    flex-grow: 1;
+}
+.column-separator {
+    background-color: #3a3e47;
+}
+.item-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.item-column h3 {
+    color: #8ae6ff;
+    margin: 0 0 5px 0;
+    font-size: 1.1em;
+    text-align: center;
+}
+
+.item-control {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-}
-
-.stock-up-item-row select, .stock-up-item-row input {
-    font-size: 16px !important;
-    background: #2e3340;
-    border: 1px solid #3a3e47;
-    color: #e0e0e0;
-    border-radius: 6px;
-    padding: 8px;
-    height: 40px;
-    box-sizing: border-box;
-}
-
-.stock-up-item-row input {
-    text-align: right;
-}
-
-.remove-item-btn {
-    background-color: #4a4f58;
-    color: white;
-    border: none;
-    width: 40px;
-    height: 40px;
+    background: #23272f;
+    padding: 8px 12px;
     border-radius: 8px;
-    font-size: 1.8em;
-    font-weight: 300;
-    line-height: 1;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: background-color 0.2s;
+}
+.item-control-name {
+    font-weight: 500;
+}
+.item-control-buttons {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 12px;
 }
-.remove-item-btn:hover {
+.item-control-delta {
+    font-size: 1.1em;
+    font-weight: 600;
+    min-width: 40px;
+    text-align: center;
+}
+
+.adjust-btn-modal {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    font-size: 1.8em;
+    line-height: 1;
+    cursor: pointer;
+    color: white;
+    font-weight: 300;
+    transition: transform 0.1s;
+}
+.adjust-btn-modal:active {
+    transform: scale(0.92);
+}
+.adjust-btn-modal.plus {
+    background-color: #4caf50;
+}
+.adjust-btn-modal.minus {
     background-color: #e06b6b;
 }
 
-.stock-up-quick-add {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-    margin-top: 8px;
-}
-
-.stock-up-quick-add button {
-    background-color: #2e3340;
-    border: 1px solid #3a3e47;
-    color: #a0b0c8;
-    padding: 8px 5px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.85em;
-    font-weight: 500;
-    transition: background-color 0.2s;
-}
-
-.stock-up-quick-add button:hover {
-    background-color: #383e4c;
-}
-
-.add-item-btn {
-    width: 100%;
-    text-align: center;
-    background: none;
-    border: 1px dashed #4a4f58;
-    color: #a0b0c8;
-    padding: 8px;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-top: 16px;
+@media (max-width: 767px) {
+    .item-columns-container {
+        grid-template-columns: 1fr;
+        gap: 25px;
+    }
+    .column-separator {
+        display: none;
+    }
 }

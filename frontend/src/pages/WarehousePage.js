@@ -17,40 +17,36 @@ const ALL_ITEMS = [
     { name: 'Крышки', unit: 'шт', multiplier: 1, type: 'disposable' },
     { name: 'Размеш.', unit: 'шт', multiplier: 1, type: 'disposable' },
     { name: 'Сахар', unit: 'шт', multiplier: 1, type: 'disposable' },
+    { name: 'Трубочки', unit: 'шт', multiplier: 1, type: 'disposable' },
 ];
 
 const getUnitInfo = (itemName) => ALL_ITEMS.find(i => i.name === itemName) || {};
-const WAREHOUSE_STATE_KEY = 'warehouse_page_state_v2';
+const WAREHOUSE_STATE_KEY = 'warehouse_page_state_v3';
 
 // --- Основной Компонент ---
 export default function WarehousePage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
-    const [notification, setNotification] = useState('');
-
+    const [notification, setNotification] = useState({ message: '', isError: false });
     const [terminals, setTerminals] = useState([]);
     const [selectedTerminal, setSelectedTerminal] = useState(null);
-    
     const [warehouseStock, setWarehouseStock] = useState({});
     const [standStock, setStandStock] = useState({});
     const [machineData, setMachineData] = useState({});
-    
     const [isRowLoading, setRowLoading] = useState({});
-
     const [activeStepKg, setActiveStepKg] = useState('1');
     const [activeStepPcs, setActiveStepPcs] = useState('100');
-    
     const [isStockUpModalOpen, setIsStockUpModalOpen] = useState(false);
     const [isTerminalModalOpen, setIsTerminalModalOpen] = useState(false);
     const [isStandDetailModalOpen, setIsStandDetailModalOpen] = useState(false);
     
     const showNotification = (message, isError = false) => {
         setNotification({ message, isError });
-        setTimeout(() => setNotification(''), 3500);
+        setTimeout(() => setNotification({ message: '', isError: false }), 3500);
     };
     
     const fetchDataForTerminal = useCallback(async (terminal) => {
-        if (!terminal) {
+        if (!terminal?.id) {
             setStandStock({});
             setMachineData({});
             return;
@@ -59,18 +55,28 @@ export default function WarehousePage() {
             const res = await apiClient.get(`/terminals/vendista/${terminal.id}/details`);
             if (res.data.success) {
                 const inventory = res.data.details?.inventory || [];
-                const stand = {};
-                const machine = {};
+                const newStandStock = {};
+                const newMachineData = {};
+                
                 inventory.forEach(item => {
-                    if (item.location === 'stand') stand[item.item_name] = parseFloat(item.current_stock || 0);
-                    if (item.location === 'machine') machine[item.item_name] = { 
-                        current: parseFloat(item.current_stock || 0), 
-                        max: parseFloat(item.max_stock || 0), 
-                        critical: parseFloat(item.critical_stock || 0)
-                    };
+                    const stockValue = parseFloat(item.current_stock || 0);
+                    if (item.location === 'stand') {
+                        newStandStock[item.item_name] = {
+                            current: stockValue,
+                            max: parseFloat(item.max_stock || 0),
+                            critical: parseFloat(item.critical_stock || 0)
+                        };
+                    } else if (item.location === 'machine') {
+                        newMachineData[item.item_name] = { 
+                            current: stockValue, 
+                            max: parseFloat(item.max_stock || 0), 
+                            critical: parseFloat(item.critical_stock || 0)
+                        };
+                    }
                 });
-                setStandStock(stand);
-                setMachineData(machine);
+                setStandStock(newStandStock);
+                setMachineData(newMachineData);
+                // Обновляем терминал, сохраняя предыдущие данные и добавляя internalId
                 setSelectedTerminal(prev => ({...prev, ...terminal, internalId: res.data.internalId}));
             }
         } catch (err) {
@@ -88,20 +94,15 @@ export default function WarehousePage() {
             ]);
 
             if (!terminalsRes.data.success) throw new Error('Не удалось загрузить стойки');
-            setTerminals(terminalsRes.data.terminals || []);
+            const fetchedTerminals = terminalsRes.data.terminals || [];
+            setTerminals(fetchedTerminals);
 
             if (warehouseRes.data.success) {
-                const stockMap = (warehouseRes.data.warehouseStock || []).reduce((acc, item) => {
-                    acc[item.item_name] = parseFloat(item.current_stock || 0);
-                    return acc;
-                }, {});
-                setWarehouseStock(stockMap);
+                setWarehouseStock((warehouseRes.data.warehouseStock || []).reduce((acc, item) => ({...acc, [item.item_name]: parseFloat(item.current_stock || 0)}), {}));
             }
 
-            const fetchedTerminals = terminalsRes.data.terminals || [];
             const savedState = JSON.parse(localStorage.getItem(WAREHOUSE_STATE_KEY));
             let initialTerminal = null;
-
             if (savedState?.selectedTerminalId) {
                 initialTerminal = fetchedTerminals.find(t => t.id === savedState.selectedTerminalId);
             }
@@ -129,124 +130,75 @@ export default function WarehousePage() {
     }, [fetchInitialData]);
 
     useEffect(() => {
-        const stateToSave = {
-            selectedTerminalId: selectedTerminal ? selectedTerminal.id : null,
-            activeStepKg,
-            activeStepPcs,
-        };
-        localStorage.setItem(WAREHOUSE_STATE_KEY, JSON.stringify(stateToSave));
-    }, [selectedTerminal, activeStepKg, activeStepPcs]);
+        if (!isLoading) { // Сохраняем только после начальной загрузки
+            const stateToSave = {
+                selectedTerminalId: selectedTerminal ? selectedTerminal.id : null,
+                activeStepKg,
+                activeStepPcs,
+            };
+            localStorage.setItem(WAREHOUSE_STATE_KEY, JSON.stringify(stateToSave));
+        }
+    }, [selectedTerminal, activeStepKg, activeStepPcs, isLoading]);
 
     const handleTerminalSelect = (terminal) => {
         fetchDataForTerminal(terminal);
         setIsTerminalModalOpen(false);
     };
 
-    const handleWarehouseAdjust = async (itemName, step) => {
-        const { multiplier } = getUnitInfo(itemName);
-        const quantity = step * multiplier;
-
-        const originalStock = warehouseStock[itemName] || 0;
-        setWarehouseStock(prev => ({ ...prev, [itemName]: originalStock + quantity }));
-        setRowLoading(prev => ({ ...prev, [itemName]: true }));
-
-        try {
-            const res = await apiClient.post('/warehouse/adjust', { item_name: itemName, quantity });
-            if (res.data.success) {
-                setWarehouseStock(prev => ({ ...prev, [itemName]: parseFloat(res.data.new_stock) }));
-            } else {
-                setWarehouseStock(prev => ({ ...prev, [itemName]: originalStock }));
-                showNotification(res.data.error || 'Ошибка обновления', true);
-            }
-        } catch (err) {
-            setWarehouseStock(prev => ({ ...prev, [itemName]: originalStock }));
-            showNotification(err.response?.data?.error || "Сетевая ошибка", true);
-        } finally {
-            setRowLoading(prev => ({ ...prev, [itemName]: false }));
-        }
-    };
-    
     const handleTransfer = async (fromLoc, toLoc, itemName, step) => {
+        if (!selectedTerminal?.internalId) {
+            showNotification("Стойка не выбрана.", true);
+            return;
+        }
+
         const { multiplier } = getUnitInfo(itemName);
         const stepQuantity = step * multiplier;
+
+        let sourceStock = 0;
+        if (fromLoc === 'warehouse') sourceStock = warehouseStock[itemName] || 0;
+        else if (fromLoc === 'stand') sourceStock = standStock[itemName]?.current || 0;
+        else if (fromLoc === 'machine') sourceStock = machineData[itemName]?.current || 0;
         
-        if (!selectedTerminal?.internalId) {
-            showNotification("Стойка не выбрана или не имеет ID в системе.", true);
-            return;
+        if (sourceStock <= 0) return;
+
+        let quantityToTransfer = Math.min(stepQuantity, sourceStock);
+
+        if (toLoc === 'machine' || toLoc === 'stand') {
+            const targetData = toLoc === 'machine' ? machineData[itemName] : standStock[itemName];
+            const maxStock = targetData?.max || Infinity;
+            if (maxStock > 0) {
+                const currentStock = targetData?.current || 0;
+                const freeSpace = maxStock - currentStock;
+                quantityToTransfer = Math.min(quantityToTransfer, freeSpace);
+            }
         }
-
-        const sourceStock = fromLoc === 'warehouse' ? warehouseStock[itemName] : (fromLoc === 'stand' ? standStock[itemName] : machineData[itemName]?.current);
-        if ((sourceStock || 0) <= 0) {
-            showNotification(`В источнике "${itemName}" нет остатков.`, true);
-            return;
-        }
-
-        let quantityToTransfer = Math.min(stepQuantity, sourceStock || 0);
-
-        if (toLoc === 'machine') {
-            const itemInData = machineData[itemName];
-            const maxStock = itemInData?.max || Infinity;
-            const currentStock = itemInData?.current || 0;
-            const freeSpace = maxStock - currentStock;
-            quantityToTransfer = Math.min(quantityToTransfer, freeSpace);
-        }
-
+        
         if (quantityToTransfer <= 0) {
-            showNotification("Нет свободного места в машине.", true);
-            return;
+             showNotification("Нет свободного места.", true);
+             return;
         }
-        
-        // Сохраняем оригинальные значения для отката
-        const originalStates = {
-            warehouse: warehouseStock,
-            stand: standStock,
-            machine: machineData,
-        };
-
-        // --- Оптимистичное обновление ---
-        const updateState = (setter, location, amount) => {
-            setter(prev => ({ ...prev, [itemName]: (prev[itemName] || 0) + amount }));
-        };
-        const updateMachineState = (amount) => {
-            setMachineData(prev => ({...prev, [itemName]: {...(prev[itemName] || {}), current: (prev[itemName]?.current || 0) + amount}}));
-        };
-        
-        if(fromLoc === 'warehouse') updateState(setWarehouseStock, itemName, -quantityToTransfer);
-        if(fromLoc === 'stand') updateState(setStandStock, itemName, -quantityToTransfer);
-        if(fromLoc === 'machine') updateMachineState(-quantityToTransfer);
-        
-        if(toLoc === 'warehouse') updateState(setWarehouseStock, itemName, quantityToTransfer);
-        if(toLoc === 'stand') updateState(setStandStock, itemName, quantityToTransfer);
-        if(toLoc === 'machine') updateMachineState(quantityToTransfer);
-        // --- Конец оптимистичного обновления ---
 
         setRowLoading(prev => ({ ...prev, [itemName]: true }));
 
         try {
             const fromPayload = { location: fromLoc, terminal_id: fromLoc === 'warehouse' ? null : selectedTerminal.internalId };
             const toPayload = { location: toLoc, terminal_id: toLoc === 'warehouse' ? null : selectedTerminal.internalId };
-
-            await apiClient.post('/inventory/move', { from: fromPayload, to: toPayload, item_name: itemName, quantity: quantityToTransfer });
+            const response = await apiClient.post('/inventory/move', { from: fromPayload, to: toPayload, item_name: itemName, quantity: quantityToTransfer });
             
-            // Запрашиваем актуальные данные для синхронизации после успешной операции
-            await Promise.all([
-                apiClient.get('/warehouse').then(res => {
-                    if(res.data.success) setWarehouseStock((res.data.warehouseStock || []).reduce((acc, item) => ({...acc, [item.item_name]: parseFloat(item.current_stock||0)}), {}));
-                }),
-                fetchDataForTerminal(selectedTerminal)
-            ]);
-            
+            if (response.data.success) {
+                // Прямое обновление состояния из ответа сервера - самый надежный способ
+                await fetchInitialData(); // Полная перезагрузка для гарантии консистентности
+            } else {
+                showNotification(response.data.error || 'Ошибка перемещения', true);
+            }
         } catch (err) {
-            // Откат состояния в случае ошибки
-            setWarehouseStock(originalStates.warehouse);
-            setStandStock(originalStates.stand);
-            setMachineData(originalStates.machine);
-            showNotification(err.response?.data?.error || 'Ошибка при перемещении', true);
+            showNotification(err.response?.data?.error || 'Сетевая ошибка', true);
         } finally {
-             setRowLoading(prev => ({ ...prev, [itemName]: false }));
+            setRowLoading(prev => ({ ...prev, [itemName]: false }));
         }
     };
-
+    
+    // ... render функции
     const renderStepSelector = () => (
         <div className="step-selector-container">
             <div className="step-group">
@@ -267,78 +219,69 @@ export default function WarehousePage() {
             </div>
         </div>
     );
-    
+
     const renderInventoryRow = (item) => {
         const { name, unit, type, multiplier } = item;
-        const whStock = warehouseStock[name] || 0;
-        const stStock = standStock[name] || 0;
-        const mData = machineData[name];
-        
         const step = type === 'consumable' ? parseFloat(activeStepKg) : parseFloat(activeStepPcs);
-        const sourceForSt = whStock;
-        const sourceForMc = stStock;
+        
+        const whValue = (warehouseStock[name] || 0) / multiplier;
+        const stData = standStock[name];
+        const mcData = machineData[name];
 
-        return (
-            <div className={`inventory-row-wrapper ${isRowLoading[name] ? 'loading' : ''}`} key={name}>
-                <div className="row-item-name">
-                    <div className="item-name-group">
-                        <span className="item-name">{name}</span>
-                        <span className="item-unit">{unit}</span>
-                    </div>
+        return(
+            <div className={`inventory-flat-row ${isRowLoading[name] ? 'loading' : ''}`} key={name}>
+                <div className="flat-row-item-name">
+                    <span>{name}</span>, {unit}
                 </div>
-                <div className="row-locations">
-                    <div className="location-cell warehouse-cell">
-                        <span className="location-label">Склад</span>
-                        <div className="stock-control">
-                            <button className="adjust-btn" onClick={() => handleWarehouseAdjust(name, -step)} disabled={whStock < (step * multiplier)}>-</button>
-                            <span className="stock-value">{(whStock / multiplier).toLocaleString('ru-RU', {maximumFractionDigits: 2})}</span>
-                            <button className="adjust-btn" onClick={() => handleWarehouseAdjust(name, step)}>+</button>
-                        </div>
-                    </div>
+                {/* Склад */}
+                <div className="flat-row-cell">{whValue.toLocaleString('ru-RU', {maximumFractionDigits: 2})}</div>
+                <div className="flat-row-separator"></div>
 
-                    <div className="transfer-cell">
-                        <button className="transfer-arrow right" onClick={() => handleTransfer('warehouse', 'stand', name, step)} disabled={!selectedTerminal || sourceForSt < 1}>{'>'}</button>
-                        <button className="transfer-arrow left" onClick={() => handleTransfer('stand', 'warehouse', name, step)} disabled={!selectedTerminal || stStock < 1}>{'<'}</button>
-                    </div>
-
-                    <div className="location-cell stand-cell">
-                         <span className="location-label">Стойка</span>
-                         <span className="stock-value">{(stStock / multiplier).toLocaleString('ru-RU', {maximumFractionDigits: 2})}</span>
-                    </div>
-
-                    {type === 'consumable' ? (
-                        <>
-                        <div className="transfer-cell">
-                             <button className="transfer-arrow right" onClick={() => handleTransfer('stand', 'machine', name, step)} disabled={!selectedTerminal || sourceForMc < 1}>{'>'}</button>
-                             <button className="transfer-arrow left" onClick={() => handleTransfer('machine', 'stand', name, step)} disabled={!selectedTerminal || !mData || mData.current < 1}>{'<'}</button>
-                        </div>
-
-                        <div className="location-cell machine-cell">
-                            <span className="location-label">Машина</span>
-                            {selectedTerminal && (!mData || typeof mData.max !== 'number' || mData.max <= 0) ? (
-                                    <span className="machine-info-placeholder" onClick={() => setIsStandDetailModalOpen(true)}>
-                                        Заполните остатки
-                                    </span>
-                                ) : (
-                                    <div className="progress-bar-container">
-                                        <div className="progress-bar-fill" style={{ width: `${((mData?.current || 0) / (mData?.max || 1)) * 100}%` }}></div>
-                                        {(mData?.critical || 0) > 0 && <div className="progress-bar-critical-marker" style={{ left: `${((mData.critical) / (mData.max || 1)) * 100}%` }}></div>}
-                                        <span className="progress-bar-text">{mData?.current || 0} / {mData?.max || '∞'}</span>
-                                    </div>
-                                )
-                            }
-                        </div>
-                        </>
-                    ) : <div className="disposable-placeholder"></div> }
+                {/* Перемещение на стойку */}
+                <div className="flat-row-transfer">
+                    <button className="transfer-arrow left" onClick={() => handleTransfer('stand', 'warehouse', name, step)} disabled={!stData || stData.current < 1}>{'<'}</button>
+                    <button className="transfer-arrow right" onClick={() => handleTransfer('warehouse', 'stand', name, step)} disabled={warehouseStock[name] < 1}>{'>'}</button>
                 </div>
+                <div className="flat-row-separator"></div>
+
+                {/* Стойка */}
+                <div className="flat-row-cell progress-cell">
+                    {stData && stData.max > 0 ? (
+                        <div className="progress-bar-container">
+                            <div className="progress-bar-fill" style={{ width: `${(stData.current / stData.max) * 100}%` }}></div>
+                            {stData.critical > 0 && <div className="progress-bar-critical-marker" style={{ left: `${(stData.critical / stData.max) * 100}%` }}></div>}
+                            <span className="progress-bar-text">{stData.current} / {stData.max}</span>
+                        </div>
+                    ) : ( <span className="value-placeholder" onClick={() => setIsStandDetailModalOpen(true)}>{stData ? stData.current : 'N/A'}</span> )}
+                </div>
+                <div className="flat-row-separator"></div>
+                
+                {/* Перемещение в машину */}
+                {type === 'consumable' ? (
+                    <>
+                    <div className="flat-row-transfer">
+                        <button className="transfer-arrow left" onClick={() => handleTransfer('machine', 'stand', name, step)} disabled={!mcData || mcData.current < 1}>{'<'}</button>
+                        <button className="transfer-arrow right" onClick={() => handleTransfer('stand', 'machine', name, step)} disabled={!stData || stData.current < 1}>{'>'}</button>
+                    </div>
+                    <div className="flat-row-separator"></div>
+
+                    {/* Машина */}
+                    <div className="flat-row-cell progress-cell">
+                         {mcData && mcData.max > 0 ? (
+                            <div className="progress-bar-container">
+                                <div className="progress-bar-fill" style={{ width: `${(mcData.current / mcData.max) * 100}%` }}></div>
+                                {mcData.critical > 0 && <div className="progress-bar-critical-marker" style={{ left: `${(mcData.critical / mcData.max) * 100}%` }}></div>}
+                                <span className="progress-bar-text">{mcData.current} / {mcData.max}</span>
+                            </div>
+                        ) : ( <span className="value-placeholder" onClick={() => setIsStandDetailModalOpen(true)}>N/A</span> )}
+                    </div>
+                    </>
+                ) : <div className="disposable-placeholder"></div>}
             </div>
-        )
-    }
+        );
+    };
 
-
-    if (isLoading) {
-        return <div className="page-loading-container"><span>Загрузка склада...</span></div>;
-    }
+    if (isLoading) return <div className="page-loading-container"><span>Загрузка склада...</span></div>;
 
     return (
         <>
@@ -346,42 +289,41 @@ export default function WarehousePage() {
                 {error && <div className="error-message">{error}</div>}
                 {notification.message && <div className={`info-notification ${notification.isError ? 'error' : ''}`}>{notification.message}</div>}
                 
-                <div className="warehouse-header">
-                    <button className="action-btn" onClick={() => setIsStockUpModalOpen(true)}>Приходовать товар</button>
+                <div className="warehouse-top-panel">
+                    <button className="action-btn stock-up-btn" onClick={() => setIsStockUpModalOpen(true)}>Приходовать товар</button>
+                    <span className="stock-up-label">Пополнить склад</span>
+                </div>
+                <div className="warehouse-top-panel stand-selector-panel">
+                    <span className="stand-selector-label">Выберите стойку для пополнения:</span>
                     <button className="terminal-selector-btn" onClick={() => setIsTerminalModalOpen(true)}>
-                        Стойка: {selectedTerminal ? selectedTerminal.comment || `№${selectedTerminal.id}` : 'Не выбрана'}
+                        {selectedTerminal ? selectedTerminal.comment || `Стойка #${selectedTerminal.id}` : 'Не выбрана'}
                     </button>
                 </div>
                 
                 <div className="inventory-block">
                     <h3 className="inventory-block-title">Переместить остатки</h3>
                     {renderStepSelector()}
-                    <div className="inventory-grid">
-                        {ALL_ITEMS.map(renderInventoryRow)}
+                    <div className="inventory-flat-grid">
+                        <div className="flat-grid-header">
+                            <div className="flat-row-item-name">Название</div>
+                            <div className="flat-row-cell">Склад</div>
+                            <div className="flat-row-separator"></div>
+                            <div className="flat-row-transfer"></div>
+                            <div className="flat-row-separator"></div>
+                            <div className="flat-row-cell">Стойка</div>
+                            <div className="flat-row-separator"></div>
+                            <div className="flat-row-transfer"></div>
+                            <div className="flat-row-separator"></div>
+                            <div className="flat-row-cell">Машина</div>
+                        </div>
+                         {ALL_ITEMS.map(renderInventoryRow)}
                     </div>
                 </div>
             </div>
 
             {isStockUpModalOpen && <StockUpModal onClose={() => setIsStockUpModalOpen(false)} onSuccess={fetchInitialData} />}
-            
-            {isTerminalModalOpen && (
-                <TerminalListModal 
-                    terminals={terminals}
-                    onClose={() => setIsTerminalModalOpen(false)}
-                    onSelect={handleTerminalSelect}
-                    currentSelection={selectedTerminal?.id}
-                />
-            )}
-
-            {isStandDetailModalOpen && selectedTerminal && (
-                <StandDetailModal
-                    terminal={selectedTerminal}
-                    onClose={() => {
-                        setIsStandDetailModalOpen(false);
-                        fetchDataForTerminal(selectedTerminal);
-                    }}
-                />
-            )}
+            {isTerminalModalOpen && <TerminalListModal terminals={terminals} onClose={() => setIsTerminalModalOpen(false)} onSelect={handleTerminalSelect} currentSelection={selectedTerminal?.id} />}
+            {isStandDetailModalOpen && selectedTerminal && <StandDetailModal terminal={selectedTerminal} onClose={() => { setIsStandDetailModalOpen(false); fetchDataForTerminal(selectedTerminal); }} />}
         </>
     );
 }
