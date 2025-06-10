@@ -1,5 +1,5 @@
 // frontend/src/pages/WarehousePage.js
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api';
 import './WarehousePage.css';
 import StockUpModal from '../components/StockUpModal';
@@ -42,8 +42,38 @@ export default function WarehousePage() {
     const [isTerminalModalOpen, setIsTerminalModalOpen] = useState(false);
     const [isStandDetailModalOpen, setIsStandDetailModalOpen] = useState(false);
 
-    // --- Загрузка данных ---
-    const fetchAllData = useCallback(async () => {
+    // --- Загрузка данных (Переработанная логика) ---
+    const fetchDataForTerminal = useCallback(async (terminal) => {
+        if (!terminal) {
+            setStandStock({});
+            setMachineData({});
+            return;
+        }
+        try {
+            const res = await apiClient.get(`/terminals/vendista/${terminal.id}/details`);
+            if (res.data.success) {
+                const inventory = res.data.details?.inventory || [];
+                const stand = {};
+                const machine = {};
+                inventory.forEach(item => {
+                    if (item.location === 'stand') stand[item.item_name] = parseFloat(item.current_stock);
+                    if (item.location === 'machine') machine[item.item_name] = { 
+                        current: parseFloat(item.current_stock), 
+                        max: parseFloat(item.max_stock), 
+                        critical: parseFloat(item.critical_stock)
+                    };
+                });
+                setStandStock(stand);
+                setMachineData(machine);
+                // Сохраняем внутренний ID терминала для будущих запросов
+                setSelectedTerminal(prev => ({...prev, internalId: res.data.internalId}));
+            }
+        } catch (err) {
+            setError(`Ошибка загрузки деталей для стойки ${terminal.comment}`);
+        }
+    }, []);
+
+    const fetchInitialData = useCallback(async () => {
         setIsLoading(true);
         setError('');
         try {
@@ -53,9 +83,6 @@ export default function WarehousePage() {
             ]);
 
             if (!terminalsRes.data.success) throw new Error('Не удалось загрузить стойки');
-            const fetchedTerminals = terminalsRes.data.terminals || [];
-            setTerminals(fetchedTerminals);
-
             if (warehouseRes.data.success) {
                 const stockMap = (warehouseRes.data.warehouseStock || []).reduce((acc, item) => {
                     acc[item.item_name] = parseFloat(item.current_stock);
@@ -63,58 +90,33 @@ export default function WarehousePage() {
                 }, {});
                 setWarehouseStock(stockMap);
             }
+
+            const fetchedTerminals = terminalsRes.data.terminals || [];
+            setTerminals(fetchedTerminals);
             
             if (fetchedTerminals.length > 0) {
-                setSelectedTerminal(fetchedTerminals[0]);
+                const initialTerminal = fetchedTerminals[0];
+                setSelectedTerminal(initialTerminal);
+                await fetchDataForTerminal(initialTerminal); // Сразу грузим детали для первой стойки
             }
         } catch (err) {
             setError(err.response?.data?.error || err.message || 'Ошибка загрузки данных');
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [fetchDataForTerminal]);
 
     useEffect(() => {
-        fetchAllData();
-    }, [fetchAllData]);
-
-    useEffect(() => {
-        const fetchTerminalDetails = async () => {
-            if (!selectedTerminal) {
-                setStandStock({});
-                setMachineData({});
-                return;
-            }
-            try {
-                const res = await apiClient.get(`/terminals/vendista/${selectedTerminal.id}/details`);
-                if (res.data.success) {
-                    const inventory = res.data.details?.inventory || [];
-                    const stand = {};
-                    const machine = {};
-                    inventory.forEach(item => {
-                        if (item.location === 'stand') stand[item.item_name] = parseFloat(item.current_stock);
-                        if (item.location === 'machine') machine[item.item_name] = { 
-                            current: parseFloat(item.current_stock), 
-                            max: parseFloat(item.max_stock), 
-                            critical: parseFloat(item.critical_stock)
-                        };
-                    });
-                    setStandStock(stand);
-                    setMachineData(machine);
-                }
-            } catch (err) {
-                 setError(`Ошибка загрузки деталей для стойки ${selectedTerminal.comment}`);
-            }
-        };
-        fetchTerminalDetails();
-    }, [selectedTerminal]);
+        fetchInitialData();
+    }, [fetchInitialData]);
 
     // --- Обработчики действий ---
 
-    const handleSuccessAction = useCallback(() => {
-        // Просто перезагружаем все данные для консистентности
-        fetchAllData();
-    }, [fetchAllData]);
+    const handleTerminalSelect = (terminal) => {
+        setSelectedTerminal(terminal);
+        fetchDataForTerminal(terminal);
+        setIsTerminalModalOpen(false);
+    };
 
     const handleWarehouseAdjust = async (itemName, step) => {
         try {
@@ -128,6 +130,11 @@ export default function WarehousePage() {
     };
 
     const handleTransfer = async (fromLoc, toLoc, itemName, step) => {
+        if (!selectedTerminal || !selectedTerminal.internalId) {
+            setError("Внутренний ID терминала не загружен. Перемещение невозможно.");
+            return;
+        }
+
         let quantity = step * getUnitInfo(itemName).multiplier;
         
         const fromPayload = {
@@ -139,7 +146,6 @@ export default function WarehousePage() {
             terminal_id: toLoc === 'warehouse' ? null : selectedTerminal.internalId
         };
 
-        // Специальная логика для пополнения кофемашины
         if (toLoc === 'machine') {
             const itemInData = machineData[itemName];
             const maxStock = itemInData?.max || 0;
@@ -150,18 +156,27 @@ export default function WarehousePage() {
             }
         }
 
-        if (quantity <= 0) return; // Нечего перемещать
+        if (quantity <= 0) return;
 
         try {
             await apiClient.post('/api/inventory/move', { from: fromPayload, to: toPayload, item_name: itemName, quantity });
-            // Оптимистичное обновление или полный рефетч
-            fetchAllData(); // Проще всего сделать полный рефетч
+            // Перезагружаем данные для склада и выбранной стойки
+            const warehouseRes = await apiClient.get('/warehouse');
+            if (warehouseRes.data.success) {
+                 const stockMap = (warehouseRes.data.warehouseStock || []).reduce((acc, item) => {
+                    acc[item.item_name] = parseFloat(item.current_stock);
+                    return acc;
+                }, {});
+                setWarehouseStock(stockMap);
+            }
+            await fetchDataForTerminal(selectedTerminal);
         } catch (err) {
             console.error("Transfer failed", err);
+            setError(err.response?.data?.error || 'Ошибка при перемещении');
         }
     };
-
-    // --- Рендер-функции ---
+    
+    // ... (остальные рендер-функции без изменений) ...
 
     const renderStepSelector = () => (
         <div className="step-selector-container">
@@ -208,27 +223,23 @@ export default function WarehousePage() {
 
                 return (
                     <div className="inventory-row" key={name}>
-                        {/* 1. Склад */}
                         <div className="wh-item-cell">
                             <button className="adjust-btn" onClick={() => handleWarehouseAdjust(name, -stepInGrams)} disabled={whStock < stepInGrams}>-</button>
                             <div className="item-name-group">
                                 <span className="item-name">{name}</span>
-                                <span className="item-unit">{unit}</span>
+                                <span className="item-unit">{unit !== 'шт' ? unit : ''}</span>
                             </div>
                             <span className="stock-cell">{(whStock / multiplier).toLocaleString('ru-RU', {maximumFractionDigits: 2})}</span>
                             <button className="adjust-btn" onClick={() => handleWarehouseAdjust(name, stepInGrams)}>+</button>
                         </div>
                         
-                        {/* 2 & 3. Стрелки Склад <-> Стойка */}
                         <div className="transfer-arrows">
                             <button className="transfer-arrow left" onClick={() => handleTransfer('stand', 'warehouse', name, step)} disabled={!selectedTerminal || stStock < stepInGrams}>{'<'} </button>
                             <button className="transfer-arrow right" onClick={() => handleTransfer('warehouse', 'stand', name, step)} disabled={!selectedTerminal || whStock < stepInGrams}>{'>'}</button>
                         </div>
 
-                        {/* 4. Стойка */}
                         <span className="stock-cell">{(stStock / multiplier).toLocaleString('ru-RU', {maximumFractionDigits: 2})}</span>
 
-                        {/* 5. Стрелки Стойка <-> Машина */}
                         <div className="transfer-arrows">
                            {type === 'consumable' ? (<>
                              <button className="transfer-arrow left" onClick={() => handleTransfer('machine', 'stand', name, step)} disabled={!selectedTerminal || !mData || mData.current < stepInGrams}>{'<'}</button>
@@ -236,7 +247,6 @@ export default function WarehousePage() {
                            </>) : <span>-</span>}
                         </div>
 
-                        {/* 6. Машина */}
                         <div className="machine-cell">
                             {type === 'consumable' && selectedTerminal && (
                                 !mData || !mData.max ? (
@@ -257,7 +267,6 @@ export default function WarehousePage() {
             })}
         </div>
     );
-
 
     if (isLoading) {
         return <div className="page-loading-container"><span>Загрузка склада...</span></div>;
@@ -283,16 +292,13 @@ export default function WarehousePage() {
 
             </div>
 
-            {isStockUpModalOpen && <StockUpModal onClose={() => setIsStockUpModalOpen(false)} onSuccess={handleSuccessAction} />}
+            {isStockUpModalOpen && <StockUpModal onClose={() => setIsStockUpModalOpen(false)} onSuccess={fetchInitialData} />}
             
             {isTerminalModalOpen && (
                 <TerminalListModal 
                     terminals={terminals}
                     onClose={() => setIsTerminalModalOpen(false)}
-                    onSelect={(terminal) => {
-                        setSelectedTerminal(terminal);
-                        setIsTerminalModalOpen(false);
-                    }}
+                    onSelect={handleTerminalSelect}
                     currentSelection={selectedTerminal?.id}
                 />
             )}
@@ -302,7 +308,7 @@ export default function WarehousePage() {
                     terminal={selectedTerminal}
                     onClose={() => {
                         setIsStandDetailModalOpen(false);
-                        fetchAllData(); // Обновляем данные после закрытия
+                        fetchDataForTerminal(selectedTerminal); // Обновляем данные только для активной стойки
                     }}
                 />
             )}
