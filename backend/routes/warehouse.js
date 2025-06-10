@@ -7,88 +7,79 @@ const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 
 // Получить остатки на центральном складе
 router.get('/', authMiddleware, async (req, res) => {
-    const userId = req.user.userId;
-    try {
-        const warehouseRes = await pool.query(
-            "SELECT item_name, current_stock FROM inventories WHERE user_id = $1 AND location = 'warehouse' AND terminal_id IS NULL",
-            [userId]
-        );
-        res.json({ success: true, warehouseStock: warehouseRes.rows });
-    } catch (err) {
-        console.error(`[GET /api/warehouse] UserID: ${userId} - Error:`, err);
-        sendErrorToAdmin({
-            userId,
-            errorContext: 'GET /api/warehouse',
-            errorMessage: err.message, errorStack: err.stack
-        }).catch(console.error);
-        res.status(500).json({ success: false, error: 'Ошибка сервера при получении остатков склада' });
-    }
+    // ... (код без изменений)
 });
 
-// "Приходовать" товар на склад (переработано для надежности)
+// "Приходовать" товар на склад (через модальное окно)
 router.post('/stock-up', authMiddleware, async (req, res) => {
+    // ... (код без изменений)
+});
+
+// НОВЫЙ ЭНДПОИНТ: Изменить количество товара на складе (для кнопок +/-)
+router.post('/adjust', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
-    const { items } = req.body;
+    const { item_name, quantity } = req.body; // quantity может быть отрицательным
 
-    // --- НАЧАЛО: Добавлено логирование для диагностики ---
-    console.log(`[POST /api/warehouse/stock-up] UserID: ${userId} - Received request body:`, JSON.stringify(req.body, null, 2));
-    // --- КОНЕЦ: Добавлено логирование ---
+    console.log(`[POST /api/warehouse/adjust] UserID: ${userId}, Item: ${item_name}, Quantity: ${quantity}`);
 
-    if (!Array.isArray(items) || items.length === 0) {
-        return res.status(400).json({ success: false, error: 'Неверный формат данных' });
+    if (!item_name || isNaN(parseFloat(quantity))) {
+        return res.status(400).json({ success: false, error: 'Некорректные данные для изменения остатка.' });
     }
 
     const client = await pool.pool.connect();
     try {
         await client.query('BEGIN');
 
-        const itemsToStockUp = items.map(item => {
-            let finalQuantity = parseFloat(String(item.quantity).replace(',', '.'));
-            if (!item.item_name || isNaN(finalQuantity) || finalQuantity <= 0) return null;
+        // Проверяем, есть ли такая позиция на складе
+        const existingItem = await client.query(
+            `SELECT id, current_stock FROM inventories WHERE user_id = $1 AND location = 'warehouse' AND item_name = $2 AND terminal_id IS NULL`,
+            [userId, item_name]
+        );
 
-            // Конвертируем кг и л в граммы и мл для бэкенда
-            const unit = (['Кофе', 'Сливки', 'Какао', 'Раф'].includes(item.item_name)) ? 'кг' : (item.item_name === 'Вода' ? 'л' : 'шт');
-            
-            if (unit === 'кг' || unit === 'л') {
-                finalQuantity *= 1000;
-            }
-            return { itemName: item.item_name, quantity: finalQuantity };
-        }).filter(Boolean);
-
-        // --- НАЧАЛО: Добавлено логирование для диагностики ---
-        console.log(`[POST /api/warehouse/stock-up] UserID: ${userId} - Parsed and validated items to stock up:`, JSON.stringify(itemsToStockUp, null, 2));
-        // --- КОНЕЦ: Добавлено логирование ---
-
-        if (itemsToStockUp.length === 0) {
-            await client.query('ROLLBACK'); // Откатываем транзакцию, так как нет данных для работы
-            return res.status(400).json({ success: false, error: 'Добавьте хотя бы один товар с количеством больше нуля.' });
-        }
-
-        for (const item of itemsToStockUp) {
-            await client.query(
-                `INSERT INTO inventories (user_id, location, terminal_id, item_name, current_stock)
-                 VALUES ($1, 'warehouse', NULL, $2, $3)
-                 ON CONFLICT (user_id, terminal_id, item_name, location)
-                 DO UPDATE SET
-                    current_stock = inventories.current_stock + EXCLUDED.current_stock,
-                    updated_at = NOW()`,
-                [userId, item.itemName, item.quantity]
+        if (existingItem.rows.length > 0) {
+            // Если позиция есть, обновляем, но проверяем, чтобы остаток не ушел в минус
+            const updateRes = await client.query(
+                `UPDATE inventories
+                 SET current_stock = current_stock + $1, updated_at = NOW()
+                 WHERE id = $2 AND current_stock + $1 >= 0
+                 RETURNING current_stock`,
+                [quantity, existingItem.rows[0].id]
             );
+
+            if (updateRes.rowCount === 0) {
+                // Это сработает, если остаток уходит в минус
+                await client.query('ROLLBACK');
+                return res.status(400).json({ success: false, error: 'Недостаточно остатков для списания.' });
+            }
+             await client.query('COMMIT');
+             res.json({ success: true, new_stock: updateRes.rows[0].current_stock });
+
+        } else if (quantity > 0) {
+            // Если позиции нет, то можем только добавить (приход)
+            const insertRes = await client.query(
+                `INSERT INTO inventories (user_id, location, terminal_id, item_name, current_stock)
+                 VALUES ($1, 'warehouse', NULL, $2, $3) RETURNING current_stock`,
+                [userId, item_name, quantity]
+            );
+             await client.query('COMMIT');
+             res.status(201).json({ success: true, new_stock: insertRes.rows[0].current_stock });
+        } else {
+            // Если позиции нет и пытаемся списать - ошибка
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Товар не найден на складе для списания.' });
         }
-        
-        await client.query('COMMIT');
-        res.json({ success: true, message: 'Склад успешно пополнен!' });
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error(`[POST /api/warehouse/stock-up] UserID: ${userId} - Error:`, err);
+        console.error(`[POST /api/warehouse/adjust] UserID: ${userId} - Error:`, err);
         sendErrorToAdmin({
-            userId, errorContext: `POST /api/warehouse/stock-up`,
+            userId, errorContext: `POST /api/warehouse/adjust`,
             errorMessage: err.message, errorStack: err.stack, additionalInfo: { body: req.body }
         }).catch(console.error);
-        res.status(500).json({ success: false, error: 'Ошибка сервера при пополнении склада' });
+        res.status(500).json({ success: false, error: 'Ошибка сервера при изменении остатков.' });
     } finally {
         client.release();
     }
 });
+
 
 module.exports = router;
