@@ -50,13 +50,13 @@
     border-radius: 12px;
     padding: 14px 18px;
     display: flex;
-    align-items: center;
+    align-items: center; /* Выравниваем по центру по вертикали */
     justify-content: space-between;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
     border: 1px solid #303548;
     cursor: pointer;
     transition: background-color 0.2s ease-in-out;
-    min-height: 55px;
+    min-height: 60px; /* ИЗМЕНЕНО: Задаем минимальную высоту для всех карточек */
     box-sizing: border-box;
 }
 
@@ -76,7 +76,7 @@
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    flex-shrink: 0;
+    flex-shrink: 0; /* Индикатор не будет сжиматься */
 }
 
 .status-indicator.online {
@@ -89,12 +89,15 @@
 
 .stand-name {
     margin: 0;
-    font-size: 0.95em; /* ИСПРАВЛЕНО: шрифт еще немного уменьшен */
+    font-size: 0.95em;
     color: #e0e0e0;
     font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    /* --- ИЗМЕНЕНЫ СТИЛИ НИЖЕ --- */
+    white-space: normal;      /* УДАЛЕНО: nowrap. Разрешаем перенос текста. */
+    overflow-wrap: break-word; /* Добавляем правило для переноса длинных слов без пробелов. */
+    overflow: visible;         /* УДАЛЕНО: hidden. Больше не прячем текст. */
+    text-overflow: clip;       /* УДАЛЕНО: ellipsis. Больше не обрезаем троеточием. */
+    line-height: 1.3;          /* Добавляем межстрочный интервал для читаемости. */
 }
 
 .stand-details-arrow {
@@ -102,7 +105,8 @@
     color: #3e67e0;
     font-weight: bold;
     line-height: 1;
-    flex-shrink: 0;
+    flex-shrink: 0; /* Стрелка не будет сжиматься */
+    margin-left: 8px; /* Добавляем небольшой отступ слева для безопасности */
 }
 
 @media (max-width: 767px) {
