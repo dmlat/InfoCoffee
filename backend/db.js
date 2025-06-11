@@ -2,7 +2,6 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') }); 
 const { Pool } = require('pg');
 
-// Если у тебя есть переменная DATABASE_URL — используй её, иначе бери отдельные переменные
 const pool = new Pool(
   process.env.DATABASE_URL
     ? { connectionString: process.env.DATABASE_URL }
@@ -15,7 +14,19 @@ const pool = new Pool(
       }
 );
 
-// Единая точка для запросов!
+// Временная обертка для логирования
+const originalQuery = pool.query.bind(pool);
+pool.query = (text, params) => {
+  console.log('--- EXECUTING QUERY ---');
+  console.log('Query:', text);
+  if (params) {
+    console.log('Params:', params);
+  }
+  console.log('-----------------------');
+  return originalQuery(text, params);
+};
+
+
 module.exports = {
   query: (text, params) => pool.query(text, params),
   pool,
