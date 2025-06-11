@@ -1,10 +1,11 @@
+// backend/db.js
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') }); 
 const { Pool } = require('pg');
 
 const pool = new Pool(
   process.env.DATABASE_URL
-    ? { connectionString: process.env.DATABASE_URL }
+    ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }
     : {
         user: process.env.PGUSER,
         host: process.env.PGHOST,
@@ -14,32 +15,33 @@ const pool = new Pool(
       }
 );
 
-// Перехватываем метод connect, чтобы обернуть каждый новый клиент
-const originalConnect = pool.connect;
-pool.connect = async function(...args) {
-    const client = await originalConnect.apply(this, args);
+/**
+ * РАБОЧИЙ И НАДЕЖНЫЙ СПОСОБ ЛОГИРОВАНИЯ
+ * * Мы подписываемся на событие 'connect', которое пул генерирует
+ * каждый раз, когда создает нового клиента для выполнения запроса.
+ * После получения клиента, мы "патчим" только его метод query,
+ * добавляя логирование. Это безопасно и не мешает внутренним механизмам pg.
+ */
+pool.on('connect', (client) => {
     const originalClientQuery = client.query;
-    client.query = (text, params) => {
-        console.log('--- [TRANSACTION] EXECUTING QUERY ---');
+    client.query = (text, params, callback) => {
+        console.log('--- [DB] EXECUTING QUERY ---');
         console.log('Query:', text);
         if (params) {
           console.log('Params:', params);
         }
-        console.log('-----------------------------------');
-        return originalClientQuery.apply(client, [text, params]);
+        console.log('---------------------------');
+        return originalClientQuery.call(client, text, params, callback);
     };
-    return client;
-};
+});
+
 
 module.exports = {
+  // Этот метод query используется для одиночных запросов, 
+  // пул сам управляет созданием и освобождением клиентов.
   query: (text, params) => {
-    console.log('--- [POOL] EXECUTING QUERY ---');
-    console.log('Query:', text);
-    if (params) {
-      console.log('Params:', params);
-    }
-    console.log('----------------------------');
     return pool.query(text, params);
   },
+  // Экспортируем сам пул для случаев, когда нужна транзакция (ручное управление клиентом)
   pool,
 };
