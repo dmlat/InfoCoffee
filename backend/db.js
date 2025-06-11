@@ -14,20 +14,32 @@ const pool = new Pool(
       }
 );
 
-// Временная обертка для логирования
-const originalQuery = pool.query.bind(pool);
-pool.query = (text, params) => {
-  console.log('--- EXECUTING QUERY ---');
-  console.log('Query:', text);
-  if (params) {
-    console.log('Params:', params);
-  }
-  console.log('-----------------------');
-  return originalQuery(text, params);
+// Перехватываем метод connect, чтобы обернуть каждый новый клиент
+const originalConnect = pool.connect;
+pool.connect = async function(...args) {
+    const client = await originalConnect.apply(this, args);
+    const originalClientQuery = client.query;
+    client.query = (text, params) => {
+        console.log('--- [TRANSACTION] EXECUTING QUERY ---');
+        console.log('Query:', text);
+        if (params) {
+          console.log('Params:', params);
+        }
+        console.log('-----------------------------------');
+        return originalClientQuery.apply(client, [text, params]);
+    };
+    return client;
 };
 
-
 module.exports = {
-  query: (text, params) => pool.query(text, params),
+  query: (text, params) => {
+    console.log('--- [POOL] EXECUTING QUERY ---');
+    console.log('Query:', text);
+    if (params) {
+      console.log('Params:', params);
+    }
+    console.log('----------------------------');
+    return pool.query(text, params);
+  },
   pool,
 };
