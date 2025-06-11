@@ -1,94 +1,77 @@
 // frontend/src/pages/StandsPage.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import apiClient from '../api';
 import StandDetailModal from '../components/StandDetailModal';
 import './StandsPage.css';
-import '../styles/common.css';
 
 export default function StandsPage() {
-    const [terminals, setTerminals] = useState([]);
+    const [stands, setStands] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
-    const [selectedTerminal, setSelectedTerminal] = useState(null);
+    const [selectedStand, setSelectedStand] = useState(null);
 
-    const fetchTerminals = useCallback(async () => {
-        setIsLoading(true);
-        setError('');
-        try {
-            const response = await apiClient.get('/terminals');
-            if (response.data.success) {
-                setTerminals(response.data.terminals || []);
-            } else {
-                setError(response.data.error || 'Не удалось загрузить список стоек.');
+    useEffect(() => {
+        const fetchStands = async () => {
+            setIsLoading(true);
+            try {
+                const response = await apiClient.get('/terminals');
+                if (response.data.success) {
+                    setStands(response.data.terminals || []);
+                } else {
+                    setError(response.data.error || 'Не удалось загрузить данные');
+                }
+            } catch (err) {
+                setError(err.response?.data?.error || 'Ошибка сети');
+            } finally {
+                setIsLoading(false);
             }
-        } catch (err) {
-            setError(err.response?.data?.error || 'Ошибка сети при загрузке стоек.');
-        } finally {
-            setIsLoading(false);
-        }
+        };
+        fetchStands();
     }, []);
 
-    useEffect(() => {
-        fetchTerminals();
-    }, [fetchTerminals]);
+    const handleStandClick = (stand) => {
+        setSelectedStand(stand);
+    };
 
-    useEffect(() => {
-        if (selectedTerminal) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = 'auto';
-        }
-        return () => { document.body.style.overflow = 'auto'; };
-    }, [selectedTerminal]);
+    const handleCloseModal = () => {
+        setSelectedStand(null);
+    };
 
-    if (isLoading) {
-        return <div className="page-loading-container"><span>Загрузка стоек...</span></div>;
-    }
-
-    if (error) {
-        return <div className="error-message">{error}</div>;
-    }
+    if (isLoading) return <div className="page-loading-container"><span>Загрузка стоек...</span></div>;
 
     return (
-        <>
-            <div className="page-container stands-page">
-                <div className="stands-page-header">
-                    <p>Нажмите на Стойку, чтобы отредактировать:</p>
-                    <ul>
-                        <li><b>Рецепты:</b> расчёт расхода ингредиентов и названия напитков</li>
-                        <li><b>Остатки:</b> максимальные и критические остатки в контейнерах</li>
-                        <li><b>Частота обслуживания:</b> уведомления об обслуживании каждые N продаж</li>
-                    </ul>
-                </div>
-
-                <div className="stands-list-container">
-                    {terminals.length === 0 ? (
-                        <div className="empty-data-message">Стойки не найдены.</div>
-                    ) : (
-                        terminals.map(terminal => {
-                            const isOnline = (terminal.last_hour_online || 0) > 0;
-                            return (
-                                <div key={terminal.id} className="stand-card" onClick={() => setSelectedTerminal(terminal)}>
-                                    <div className="stand-info">
-                                        <span className={`status-indicator ${isOnline ? 'online' : 'offline'}`}></span>
-                                        <h3 className="stand-name">{terminal.comment || `Терминал #${terminal.id}`}</h3>
-                                    </div>
-                                    <div className="stand-details-arrow">
-                                        →
-                                    </div>
-                                </div>
-                            )
-                        })
-                    )}
-                </div>
+        <div className="page-container stands-page">
+            <h1 className="page-title">Стойки</h1>
+            {error && <p className="error-message">{error}</p>}
+            
+            {/* ИЗМЕНЕННЫЙ ТЕКСТ */}
+            <div className="page-description">
+                <p>Нажмите на Стойку, чтобы:</p>
+                <ul>
+                    <li>Посмотреть <span className="text-highlight-blue">Остатки</span> в стойке и кофемашине</li>
+                    <li>Отредактировать <span className="text-highlight-blue">Рецепты</span>: расчёт расхода ингредиентов и названия напитков</li>
+                    <li>Отредактировать <span className="text-highlight-blue">Контейнеры</span>: максимальные и критические остатки в кофемашине</li>
+                </ul>
             </div>
 
-            {selectedTerminal && (
-                <StandDetailModal
-                    terminal={selectedTerminal}
-                    onClose={() => setSelectedTerminal(null)}
-                />
-            )}
-        </>
+            <div className="stands-grid">
+                {stands.map(stand => (
+                    <div key={stand.id} className="stand-card" onClick={() => handleStandClick(stand)}>
+                        <div className="stand-card-header">
+                            <span className={`status-indicator ${stand.last_hour_online > 0 ? 'online' : 'offline'}`}></span>
+                            <h3 className="stand-name">{stand.comment || `Терминал #${stand.id}`}</h3>
+                        </div>
+                        <div className="stand-details">
+                            <div className="detail-item">
+                                <span className="detail-label">Адрес</span>
+                                <span className="detail-value">{stand.full_address || 'Не указан'}</span>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {selectedStand && <StandDetailModal terminal={selectedStand} onClose={handleCloseModal} />}
+        </div>
     );
 }
