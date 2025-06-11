@@ -8,8 +8,9 @@ import './StandRecipesTab.css';
 
 // Вспомогательная функция для форматирования заголовков
 const formatHeader = (name) => {
-    if (name.length <= 4) return name;
-    return name.substring(0, 3) + '.';
+    if (name.length <= 5) return name;
+    if (name === 'Размеш.') return 'Меш.';
+    return name.substring(0, 4) + '.';
 };
 
 const CONSUMABLES_WITH_DEFAULT_1 = ['Стаканы', 'Крышки', 'Размеш.'];
@@ -23,23 +24,30 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
     const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
 
     useEffect(() => {
+        // Проверяем, что все необходимые данные пришли
+        if (!machineItems || !initialRecipes) return;
+        
         // Преобразуем данные с бэкенда в удобный для работы формат
         const newRecipes = machineItems.map(itemId => {
-            const existingRecipe = initialRecipes.find(r => r.machine_item_id === itemId);
+            // ИСПРАВЛЕНИЕ: Получаем существующий рецепт из объекта по ключу, а не через .find()
+            const existingRecipe = initialRecipes[itemId];
+            
             if (existingRecipe) {
-                return existingRecipe;
+                return { ...existingRecipe };
             }
+
             // Создаем новый "пустой" рецепт для кнопок, у которых еще нет рецепта
             return {
                 machine_item_id: itemId,
                 terminal_id: internalTerminalId,
-                name: '',
+                name: '', // Изначально пустое имя
                 items: CONSUMABLES_WITH_DEFAULT_1.map(name => ({ item_name: name, quantity: 1 })),
             };
         });
         setRecipes(newRecipes);
         setChangedRecipeIds(new Set()); // Сбрасываем изменения при обновлении данных
     }, [initialRecipes, machineItems, internalTerminalId]);
+
 
     const handleRecipeChange = (machineItemId, field, value, itemName = null) => {
         setRecipes(prevRecipes =>
@@ -102,7 +110,7 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
     const handleOpenCopyModal = () => {
         setConfirmModalState({
             isOpen: true,
-            message: `Скопировать все ${recipes.length > 0 ? recipes.length : ''} рецептов этого терминала? Существующие рецепты в целевых терминалах будут перезаписаны.`,
+            message: `Скопировать все ${recipes.length > 0 ? recipes.length : ''} рецептов этой стойки? Существующие рецепты в целевых терминалах будут перезаписаны.`,
             onConfirm: () => {
                 setConfirmModalState({ isOpen: false });
                 setIsCopyModalOpen(true);
