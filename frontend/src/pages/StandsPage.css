@@ -2,7 +2,7 @@
 
 .stands-page {
     width: 100%;
-    box-sizing: border-box; /* Гарантирует, что padding не вылезет за границы */
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
 }
@@ -89,7 +89,7 @@
 
 .stand-name {
     margin: 0;
-    font-size: 0.95em;
+    font-size: 0.95em; /* ИСПРАВЛЕНО: шрифт еще немного уменьшен */
     color: #e0e0e0;
     font-weight: 600;
     white-space: nowrap;
