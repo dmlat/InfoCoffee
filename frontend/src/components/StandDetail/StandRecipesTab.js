@@ -1,6 +1,6 @@
 // frontend/src/components/StandDetail/StandRecipesTab.js
 import React, { useState, useEffect, useMemo } from 'react';
-import apiClient from '../api';
+import apiClient from '../../api';
 import { ALL_ITEMS } from '../../constants';
 import ConfirmModal from '../ConfirmModal';
 import TerminalListModal from '../TerminalListModal';
