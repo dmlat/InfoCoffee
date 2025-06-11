@@ -64,7 +64,7 @@
 .modal-tabs {
     display: flex;
     border-bottom: 1px solid #3a3e47;
-    margin: 0 -16px 10px -16px;
+    margin: 0 -16px 8px -16px; /* ИЗМЕНЕНИЕ: Уменьшен нижний отступ */
     padding: 0 16px;
     flex-shrink: 0;
 }
@@ -126,21 +126,21 @@
 @media (max-width: 767px) {
     .modal-overlay {
         padding: 0;
-        align-items: flex-start; /* ИЗМЕНЕНИЕ: Начинаем с верха экрана */
+        align-items: flex-start;
     }
     .modal-content.stand-detail-modal {
         width: 100%; 
-        height: 100%; /* ИЗМЕНЕНИЕ: Растягиваем на весь экран */
+        height: 100%;
         max-height: 100vh;
         border-radius: 0; 
         border: none;
-        animation: none; /* Убираем анимацию, чтобы избежать дерганий */
+        animation: none;
     }
     .modal-body { 
         padding: 0 10px 10px 10px; 
     }
     .modal-tabs { 
-        margin: 0 -10px 10px -10px; 
+        margin: 0 -10px 8px -10px; /* ИЗМЕНЕНИЕ: Уменьшен нижний отступ */
         padding: 0 10px; 
     }
 }

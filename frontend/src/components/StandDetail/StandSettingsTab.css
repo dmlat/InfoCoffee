@@ -8,16 +8,39 @@
 .settings-header-container {
     display: flex;
     justify-content: space-between;
-    align-items: baseline; /* ИЗМЕНЕНИЕ: для выравнивания текста */
-    margin-top: 4px; /* ИЗМЕНЕНИЕ: уменьшен отступ */
+    align-items: baseline;
+    margin-top: 4px;      /* ИЗМЕНЕНИЕ: уменьшен отступ сверху */
     margin-bottom: 12px;
     padding: 0 5px;
 }
 
 .header-buttons {
     display: flex;
-    gap: 8px; /* Расстояние между кнопками */
+    gap: 8px;
     align-items: center;
+}
+
+/* ИЗМЕНЕНИЕ: Общие стили для обеих кнопок в шапке */
+.header-buttons .action-btn {
+    height: 32px;
+    padding: 0 18px;
+    font-size: 0.9em;
+    flex-shrink: 0;
+}
+
+.header-buttons .action-btn.secondary {
+    background-color: #4a4f58;
+    border: 1px solid #5f6c7b;
+}
+
+.header-buttons .action-btn.secondary:hover:not(:disabled) {
+    background-color: #5a5f68;
+}
+
+.header-buttons .action-btn.header-save-btn:disabled {
+    background-color: transparent !important;
+    border: 1px solid #3a3e47 !important;
+    color: #5f6c7b !important;
 }
 
 .helper-text { 
@@ -30,18 +53,6 @@
     padding: 0;
     border-bottom: none;
     font-size: 1.05em;
-}
-
-.header-save-btn {
-    height: 32px;
-    padding: 0 18px;
-    font-size: 0.9em;
-    flex-shrink: 0;
-}
-.header-save-btn:disabled {
-    background-color: transparent !important;
-    border: 1px solid #3a3e47 !important;
-    color: #5f6c7b !important;
 }
 
 .settings-section { 

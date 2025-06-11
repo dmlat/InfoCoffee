@@ -55,8 +55,6 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
             
             const newSettings = {};
             ALL_ITEMS.forEach(item => {
-                // --- ГЛАВНОЕ ИСПРАВЛЕНИЕ БАГА ---
-                // Ищем настройку именно для локации 'machine', чтобы избежать путаницы
                 const existingItem = fetchedDetails.inventory.find(
                     i => i.item_name === item.name && i.location === 'machine'
                 );
@@ -101,7 +99,6 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
         navigate(`${location.pathname}#${tabId}`, { replace: true });
     };
     
-    // Переименовываем вкладку для ясности
     const tabTitleMap = {
         'stock': 'Остатки',
         'recipes': 'Рецепты',
@@ -124,6 +121,8 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
             case 'settings':
                 return <StandSettingsTab 
                             terminal={terminal}
+                            allTerminals={allTerminals}
+                            internalTerminalId={internalTerminalId}
                             initialSettings={initialSettings}
                             onSave={fetchDetailsAndRecipes}
                        />;
