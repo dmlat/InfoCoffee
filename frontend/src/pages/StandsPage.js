@@ -16,7 +16,9 @@ export default function StandsPage() {
         try {
             const response = await apiClient.get('/terminals');
             if (response.data.success) {
-                setTerminals(response.data.terminals || []);
+                // Сортировка остается здесь, чтобы навигация была предсказуемой
+                const sortedTerminals = response.data.terminals || [];
+                setTerminals(sortedTerminals);
             } else {
                 setError(response.data.error || 'Не удалось загрузить список стоек.');
             }
@@ -42,7 +44,12 @@ export default function StandsPage() {
     
     const handleCloseModal = () => {
         setSelectedTerminal(null);
-        fetchTerminals();
+        fetchTerminals(); // Обновляем данные после закрытия модального окна
+    };
+
+    // НОВАЯ ФУНКЦИЯ: для смены терминала из модального окна
+    const handleTerminalChange = (newTerminal) => {
+        setSelectedTerminal(newTerminal);
     };
 
     if (isLoading) {
@@ -90,6 +97,8 @@ export default function StandsPage() {
             {selectedTerminal && (
                 <StandDetailModal
                     terminal={selectedTerminal}
+                    allTerminals={terminals} // Передаем весь список
+                    onTerminalChange={handleTerminalChange} // Передаем функцию смены
                     onClose={handleCloseModal}
                 />
             )}

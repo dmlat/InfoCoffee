@@ -7,19 +7,41 @@ import ConfirmModal from './ConfirmModal';
 import './StandDetailModal.css';
 
 // --- Вспомогательные компоненты ---
-const MachineProgressBar = ({ current, max, critical }) => {
-    if (!max || max === 0) {
-        return <span className="configure-container-notice">Настройте контейнер</span>;
+
+const getUnitText = (itemName) => {
+    switch (itemName) {
+        case 'Кофе':
+        case 'Сливки':
+        case 'Какао':
+        case 'Раф':
+            return 'г';
+        case 'Вода':
+            return 'мл';
+        default:
+            return 'шт';
+    }
+};
+
+const MachineProgressBar = ({ current, max, critical, itemName }) => {
+    if (max === null || max === undefined || max === 0) {
+        return <span className="configure-container-notice">Заполните контейнер</span>;
     }
     const percentage = (current / max) * 100;
     const criticalPercentage = (critical / max) * 100;
+    const unit = getUnitText(itemName);
+
+    const formattedCurrent = current % 1 === 0 ? current : current.toFixed(1);
+    const formattedMax = max % 1 === 0 ? max : max.toFixed(1);
+
     return (
         <div className="machine-progress-bar-container">
             <div className="machine-progress-fill" style={{ width: `${Math.min(percentage, 100)}%` }} />
             {critical > 0 && <div className="machine-progress-critical-marker" style={{ left: `${criticalPercentage}%` }} />}
+            <span className="machine-progress-text">{formattedCurrent}/{formattedMax} {unit}</span>
         </div>
     );
 };
+
 
 const RECIPE_INGREDIENTS_MAP = {
     'Кофе': 'coffee_grams', 'Вода': 'water_ml', 'Сливки': 'milk_grams',
@@ -27,7 +49,7 @@ const RECIPE_INGREDIENTS_MAP = {
 };
 
 // --- Основной компонент ---
-export default function StandDetailModal({ terminal, onClose }) {
+export default function StandDetailModal({ terminal, allTerminals, onTerminalChange, onClose }) {
     const [activeTab, setActiveTab] = useState('stock');
     const [details, setDetails] = useState({ inventory: [] });
     const [isLoading, setIsLoading] = useState(true);
@@ -43,7 +65,6 @@ export default function StandDetailModal({ terminal, onClose }) {
     const [isSavingRecipes, setIsSavingRecipes] = useState(false);
     
     const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
-    const [allTerminals, setAllTerminals] = useState([]);
     const [confirmModalState, setConfirmModalState] = useState({ isOpen: false, message: '', onConfirm: () => {} });
 
     const [internalTerminalId, setInternalTerminalId] = useState(null);
@@ -118,6 +139,23 @@ export default function StandDetailModal({ terminal, onClose }) {
         setSaveStatus({ message, type });
         setTimeout(() => setSaveStatus({ message: '', type: '' }), 3000);
     };
+    
+    const handleTerminalSwitch = (direction) => {
+        const currentIndex = allTerminals.findIndex(t => t.id === terminal.id);
+        if (currentIndex === -1) return;
+
+        let nextIndex = currentIndex + direction;
+        if (nextIndex < 0) {
+            nextIndex = allTerminals.length - 1;
+        } else if (nextIndex >= allTerminals.length) {
+            nextIndex = 0;
+        }
+        
+        const nextTerminal = allTerminals[nextIndex];
+        if (nextTerminal) {
+            onTerminalChange(nextTerminal);
+        }
+    };
 
     const handleSettingsChange = (itemName, field, value) => {
         setSettings(prev => ({ ...prev, [itemName]: { ...prev[itemName], [field]: normalizeNumericInput(value) } }));
@@ -181,17 +219,7 @@ export default function StandDetailModal({ terminal, onClose }) {
     };
     
     const handleOpenCopyModal = async () => {
-        try {
-            const res = await apiClient.get('/terminals');
-            if (res.data.success) {
-                setAllTerminals(res.data.terminals || []);
-                setIsCopyModalOpen(true);
-            } else {
-                showSaveStatus('Не удалось загрузить список стоек.', 'error');
-            }
-        } catch (err) {
-            showSaveStatus('Сетевая ошибка при загрузке стоек.', 'error');
-        }
+        setIsCopyModalOpen(true);
     };
     
     const handleSelectCopyDestination = async (destinationTerminal) => {
@@ -246,15 +274,25 @@ export default function StandDetailModal({ terminal, onClose }) {
             const standData = inventoryMap[item.name]?.stand;
             const machineData = inventoryMap[item.name]?.machine;
             const isIngredient = item.type === 'ingredient';
-            const stockText = standData ? `${standData.current.toLocaleString('ru-RU')} ${item.unit}` : '—';
+            
+            const standStockText = standData ? `${standData.current.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ${item.unit}` : '—';
             
             return (
                 <tr key={item.name}>
                     <td>{item.name}</td>
-                    <td className="align-right">{stockText}</td>
-                    <td className="align-center">
-                        {isIngredient && machineData ? (
-                            <MachineProgressBar current={machineData.current} max={machineData.max} critical={machineData.critical} />
+                    <td className="stock-cell">{standStockText}</td>
+                    <td className="machine-cell">
+                        {isIngredient ? (
+                            machineData ? (
+                                <MachineProgressBar 
+                                    current={machineData.current} 
+                                    max={machineData.max} 
+                                    critical={machineData.critical} 
+                                    itemName={item.name}
+                                />
+                            ) : (
+                                <span className="configure-container-notice" onClick={() => setActiveTab('settings')}>Заполните контейнер</span>
+                            )
                         ) : null}
                     </td>
                 </tr>
@@ -267,22 +305,29 @@ export default function StandDetailModal({ terminal, onClose }) {
 
         return (
             <div className="modal-tab-content stock-tab-content">
-                <table className="stock-table-reworked">
-                    <thead>
-                        <tr>
-                            <th>Ингредиент/расходник</th>
-                            <th>Стойка</th>
-                            <th><span className="header-blue">Кофемашина</span></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {ALL_ITEMS.filter(item => item.type === 'ingredient' && item.name !== 'Вода').map(renderRow)}
-                        {renderDivider('div1')}
-                        {renderRow(ALL_ITEMS.find(i => i.name === 'Вода'))}
-                        {renderDivider('div2')}
-                        {ALL_ITEMS.filter(item => item.type === 'consumable').map(renderRow)}
-                    </tbody>
-                </table>
+                <div className="table-scroll-container">
+                    <table className="stock-table-reworked">
+                        <colgroup>
+                            <col style={{ width: '120px' }} />
+                            <col style={{ width: '120px' }} />
+                            <col style={{ width: 'auto' }} />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Товар</th>
+                                <th className="text-right">Стойка</th>
+                                <th className="header-coffeemachine">Кофемашина</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {ALL_ITEMS.filter(item => item.type === 'ingredient' && item.name !== 'Вода').map(renderRow)}
+                            {renderDivider('div1')}
+                            {renderRow(ALL_ITEMS.find(i => i.name === 'Вода'))}
+                            {renderDivider('div2')}
+                            {ALL_ITEMS.filter(item => item.type === 'consumable').map(renderRow)}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         );
     };
@@ -370,9 +415,19 @@ export default function StandDetailModal({ terminal, onClose }) {
             <div className="modal-overlay" onClick={onClose}>
                 <div className="modal-content stand-detail-modal" onClick={e => e.stopPropagation()}>
                     <div className="modal-header">
-                        <h2>{terminal.comment || `Терминал #${terminal.id}`}</h2>
+                        <h2>Настройки стойки</h2>
                         <button className="modal-close-btn" onClick={onClose}>&times;</button>
                     </div>
+
+                    <div className="stand-navigator">
+                        <button className="nav-arrow" onClick={() => handleTerminalSwitch(-1)}>&lt;</button>
+                        <div className="nav-terminal-name">
+                             <span className={`status-indicator ${ (terminal.last_hour_online || 0) > 0 ? 'online' : 'offline'}`}></span>
+                             <span>{terminal.comment || `Терминал #${terminal.id}`}</span>
+                        </div>
+                        <button className="nav-arrow" onClick={() => handleTerminalSwitch(1)}>&gt;</button>
+                    </div>
+
                     <div className="modal-body">
                         <div className="modal-tabs">
                             <button onClick={() => setActiveTab('stock')} className={activeTab === 'stock' ? 'active' : ''}>Остатки</button>

@@ -33,8 +33,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 16px;
-    background-color: #282c34;
+    padding: 12px 16px 10px 16px; /* Уменьшен нижний отступ */
+    background-color: #23272f; /* Фон как у модалки */
     border-bottom: 1px solid #3a3e47;
 }
 
@@ -49,6 +49,40 @@
     color: #a0b0c8; font-size: 2.2em;
     line-height: 1; cursor: pointer; padding: 0 5px;
 }
+
+/* --- Новый блок навигации --- */
+.stand-navigator {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: #282c34;
+    flex-shrink: 0;
+}
+.nav-arrow {
+    background: transparent;
+    border: none;
+    color: #8ae6ff;
+    font-size: 1.8em;
+    cursor: pointer;
+    padding: 0 10px;
+}
+.nav-terminal-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #ffffff;
+}
+.nav-terminal-name .status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+.nav-terminal-name .status-indicator.online { background-color: #4caf50; }
+.nav-terminal-name .status-indicator.offline { background-color: #f44336; }
+
 
 .modal-body {
     flex-grow: 1;
@@ -82,80 +116,97 @@
 .modal-tab-content {
     animation: fadeIn 0.3s ease-in-out;
     flex-grow: 1;
-    overflow-y: auto;
+    overflow-y: hidden; /* Меняем на hidden, т.к. скролл внутри .table-scroll-container */
     display: flex;
     flex-direction: column;
+}
+.modal-tab-content .table-scroll-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    margin-right: -5px; /* Компенсация ширины скроллбара */
     padding-right: 5px;
 }
 
+
 /* --- Стили для НОВОЙ таблицы Остатков --- */
-.stock-tab-content { padding-top: 10px; }
+.stock-tab-content { padding-top: 5px; }
 .stock-table-reworked {
     width: 100%;
     border-collapse: collapse;
 }
 .stock-table-reworked th, .stock-table-reworked td {
-    padding: 9px 8px; /* Уменьшил горизонтальный паддинг */
+    padding: 12px 8px; /* Увеличен вертикальный паддинг */
     text-align: left;
     vertical-align: middle;
     white-space: nowrap;
+    border-bottom: 1.5px solid #3a3e47; /* Линия чуть толще */
 }
 .stock-table-reworked th {
-    font-size: 0.8em;
+    font-size: 0.85em;
     color: #a0b0c8;
-    font-weight: 600;
-    text-transform: uppercase;
-    border-bottom: 2px solid #3a3e47;
+    font-weight: 500;
+    text-transform: none; /* Убираем капс */
+    position: sticky; top: 0; background: #23272f; z-index: 1;
 }
 .stock-table-reworked td {
     font-size: 0.95em;
     color: #c6c6c6;
 }
-.stock-table-reworked tr:nth-child(even) {
-    background-color: #282c34;
+
+/* Ширины и выравнивание колонок */
+.stock-table-reworked td:nth-child(2),
+.stock-table-reworked th:nth-child(2) {
+    text-align: right;
 }
-.stock-table-reworked th:not(:last-child),
-.stock-table-reworked td:not(:last-child) {
-    border-right: 1px solid #3a3e47;
+.stock-table-reworked .header-coffeemachine {
+    color: #8ae6ff; /* Цвет текста для "Кофемашина" */
+    text-align: center;
 }
+.stock-table-reworked .machine-cell {
+    width: 60%; /* Основное пространство для прогресс-бара */
+}
+.stock-table-reworked td.stock-cell { font-weight: 500; }
+
 .table-divider-row td {
     padding: 0 !important;
-    border-right: none !important;
+    border-bottom: none !important;
 }
-.table-divider { height: 1px; background-color: #3a3e47; }
+.table-divider { height: 1.5px; background-color: #3a3e47; margin: 4px 0; }
 
-/* Выравнивание и ширина колонок */
-.stock-table-reworked th, .stock-table-reworked td { width: 33.33%; }
-.stock-table-reworked th:first-child, .stock-table-reworked td:first-child { width: 40%; } /* Первая колонка шире */
-.align-right { text-align: right; }
-.align-center { text-align: center; }
-.header-blue { color: #8ae6ff; }
-
-/* Прогресс-бар */
+/* Новый Прогресс-бар */
 .machine-progress-bar-container {
     position: relative;
-    height: 12px;
+    height: 24px;
     background-color: #2a2e37;
-    border-radius: 6px;
+    border-radius: 5px;
     margin: 0 auto;
     overflow: hidden;
+    min-width: 120px;
 }
 .machine-progress-fill {
     position: absolute; left: 0; top: 0; bottom: 0;
-    background-color: #3e67e0;
-    border-radius: 6px;
+    background-color: #4caf50; /* Приятный зеленый */
+    border-radius: 5px;
     transition: width 0.3s;
 }
 .machine-progress-critical-marker {
     position: absolute; top: 0; bottom: 0;
     width: 2px;
-    background-color: #f44336;
+    background-color: #f44336; /* Красный маркер */
     z-index: 1;
+}
+.machine-progress-text {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 0.8em; color: white; text-shadow: 1px 1px 1px rgba(0,0,0,0.6);
+    font-weight: 600;
 }
 .configure-container-notice {
     color: #f44336;
     font-size: 0.8em;
     font-style: italic;
+    cursor: pointer;
+    text-align: center;
 }
 
 
@@ -189,7 +240,7 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 /* --- Вкладка Рецепты --- */
 .recipes-helper { margin-bottom: 10px; }
 .recipes-footer { margin-top: 0; margin-bottom: 10px; padding-top: 0; }
-.recipes-form .table-scroll-container { overflow: auto; flex-grow: 1; }
+.recipes-form .table-scroll-container { flex-grow: 1; }
 .recipes-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
 .recipes-table th, .recipes-table td { padding: 6px; text-align: center; border: 1px solid #3a3e47; white-space: nowrap; }
 .recipes-table th { background-color: #2e3340; color: #a0b0c8; }
@@ -211,5 +262,5 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
     .modal-body { padding: 0 10px 10px 10px; }
     .modal-tabs { margin: 0 -10px 10px -10px; padding: 0 10px; }
     .recipes-table { font-size: 0.8em; }
-    .stock-table-reworked th, .stock-table-reworked td { padding: 7px 5px; }
+    .stock-table-reworked th, .stock-table-reworked td { padding: 9px 5px; }
 }
