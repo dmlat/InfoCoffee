@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocat
 import RegisterPage from './pages/RegisterPage';
 import Dashboard from './pages/Dashboard';
 import apiClient from './api';
-import { saveUserDataToLocalStorage } from './utils/user';
+import { saveUserDataToLocalStorage, clearUserDataFromLocalStorage } from './utils/user';
 import './styles/auth.css';
 
 // --- Компоненты-заглушки и страницы ---
@@ -50,28 +50,29 @@ function AuthProvider({ children }) {
     const handleSetAuth = (status) => {
         setAuthStatus(status);
         if(status === 'error') {
+            clearUserDataFromLocalStorage(); // Очищаем данные при ошибке
             navigate('/app-entry?reason=auth_failed', { replace: true });
         }
     };
 
     const initializeAuth = useCallback(async () => {
-        const tgInitData = window.Telegram?.WebApp?.initData;
-        const localToken = localStorage.getItem('app_token');
+        const tgWebApp = window.Telegram?.WebApp;
 
-        if (!tgInitData) {
-            if (localToken) {
-                 // Если нет initData, но есть токен, доверяем ему, но проверяем уровень доступа
-                 const accessLevel = localStorage.getItem('userAccessLevel');
-                 setAuthStatus(accessLevel === 'service' ? 'service_access' : 'authenticated');
+        // Если объекта Telegram Web App нет, значит мы точно не в Telegram
+        if (!tgWebApp || !tgWebApp.initData) {
+            // Проверяем старый токен на случай, если это было обновление страницы в браузере
+            if (localStorage.getItem('app_token')) {
+                const accessLevel = localStorage.getItem('userAccessLevel');
+                setAuthStatus(accessLevel === 'service' ? 'service_access' : 'authenticated');
             } else {
-                setAuthStatus('error'); // Нет ни токена, ни данных для входа
+                setAuthStatus('error');
             }
             return;
         }
 
         try {
-            window.Telegram.WebApp.ready();
-            const response = await apiClient.post('/auth/telegram-handshake', { initData: tgInitData });
+            tgWebApp.ready();
+            const response = await apiClient.post('/auth/telegram-handshake', { initData: tgWebApp.initData });
 
             if (response.data.success) {
                 const { action, token, user } = response.data;
@@ -93,13 +94,27 @@ function AuthProvider({ children }) {
             console.error("Auth initialization failed:", err);
             setAuthStatus('error');
         }
-    }, [navigate, setAuthStatus]);
+    }, [navigate]);
 
+    // ИСПРАВЛЕНИЕ: Добавляем надежное ожидание готовности Telegram скрипта
     useEffect(() => {
-        initializeAuth();
+        const attemptAuth = (retries = 10, delay = 150) => {
+          // Проверяем наличие `initData`, а не всего объекта, т.к. объект может быть, а данные нет
+          if (window.Telegram?.WebApp?.initData) {
+            initializeAuth();
+          } else if (retries > 0) {
+            // Если не готово, пробуем еще раз через короткий промежуток времени
+            setTimeout(() => attemptAuth(retries - 1, delay), delay);
+          } else {
+            // Если после нескольких попыток данных все еще нет, запускаем логику для случая "не в телеграме"
+            initializeAuth();
+          }
+        };
+        
+        attemptAuth();
     }, [initializeAuth]);
 
-    // Рендерим дочерние компоненты только после завершения проверки
+
     if (authStatus === 'pending') {
         return <div className="app-loading-container"><span>Загрузка приложения...</span></div>;
     }
