@@ -10,6 +10,7 @@
 .dashboard-content-wrapper {
   flex-grow: 1;
   overflow-y: auto;
+  overflow-x: hidden; /* ИСПРАВЛЕНИЕ: Запрещаем горизонтальный скролл */
   padding: 16px 20px 24px 20px;
   box-sizing: border-box;
   background: #20232a;
@@ -19,16 +20,15 @@
   border-radius: 0;
 }
 
-/* === НОВЫЕ СТИЛИ ДЛЯ НАВИГАЦИИ === */
 .tabs-navigation-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0; /* Убираем gap, так как границы будут разделять */
+  gap: 0;
   margin-bottom: 24px;
   border: 1px solid #303548;
-  border-radius: 12px; /* Скругляем всю панель */
-  background: #23272f; /* Сделаем чуть темнее фона контента */
+  border-radius: 12px;
+  background: #23272f;
   z-index: 10;
   box-sizing: border-box;
   width: 100%;
@@ -52,20 +52,19 @@
   background: none;
   border: none;
   color: #8a9db8;
-  padding: 10px 5px; /* Уменьшаем боковые паддинги для гибкости */
-  /* Адаптивный размер шрифта */
+  padding: 10px 5px;
   font-size: clamp(0.75rem, 2.8vw, 0.9rem);
   font-weight: 600;
   cursor: pointer;
   border-bottom: 3px solid transparent;
-  border-right: 1px solid #303548; /* Вертикальная граница */
+  border-right: 1px solid #303548;
   transition: color 0.2s, border-color 0.2s, background-color 0.2s;
   white-space: nowrap;
   text-align: center;
   flex-grow: 1;
   flex-shrink: 1;
   flex-basis: 0;
-  min-width: 0; /* Позволяем кнопкам сжиматься */
+  min-width: 0;
   box-sizing: border-box;
 }
 
@@ -97,6 +96,5 @@
 
   .tab-btn {
     padding: 9px 4px;
-    /* font-size уже адаптивный благодаря clamp() */
   }
 }
