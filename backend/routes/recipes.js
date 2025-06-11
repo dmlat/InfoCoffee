@@ -11,13 +11,11 @@ router.get('/terminal/:terminalId', authMiddleware, async (req, res) => {
     const { terminalId } = req.params;
 
     try {
-        // Проверяем, что пользователь владеет этим терминалом
         const ownerCheck = await pool.query('SELECT id FROM terminals WHERE id = $1 AND user_id = $2', [terminalId, userId]);
         if (ownerCheck.rowCount === 0) {
             return res.status(403).json({ success: false, error: 'Доступ запрещен' });
         }
         
-        // Получаем рецепты и агрегируем их состав в JSON массив
         const recipesRes = await pool.query(
             `SELECT
                 r.id,
@@ -26,13 +24,8 @@ router.get('/terminal/:terminalId', authMiddleware, async (req, res) => {
                 r.name,
                 r.updated_at,
                 COALESCE(
-                    (SELECT json_agg(
-                        json_build_object(
-                            'item_name', ri.item_name,
-                            'quantity', ri.quantity
-                        )
-                    )
-                    FROM recipe_items ri WHERE ri.recipe_id = r.id),
+                    (SELECT json_agg(json_build_object('item_name', ri.item_name, 'quantity', ri.quantity))
+                     FROM recipe_items ri WHERE ri.recipe_id = r.id),
                     '[]'::json
                 ) as items
              FROM recipes r
@@ -52,10 +45,9 @@ router.get('/terminal/:terminalId', authMiddleware, async (req, res) => {
     }
 });
 
-// Сохранить/обновить пачку рецептов для терминала
+// Сохранить/обновить один рецепт
 router.post('/', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
-    // Ожидаем { terminalId, machineItemId, name, items: [{item_name, quantity}] }
     const { terminalId, machine_item_id, name, items } = req.body; 
 
     if (!terminalId || !machine_item_id || !Array.isArray(items)) {
@@ -66,14 +58,12 @@ router.post('/', authMiddleware, async (req, res) => {
     try {
         await client.query('BEGIN');
         
-        // Проверяем, что пользователь владеет этим терминалом
         const ownerCheck = await client.query('SELECT id FROM terminals WHERE id = $1 AND user_id = $2', [terminalId, userId]);
         if (ownerCheck.rowCount === 0) {
             await client.query('ROLLBACK');
             return res.status(403).json({ success: false, error: 'Доступ запрещен' });
         }
 
-        // Вставляем или обновляем основную запись рецепта
         const recipeRes = await client.query(
             `INSERT INTO recipes (terminal_id, machine_item_id, name, updated_at)
              VALUES ($1, $2, $3, NOW())
@@ -84,14 +74,19 @@ router.post('/', authMiddleware, async (req, res) => {
         );
         const recipeId = recipeRes.rows[0].id;
 
-        // Удаляем старый состав рецепта
         await client.query('DELETE FROM recipe_items WHERE recipe_id = $1', [recipeId]);
         
-        // Вставляем новый состав рецепта
         if (items.length > 0) {
-            const queryValues = items.map(item => `(${recipeId}, '${item.item_name}', ${parseFloat(item.quantity) || 0})`).join(',');
-            const queryText = `INSERT INTO recipe_items (recipe_id, item_name, quantity) VALUES ${queryValues}`;
-            await client.query(queryText);
+            // ИСПОЛЬЗУЕМ ПАРАМЕТРИЗОВАННЫЙ ЗАПРОС
+            const values = [];
+            const placeholders = items.map((item, index) => {
+                const i = index * 3;
+                values.push(recipeId, item.item_name, parseFloat(item.quantity) || 0);
+                return `($${i + 1}, $${i + 2}, $${i + 3})`;
+            }).join(',');
+            
+            const queryText = `INSERT INTO recipe_items (recipe_id, item_name, quantity) VALUES ${placeholders}`;
+            await client.query(queryText, values);
         }
 
         await client.query('COMMIT');
@@ -110,6 +105,7 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 });
 
+
 // Копировать рецепты
 router.post('/copy', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
@@ -123,7 +119,6 @@ router.post('/copy', authMiddleware, async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // 1. Проверить, что оба терминала принадлежат пользователю
         const ownerCheck = await client.query(
             'SELECT id FROM terminals WHERE id = ANY($1::int[]) AND user_id = $2',
             [[sourceTerminalId, destinationTerminalId], userId]
@@ -133,9 +128,12 @@ router.post('/copy', authMiddleware, async (req, res) => {
             return res.status(403).json({ success: false, error: 'Доступ к одному или обоим терминалам запрещен.' });
         }
 
-        // 2. Получить рецепты из исходного терминала
         const sourceRecipesRes = await client.query(
-            'SELECT id, machine_item_id, name FROM recipes WHERE terminal_id = $1',
+            `SELECT r.id, r.machine_item_id, r.name, json_agg(json_build_object('item_name', ri.item_name, 'quantity', ri.quantity)) as items
+             FROM recipes r
+             LEFT JOIN recipe_items ri ON r.id = ri.recipe_id
+             WHERE r.terminal_id = $1
+             GROUP BY r.id, r.machine_item_id, r.name`,
             [sourceTerminalId]
         );
         const sourceRecipes = sourceRecipesRes.rows;
@@ -146,9 +144,7 @@ router.post('/copy', authMiddleware, async (req, res) => {
         }
         
         let copiedCount = 0;
-        // 3. Скопировать каждый рецепт и его состав
         for (const sourceRecipe of sourceRecipes) {
-            // 3.1 Создаем или обновляем запись рецепта в целевом терминале
             const destRecipeRes = await client.query(
                 `INSERT INTO recipes (terminal_id, machine_item_id, name, updated_at)
                  VALUES ($1, $2, $3, NOW())
@@ -159,17 +155,20 @@ router.post('/copy', authMiddleware, async (req, res) => {
             );
             const destRecipeId = destRecipeRes.rows[0].id;
             
-            // 3.2 Удаляем старый состав у целевого рецепта
             await client.query('DELETE FROM recipe_items WHERE recipe_id = $1', [destRecipeId]);
+            
+            const items = sourceRecipe.items.filter(item => item.item_name !== null);
+            if (items.length > 0) {
+                const values = [];
+                const placeholders = items.map((item, index) => {
+                    const i = index * 3;
+                    values.push(destRecipeId, item.item_name, item.quantity);
+                    return `($${i + 1}, $${i + 2}, $${i + 3})`;
+                }).join(',');
 
-            // 3.3 Копируем состав из исходного рецепта
-            await client.query(
-                `INSERT INTO recipe_items (recipe_id, item_name, quantity)
-                 SELECT $1, item_name, quantity
-                 FROM recipe_items
-                 WHERE recipe_id = $2`,
-                [destRecipeId, sourceRecipe.id]
-            );
+                const queryText = `INSERT INTO recipe_items (recipe_id, item_name, quantity) VALUES ${placeholders}`;
+                await client.query(queryText, values);
+            }
             copiedCount++;
         }
 
@@ -188,6 +187,5 @@ router.post('/copy', authMiddleware, async (req, res) => {
         client.release();
     }
 });
-
 
 module.exports = router;
