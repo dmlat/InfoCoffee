@@ -28,27 +28,32 @@
     to { opacity: 1; transform: scale(1); }
 }
 
+/* --- ИЗМЕНЕНИЯ ЗДЕСЬ --- */
 .modal-header {
     flex-shrink: 0;
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px 10px 16px;
+    align-items: center; /* Это свойство по-прежнему важно для вертикального центрирования */
+    padding: 14px 16px; /* Задаем одинаковые вертикальные отступы */
     background-color: #23272f;
     border-bottom: 1px solid #3a3e47;
 }
 
 .modal-header h2 {
-    margin: 0;
+    margin: 0; /* Убираем все внешние отступы у заголовка */
     font-size: 1.1em;
     color: #e0e0e0;
+    line-height: 1.2; /* Управляем высотой строки */
 }
 
 .modal-close-btn {
     background: none; border: none;
-    color: #a0b0c8; font-size: 2.2em;
-    line-height: 1; cursor: pointer; padding: 0 5px;
+    color: #a0b0c8; font-size: 2em; /* Немного уменьшил для баланса */
+    line-height: 1; /* Убираем лишнюю высоту строки */
+    cursor: pointer; 
+    padding: 0 5px; /* Сохраняем кликабельную область */
 }
+/* --- КОНЕЦ ИЗМЕНЕНИЙ --- */
 
 .modal-body {
     flex-grow: 1;

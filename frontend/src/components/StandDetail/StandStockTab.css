@@ -15,49 +15,24 @@
     text-align: left;
     vertical-align: middle;
     white-space: nowrap;
-    border-bottom: 1px solid #3a3e47; /* Тонкая линия по умолчанию */
-    border-right: 1.5px solid #3a3e47; /* Вертикальная линия */
+    border-bottom: 1.5px solid #3a3e47;
 }
 
-.stock-table-reworked th:last-child, .stock-table-reworked td:last-child {
-    border-right: none; /* Убираем у последнего столбца */
-}
-
-/* --- Стили для шапки таблицы --- */
 .stock-table-reworked th {
-    font-size: 0.95em; /* Такой же кегль, как у строк */
-    color: #ffffff; /* Белый цвет */
+    font-size: 0.85em;
+    color: #a0b0c8;
     font-weight: 500;
     text-transform: none;
     position: sticky; 
     top: 0; 
     background: #23272f; 
     z-index: 1;
-    border-bottom-width: 1.5px; /* Нижняя граница шапки */
 }
 
 .stock-table-reworked td {
     font-size: 0.95em;
     color: #c6c6c6;
 }
-
-/* --- Логика группировки фоном --- */
-.stock-table-reworked .ingredient-row td {
-    background-color: #282c34; /* Основной цвет фона для ингредиентов */
-}
-
-.stock-table-reworked .consumable-row td {
-    background-color: #252930; /* Слегка другой оттенок для расходников */
-}
-
-/* --- Управление разделителями --- */
-.stock-table-reworked tr.water-row td {
-    border-top: 2.5px solid #424753;
-}
-.stock-table-reworked tr.consumable-row:first-of-type td {
-    border-top: 2.5px solid #424753;
-}
-
 
 /* Ширины и выравнивание колонок */
 .stock-table-reworked td:nth-child(2),
@@ -66,21 +41,30 @@
 }
 
 .stock-table-reworked .header-coffeemachine {
-    color: #ffffff;
-    text-align: right; /* Выравнивание по правому краю */
+    color: #d4a77a; /* Кофейный цвет для заголовка */
+    text-align: center;
 }
 
 .stock-table-reworked .machine-cell {
     width: 60%;
-    padding-left: 10px; /* Дополнительный отступ слева */
-    padding-right: 10px; /* Дополнительный отступ справа */
 }
 
 .stock-table-reworked td.stock-cell { 
     font-weight: 500; 
 }
 
-/* Прогресс-бар (без изменений) */
+.table-divider-row td {
+    padding: 0 !important;
+    border-bottom: none !important;
+}
+
+.table-divider { 
+    height: 1.5px; 
+    background-color: #3a3e47; 
+    margin: 4px 0; 
+}
+
+/* Прогресс-бар */
 .machine-progress-bar-container {
     position: relative;
     height: 24px;
@@ -93,7 +77,7 @@
 
 .machine-progress-fill {
     position: absolute; left: 0; top: 0; bottom: 0;
-    background-color: #4caf50;
+    background-color: #4caf50; /* Приятный зеленый */
     border-radius: 5px;
     transition: width 0.3s;
 }
@@ -101,7 +85,7 @@
 .machine-progress-critical-marker {
     position: absolute; top: 0; bottom: 0;
     width: 2px;
-    background-color: #f44336;
+    background-color: #f44336; /* Красный маркер */
     z-index: 1;
 }
 
