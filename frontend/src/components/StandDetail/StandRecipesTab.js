@@ -102,7 +102,7 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
     const handleOpenCopyModal = () => {
         setConfirmModalState({
             isOpen: true,
-            message: `Скопировать все ${recipes.length} рецептов этого терминала? Существующие рецепты в целевых терминалах будут перезаписаны.`,
+            message: `Скопировать все ${recipes.length > 0 ? recipes.length : ''} рецептов этого терминала? Существующие рецепты в целевых терминалах будут перезаписаны.`,
             onConfirm: () => {
                 setConfirmModalState({ isOpen: false });
                 setIsCopyModalOpen(true);
@@ -131,7 +131,6 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
     
     const handleFocus = (e) => e.currentTarget.select();
 
-    // Мемоизируем для производительности
     const recipeItemsMap = useMemo(() => ALL_ITEMS.map(i => i.name), []);
 
     return (
