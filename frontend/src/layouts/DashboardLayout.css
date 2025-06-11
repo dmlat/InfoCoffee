@@ -85,11 +85,12 @@
 
 @media (max-width: 767px) {
   .dashboard-content-wrapper {
-    padding: 16px 10px 15px 10px !important;
+    /* ИЗМЕНЕНО: Горизонтальные отступы уменьшены с 20px до 10px */
+    padding: 16px 10px 15px 10px;
   }
 
   .tabs-navigation-container {
-    margin-bottom: 16px !important;
+    margin-bottom: 16px; /* Уменьшаем отступ снизу для мобильных */
     margin-top: -8px;
     padding: 2px;
   }
