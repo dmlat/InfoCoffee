@@ -1,12 +1,12 @@
 // frontend/src/components/StandDetail/StandDetailModal.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import apiClient from '../../api';
+import apiClient from '../../api'; // ИСПРАВЛЕН ПУТЬ
 import StandNavigator from './StandNavigator';
 import StandStockTab from './StandStockTab';
 import StandRecipesTab from './StandRecipesTab';
 import StandSettingsTab from './StandSettingsTab';
-import { ALL_ITEMS } from '../../constants';
+import { ALL_ITEMS } from '../../constants'; // ИСПРАВЛЕН ПУТЬ
 import './StandDetailModal.css';
 
 export default function StandDetailModal({ terminal, allTerminals, onTerminalChange, onClose }) {
