@@ -1,9 +1,7 @@
 // frontend/src/components/StandDetail/StandStockTab.js
 import React from 'react';
-import { ALL_ITEMS } from '../../constants'; // ДОБАВЛЕН ЭТОТ ИМПОРТ
+import { ALL_ITEMS } from '../../constants';
 import './StandStockTab.css';
-
-// ... остальной код файла без изменений ...
 
 const getUnitText = (itemName) => {
     switch (itemName) {
@@ -50,37 +48,30 @@ export default function StandStockTab({ details, onConfigureClick }) {
         return acc;
     }, {});
 
-    const renderRow = (item) => {
+    const renderRow = (item, extraClass = '') => {
         const standData = inventoryMap[item.name]?.stand;
         const machineData = inventoryMap[item.name]?.machine;
-        const isIngredient = item.type === 'ingredient';
         
         const standStockText = standData 
             ? `${standData.current.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ${item.unit}` 
             : '—';
         
         return (
-            <tr key={item.name}>
+            <tr key={item.name} className={extraClass}>
                 <td>{item.name}</td>
                 <td className="stock-cell">{standStockText}</td>
                 <td className="machine-cell">
-                    {isIngredient ? (
-                        <MachineProgressBar 
-                            current={machineData?.current || 0} 
-                            max={machineData?.max} 
-                            critical={machineData?.critical || 0} 
-                            itemName={item.name}
-                            onConfigureClick={onConfigureClick}
-                        />
-                    ) : null}
+                    <MachineProgressBar 
+                        current={machineData?.current || 0} 
+                        max={machineData?.max} 
+                        critical={machineData?.critical || 0} 
+                        itemName={item.name}
+                        onConfigureClick={onConfigureClick}
+                    />
                 </td>
             </tr>
         );
     };
-    
-    const renderDivider = (key) => (
-         <tr key={key} className="table-divider-row"><td colSpan="3"><div className="table-divider"></div></td></tr>
-    );
 
     return (
         <div className="modal-tab-content stock-tab-content">
@@ -95,15 +86,13 @@ export default function StandStockTab({ details, onConfigureClick }) {
                         <tr>
                             <th>Товар</th>
                             <th className="text-right">Стойка</th>
-                            <th className="header-coffeemachine">Кофемашина</th>
+                            <th className="header-coffeemachine text-right">Кофемашина</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {ALL_ITEMS.filter(item => item.type === 'ingredient' && item.name !== 'Вода').map(renderRow)}
-                        {renderDivider('div1')}
-                        {renderRow(ALL_ITEMS.find(i => i.name === 'Вода'))}
-                        {renderDivider('div2')}
-                        {ALL_ITEMS.filter(item => item.type === 'consumable').map(renderRow)}
+                        {ALL_ITEMS.filter(item => item.type === 'ingredient' && item.name !== 'Вода').map(item => renderRow(item, 'ingredient-row'))}
+                        {renderRow(ALL_ITEMS.find(i => i.name === 'Вода'), 'water-row')}
+                        {ALL_ITEMS.filter(item => item.type === 'consumable').map(item => renderRow(item, 'consumable-row'))}
                     </tbody>
                 </table>
             </div>
