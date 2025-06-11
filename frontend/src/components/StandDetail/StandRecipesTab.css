@@ -17,16 +17,19 @@
 .save-status-recipes.error {
     color: #f44336;
 }
+.save-status-recipes.info {
+    color: #8ae6ff;
+}
 
 .recipes-table { 
     width: 100%; 
-    border-collapse: separate; /* Используем separate для управления отступами */
+    border-collapse: separate;
     border-spacing: 0;
     font-size: 0.85em; 
 }
 
 .recipes-table th, .recipes-table td { 
-    padding: 0; /* Убираем гэп */
+    padding: 0;
     text-align: center; 
     border-bottom: 1px solid #3a3e47;
     border-right: 1px solid #3a3e47;
@@ -38,7 +41,7 @@
 
 .recipes-table thead {
     position: sticky;
-    top: -1px; /* Фикс для пиксельного зазора */
+    top: -1px;
     z-index: 2;
 }
 
@@ -57,17 +60,18 @@
 }
 
 .recipes-table .id-col {
-    width: 45px;
-    min-width: 45px;
+    width: 35px;
+    min-width: 35px;
     font-weight: bold; 
-    color: #8ae6ff; 
+    color: #8ae6ff;
+    padding: 0 4px; 
 }
 
 .recipes-table .name-col {
-    width: 120px; /* Фиксированная ширина */
-    min-width: 120px;
-    left: 45px; /* Сдвигаем на ширину ID колонки */
-    border-right-width: 2px; /* Делаем разделитель жирнее */
+    width: 90px;
+    min-width: 90px;
+    left: 35px; /* Сдвигаем на ширину ID колонки */
+    border-right-width: 2px;
 }
 
 .recipes-table input {
@@ -80,7 +84,7 @@
     padding: 8px 4px; 
     border-radius: 0; 
     transition: background-color 0.2s;
-    font-size: 16px !important; /* Для мобильных, против зума */
+    font-size: 16px !important;
     box-sizing: border-box;
 }
 
@@ -92,7 +96,6 @@
 .recipes-table .recipe-name-input { 
     text-align: left;
     padding-left: 8px;
-    /* Стили для обрезки текста */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

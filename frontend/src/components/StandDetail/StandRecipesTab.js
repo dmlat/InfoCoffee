@@ -2,15 +2,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import apiClient from '../../api';
 import { ALL_ITEMS } from '../../constants';
-import ConfirmModal from '../ConfirmModal';
-import TerminalListModal from '../TerminalListModal';
+import CopySettingsModal from '../CopySettingsModal';
 import './StandRecipesTab.css';
 
 // Вспомогательная функция для форматирования заголовков
 const formatHeader = (name) => {
-    if (name.length <= 5) return name;
-    if (name === 'Размеш.') return 'Меш.';
-    return name.substring(0, 4) + '.';
+    if (name.length <= 4) return name;
+    return name.substring(0, 3);
 };
 
 const CONSUMABLES_WITH_DEFAULT_1 = ['Стаканы', 'Крышки', 'Размеш.'];
@@ -20,32 +18,27 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
     const [changedRecipeIds, setChangedRecipeIds] = useState(new Set());
     const [isSaving, setIsSaving] = useState(false);
     const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
-    const [confirmModalState, setConfirmModalState] = useState({ isOpen: false, message: '', onConfirm: () => {} });
     const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
 
     useEffect(() => {
-        // Проверяем, что все необходимые данные пришли
         if (!machineItems || !initialRecipes) return;
         
-        // Преобразуем данные с бэкенда в удобный для работы формат
         const newRecipes = machineItems.map(itemId => {
-            // ИСПРАВЛЕНИЕ: Получаем существующий рецепт из объекта по ключу, а не через .find()
             const existingRecipe = initialRecipes[itemId];
             
             if (existingRecipe) {
                 return { ...existingRecipe };
             }
-
-            // Создаем новый "пустой" рецепт для кнопок, у которых еще нет рецепта
+            
             return {
                 machine_item_id: itemId,
                 terminal_id: internalTerminalId,
-                name: '', // Изначально пустое имя
+                name: '',
                 items: CONSUMABLES_WITH_DEFAULT_1.map(name => ({ item_name: name, quantity: 1 })),
             };
         });
         setRecipes(newRecipes);
-        setChangedRecipeIds(new Set()); // Сбрасываем изменения при обновлении данных
+        setChangedRecipeIds(new Set());
     }, [initialRecipes, machineItems, internalTerminalId]);
 
 
@@ -98,7 +91,7 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
         try {
             await Promise.all(savePromises);
             showSaveStatus('Изменения успешно сохранены!', 'success');
-            onSave(); // Обновляем данные с сервера
+            onSave();
         } catch (err) {
             showSaveStatus(err.response?.data?.error || 'Ошибка при сохранении.', 'error');
         } finally {
@@ -106,28 +99,24 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
         }
     };
     
-    // Логика для копирования (использует TerminalListModal)
-    const handleOpenCopyModal = () => {
-        setConfirmModalState({
-            isOpen: true,
-            message: `Скопировать все ${recipes.length > 0 ? recipes.length : ''} рецептов этой стойки? Существующие рецепты в целевых терминалах будут перезаписаны.`,
-            onConfirm: () => {
-                setConfirmModalState({ isOpen: false });
-                setIsCopyModalOpen(true);
-            }
-        });
-    };
-
-    const handleSelectCopyDestination = async (destinationTerminal) => {
+    // Новая логика для копирования
+    const handleCopyRecipes = async (destinationVendistaIds) => {
         setIsCopyModalOpen(false);
+        if (destinationVendistaIds.length === 0) return;
+
         setIsSaving(true);
+        showSaveStatus(`Копирование в ${destinationVendistaIds.length} терминал(а/ов)...`, 'info');
+        
         try {
-            const destDetailsRes = await apiClient.get(`/terminals/vendista/${destinationTerminal.id}/details`);
-            const destinationInternalId = destDetailsRes.data.internalId;
+            const internalIdPromises = destinationVendistaIds.map(vendistaId => 
+                apiClient.get(`/terminals/vendista/${vendistaId}/details`).then(res => res.data.internalId)
+            );
+            
+            const destinationInternalIds = await Promise.all(internalIdPromises);
 
             const res = await apiClient.post('/recipes/copy', {
                 sourceTerminalId: internalTerminalId,
-                destinationTerminalId: destinationInternalId
+                destinationTerminalIds: destinationInternalIds
             });
             showSaveStatus(res.data.message, res.data.success ? 'success' : 'error');
         } catch (err) {
@@ -143,18 +132,12 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
 
     return (
         <>
-            <ConfirmModal 
-                isOpen={confirmModalState.isOpen}
-                message={confirmModalState.message}
-                onConfirm={confirmModalState.onConfirm}
-                onCancel={() => setConfirmModalState({ isOpen: false })}
-            />
             {isCopyModalOpen && (
-                 <TerminalListModal
+                 <CopySettingsModal
                     terminals={allTerminals}
-                    onSelect={handleSelectCopyDestination}
+                    sourceTerminalId={terminal.id}
                     onClose={() => setIsCopyModalOpen(false)}
-                    disabledId={terminal.id}
+                    onSave={handleCopyRecipes}
                     title="Копировать рецепты в..."
                 />
             )}
@@ -162,7 +145,7 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
                 <div className="settings-header-container">
                     <h4>Укажите граммы/шт.</h4>
                     <div className="header-buttons">
-                         <button type="button" className="action-btn secondary" onClick={handleOpenCopyModal} disabled={isSaving}>Копировать</button>
+                         <button type="button" className="action-btn secondary" onClick={() => setIsCopyModalOpen(true)} disabled={isSaving}>Копировать</button>
                         <button type="button" className="action-btn header-save-btn" onClick={handleSave} disabled={isSaving || changedRecipeIds.size === 0}>
                             {isSaving ? 'Сохранение...' : 'Сохранить'}
                         </button>

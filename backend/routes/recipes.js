@@ -76,12 +76,12 @@ router.post('/', authMiddleware, async (req, res) => {
 
         await client.query('DELETE FROM recipe_items WHERE recipe_id = $1', [recipeId]);
         
-        if (items.length > 0) {
-            // ИСПОЛЬЗУЕМ ПАРАМЕТРИЗОВАННЫЙ ЗАПРОС
+        const validItems = items.filter(item => item.item_name && !isNaN(parseFloat(item.quantity)) && parseFloat(item.quantity) > 0);
+        if (validItems.length > 0) {
             const values = [];
-            const placeholders = items.map((item, index) => {
+            const placeholders = validItems.map((item, index) => {
                 const i = index * 3;
-                values.push(recipeId, item.item_name, parseFloat(item.quantity) || 0);
+                values.push(recipeId, item.item_name, parseFloat(item.quantity));
                 return `($${i + 1}, $${i + 2}, $${i + 3})`;
             }).join(',');
             
@@ -109,11 +109,13 @@ router.post('/', authMiddleware, async (req, res) => {
 // Копировать рецепты
 router.post('/copy', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
-    const { sourceTerminalId, destinationTerminalId } = req.body;
+    const { sourceTerminalId, destinationTerminalIds } = req.body;
 
-    if (!sourceTerminalId || !destinationTerminalId) {
-        return res.status(400).json({ success: false, error: 'Необходимы ID исходного и целевого терминала.' });
+    if (!sourceTerminalId || !Array.isArray(destinationTerminalIds) || destinationTerminalIds.length === 0) {
+        return res.status(400).json({ success: false, error: 'Необходимы ID исходного и целевых терминалов.' });
     }
+    
+    const allIdsToCheck = [sourceTerminalId, ...destinationTerminalIds];
 
     const client = await pool.pool.connect();
     try {
@@ -121,11 +123,11 @@ router.post('/copy', authMiddleware, async (req, res) => {
 
         const ownerCheck = await client.query(
             'SELECT id FROM terminals WHERE id = ANY($1::int[]) AND user_id = $2',
-            [[sourceTerminalId, destinationTerminalId], userId]
+            [allIdsToCheck, userId]
         );
-        if (ownerCheck.rowCount !== 2) {
+        if (ownerCheck.rowCount !== allIdsToCheck.length) {
             await client.query('ROLLBACK');
-            return res.status(403).json({ success: false, error: 'Доступ к одному или обоим терминалам запрещен.' });
+            return res.status(403).json({ success: false, error: 'Доступ к одному или нескольким терминалам запрещен.' });
         }
 
         const sourceRecipesRes = await client.query(
@@ -143,37 +145,37 @@ router.post('/copy', authMiddleware, async (req, res) => {
             return res.status(404).json({ success: false, error: 'У исходного терминала нет сохраненных рецептов.' });
         }
         
-        let copiedCount = 0;
-        for (const sourceRecipe of sourceRecipes) {
-            const destRecipeRes = await client.query(
-                `INSERT INTO recipes (terminal_id, machine_item_id, name, updated_at)
-                 VALUES ($1, $2, $3, NOW())
-                 ON CONFLICT (terminal_id, machine_item_id)
-                 DO UPDATE SET name = EXCLUDED.name, updated_at = NOW()
-                 RETURNING id`,
-                [destinationTerminalId, sourceRecipe.machine_item_id, sourceRecipe.name]
-            );
-            const destRecipeId = destRecipeRes.rows[0].id;
-            
-            await client.query('DELETE FROM recipe_items WHERE recipe_id = $1', [destRecipeId]);
-            
-            const items = sourceRecipe.items.filter(item => item.item_name !== null);
-            if (items.length > 0) {
-                const values = [];
-                const placeholders = items.map((item, index) => {
-                    const i = index * 3;
-                    values.push(destRecipeId, item.item_name, item.quantity);
-                    return `($${i + 1}, $${i + 2}, $${i + 3})`;
-                }).join(',');
+        for (const destId of destinationTerminalIds) {
+            for (const sourceRecipe of sourceRecipes) {
+                const destRecipeRes = await client.query(
+                    `INSERT INTO recipes (terminal_id, machine_item_id, name, updated_at)
+                     VALUES ($1, $2, $3, NOW())
+                     ON CONFLICT (terminal_id, machine_item_id)
+                     DO UPDATE SET name = EXCLUDED.name, updated_at = NOW()
+                     RETURNING id`,
+                    [destId, sourceRecipe.machine_item_id, sourceRecipe.name]
+                );
+                const destRecipeId = destRecipeRes.rows[0].id;
+                
+                await client.query('DELETE FROM recipe_items WHERE recipe_id = $1', [destRecipeId]);
+                
+                const items = sourceRecipe.items.filter(item => item.item_name !== null && !isNaN(parseFloat(item.quantity)) && parseFloat(item.quantity) > 0);
+                if (items.length > 0) {
+                    const values = [];
+                    const placeholders = items.map((item, index) => {
+                        const i = index * 3;
+                        values.push(destRecipeId, item.item_name, item.quantity);
+                        return `($${i + 1}, $${i + 2}, $${i + 3})`;
+                    }).join(',');
 
-                const queryText = `INSERT INTO recipe_items (recipe_id, item_name, quantity) VALUES ${placeholders}`;
-                await client.query(queryText, values);
+                    const queryText = `INSERT INTO recipe_items (recipe_id, item_name, quantity) VALUES ${placeholders}`;
+                    await client.query(queryText, values);
+                }
             }
-            copiedCount++;
         }
 
         await client.query('COMMIT');
-        res.json({ success: true, message: `Рецепты успешно скопированы. Скопировано ${copiedCount} позиций.` });
+        res.json({ success: true, message: `Рецепты успешно скопированы в ${destinationTerminalIds.length} терминал(а/ов).` });
 
     } catch (err) {
         await client.query('ROLLBACK');

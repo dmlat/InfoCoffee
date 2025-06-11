@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import './CopySettingsModal.css';
 import './ModalFrame.css'; // Используем общую раму
 
-export default function CopySettingsModal({ terminals, sourceTerminalId, onClose, onSave }) {
+export default function CopySettingsModal({ terminals, sourceTerminalId, onClose, onSave, title = "Копировать настройки в..." }) {
     const [selectedIds, setSelectedIds] = useState(new Set());
 
     const handleToggle = (terminalId) => {
@@ -17,16 +17,16 @@ export default function CopySettingsModal({ terminals, sourceTerminalId, onClose
             return newSet;
         });
     };
+    
+    const allSelectableTerminals = terminals.filter(t => t.id !== sourceTerminalId);
 
     const handleSelectAll = () => {
-        const allSelectableIds = terminals
-            .filter(t => t.id !== sourceTerminalId)
-            .map(t => t.id);
+        const allSelectableIds = allSelectableTerminals.map(t => t.id);
 
         if (selectedIds.size === allSelectableIds.length) {
-            setSelectedIds(new Set()); // Если выбраны все, снимаем выделение
+            setSelectedIds(new Set());
         } else {
-            setSelectedIds(new Set(allSelectableIds)); // Выбираем все
+            setSelectedIds(new Set(allSelectableIds));
         }
     };
     
@@ -36,37 +36,32 @@ export default function CopySettingsModal({ terminals, sourceTerminalId, onClose
     };
 
     const renderTerminal = (terminal) => {
-        const isDisabled = terminal.id === sourceTerminalId;
         const isSelected = selectedIds.has(terminal.id);
 
         return (
             <div
                 key={terminal.id}
-                className={`terminal-card-copy ${isDisabled ? 'disabled' : ''} ${isSelected ? 'selected' : ''}`}
-                onClick={() => !isDisabled && handleToggle(terminal.id)}
+                className={`terminal-card-copy ${isSelected ? 'selected' : ''}`}
+                onClick={() => handleToggle(terminal.id)}
             >
                 <div className="status-and-name">
                     <span className={`status-indicator ${ (terminal.last_hour_online || 0) > 0 ? 'online' : 'offline'}`}></span>
                     <span className="terminal-name">{terminal.comment || `Терминал #${terminal.id}`}</span>
                 </div>
                 <div className="selection-control">
-                    {isDisabled 
-                        ? <span className="source-label">(Источник)</span>
-                        : <div className={`tick-box ${isSelected ? 'checked' : ''}`} />
-                    }
+                    <div className={`tick-box ${isSelected ? 'checked' : ''}`} />
                 </div>
             </div>
         );
     }
     
-    const allSelectableTerminals = terminals.filter(t => t.id !== sourceTerminalId);
     const isSaveDisabled = selectedIds.size === 0;
 
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content copy-settings-modal" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>Выберите терминалы</h2>
+                    <h2>{title}</h2>
                     <button type="button" className="modal-close-btn" onClick={onClose}>&times;</button>
                 </div>
                 <div className="modal-body">
@@ -91,7 +86,7 @@ export default function CopySettingsModal({ terminals, sourceTerminalId, onClose
                         onClick={handleSave}
                         disabled={isSaveDisabled}
                     >
-                        {isSaveDisabled ? 'Сохранить' : `Копировать (${selectedIds.size})`}
+                        {isSaveDisabled ? 'Копировать' : `Копировать (${selectedIds.size})`}
                     </button>
                 </div>
             </div>
