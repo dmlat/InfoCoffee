@@ -124,7 +124,6 @@
 .save-status.success { color: #4caf50; }
 .save-status.error { color: #f44336; }
 
-
 /* Адаптивность */
 @media (max-width: 767px) {
     .modal-content.stand-detail-modal {
