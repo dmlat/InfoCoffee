@@ -58,7 +58,7 @@ export default function StandStockTab({ details, onConfigureClick }) {
         
         return (
             <tr key={item.name} className={extraClass}>
-                {/* ИСПРАВЛЕНИЕ: Используем короткое имя item.name, как и просил */}
+                {/* ИСПРАВЛЕНИЕ: Используем короткое имя item.name */}
                 <td>{item.name}</td>
                 <td className="stock-cell">{standStockText}</td>
                 <td className="machine-cell">

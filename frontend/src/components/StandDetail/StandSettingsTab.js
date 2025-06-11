@@ -52,8 +52,7 @@ export default function StandSettingsTab({ terminal, initialSettings, onSave }) 
     // ИСПРАВЛЕНИЕ: Убираем setTimeout, чтобы избежать мерцания на мобильных
     const handleFocus = (e) => {
         const input = e.currentTarget;
-        const length = input.value.length;
-        input.setSelectionRange(length, length);
+        input.select();
     };
 
     const getUnitForLabel = (unit) => {
@@ -82,7 +81,7 @@ export default function StandSettingsTab({ terminal, initialSettings, onSave }) 
                     </div>
                     {ALL_ITEMS.map(item => (
                         <div className="setting-item" key={item.name}>
-                            <label>{`${item.fullName || item.name}, ${getUnitForLabel(item.unit)}`}</label>
+                            <label>{`${item.name}, ${getUnitForLabel(item.unit)}`}</label>
                             <input 
                                 type="text" 
                                 inputMode="decimal" 
