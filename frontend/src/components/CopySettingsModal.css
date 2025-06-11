@@ -1,0 +1,115 @@
+/* frontend/src/components/CopySettingsModal.css */
+.copy-settings-modal {
+    max-width: 480px;
+    height: auto;
+    max-height: 85vh; /* Оставляем немного места сверху и снизу */
+}
+
+.copy-settings-modal .modal-header h2 {
+    font-size: 1.1em;
+}
+
+.copy-settings-modal .modal-body {
+    padding: 8px 16px 16px 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.terminal-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.terminal-card-copy {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    background: #282c34;
+    border: 1px solid #3a3e47;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.terminal-card-copy:hover:not(.disabled) {
+    background-color: #3e4350;
+}
+
+.terminal-card-copy.selected {
+    background-color: #2f4a8a;
+    border-color: #3e67e0;
+}
+
+.terminal-card-copy.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #23272f;
+}
+
+.status-and-name {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    overflow: hidden; /* Важно для переноса текста */
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.status-indicator.online { background-color: #4caf50; }
+.status-indicator.offline { background-color: #f44336; }
+
+.terminal-name {
+    color: #e0e0e0;
+    white-space: normal; /* Разрешаем перенос текста */
+    word-break: break-word; /* Переносим длинные слова */
+    font-size: 0.9em;
+}
+
+.selection-control {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.source-label {
+    font-size: 0.8em;
+    color: #8a9db8;
+    font-style: italic;
+}
+
+.tick-box {
+    width: 22px;
+    height: 22px;
+    border: 2px solid #5f6c7b;
+    border-radius: 5px;
+    transition: all 0.2s;
+}
+
+.tick-box.checked {
+    background-color: #3e67e0;
+    border-color: #3e67e0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E");
+    background-size: 75%;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.modal-footer-copy {
+    display: flex;
+    gap: 10px;
+    padding: 16px;
+    border-top: 1px solid #3a3e47;
+}
+
+.action-btn.full-width {
+    flex: 1;
+}

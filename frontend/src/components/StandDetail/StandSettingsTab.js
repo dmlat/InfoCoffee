@@ -2,12 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../api';
 import { ALL_ITEMS } from '../../constants';
+import CopySettingsModal from '../CopySettingsModal'; // НОВЫЙ ИМПОРТ
 import './StandSettingsTab.css';
 
-export default function StandSettingsTab({ terminal, initialSettings, onSave }) {
+export default function StandSettingsTab({ terminal, allTerminals, internalTerminalId, initialSettings, onSave }) {
     const [settings, setSettings] = useState(initialSettings);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
+    const [isCopyModalOpen, setIsCopyModalOpen] = useState(false); // НОВОЕ СОСТОЯНИЕ
 
     useEffect(() => {
         setSettings(initialSettings);
@@ -21,7 +23,7 @@ export default function StandSettingsTab({ terminal, initialSettings, onSave }) 
 
     const showSaveStatus = (message, type) => {
         setSaveStatus({ message, type });
-        setTimeout(() => setSaveStatus({ message: '', type: '' }), 3000);
+        setTimeout(() => setSaveStatus({ message: '', type: '' }), 3500);
     };
 
     const handleSave = async (e) => {
@@ -37,7 +39,7 @@ export default function StandSettingsTab({ terminal, initialSettings, onSave }) 
         try {
             const response = await apiClient.post(`/terminals/vendista/${terminal.id}/settings`, { inventorySettings });
             if (response.data.success) {
-                showSaveStatus('Сохранено!', 'success');
+                showSaveStatus('Настройки успешно сохранены!', 'success');
                 onSave();
             } else {
                 showSaveStatus(response.data.error || 'Ошибка.', 'error');
@@ -48,8 +50,41 @@ export default function StandSettingsTab({ terminal, initialSettings, onSave }) 
             setIsSaving(false);
         }
     };
+
+    // НОВЫЙ ОБРАБОТЧИК для копирования
+    const handleCopySettings = async (destinationIds) => {
+        if (destinationIds.length === 0) return;
+        
+        // Получаем внутренние ID для выбранных терминалов
+        const destinationInternalIdPromises = destinationIds.map(vendistaId => 
+            apiClient.get(`/terminals/vendista/${vendistaId}/details`)
+        );
+        
+        setIsSaving(true);
+        try {
+            const responses = await Promise.all(destinationInternalIdPromises);
+            const destinationInternalIds = responses.map(res => {
+                if (!res.data.success) throw new Error(`Не удалось получить данные для терминала.`);
+                return res.data.internalId;
+            });
+
+            const copyResponse = await apiClient.post('/terminals/copy-settings', {
+                sourceInternalId: internalTerminalId,
+                destinationInternalIds: destinationInternalIds
+            });
+
+            if (copyResponse.data.success) {
+                showSaveStatus(copyResponse.data.message, 'success');
+            } else {
+                showSaveStatus(copyResponse.data.error, 'error');
+            }
+        } catch (err) {
+             showSaveStatus(err.response?.data?.error || 'Ошибка при копировании.', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
     
-    // ИСПРАВЛЕНИЕ: Убираем setTimeout, чтобы избежать мерцания на мобильных
     const handleFocus = (e) => {
         const input = e.currentTarget;
         input.select();
@@ -64,47 +99,60 @@ export default function StandSettingsTab({ terminal, initialSettings, onSave }) 
     const haveSettingsChanged = JSON.stringify(settings) !== JSON.stringify(initialSettings);
 
     return (
-        <form className="modal-tab-content settings-form" onSubmit={handleSave}>
-            <div className="settings-header-container">
-                <h4>Контейнеры кофемашины</h4>
-                <button type="submit" className="action-btn header-save-btn" disabled={isSaving || !haveSettingsChanged}>
-                    {isSaving ? '...' : 'Сохранить'}
-                </button>
-            </div>
-            
-            <div className="table-scroll-container">
-                <div className="settings-section">
-                    <div className="setting-item-header">
-                        <span/>
-                        <span className="label-max">Максимальные</span>
-                        <span className="label-crit">Критические</span>
+        <>
+            {isCopyModalOpen && (
+                <CopySettingsModal 
+                    terminals={allTerminals}
+                    sourceTerminalId={terminal.id}
+                    onClose={() => setIsCopyModalOpen(false)}
+                    onSave={handleCopySettings}
+                />
+            )}
+            <form className="modal-tab-content settings-form" onSubmit={handleSave}>
+                <div className="settings-header-container">
+                    <h4>Контейнеры кофемашины</h4>
+                    <div className="header-buttons">
+                        <button type="button" className="action-btn secondary" onClick={() => setIsCopyModalOpen(true)} disabled={isSaving}>Копировать</button>
+                        <button type="submit" className="action-btn header-save-btn" disabled={isSaving || !haveSettingsChanged}>
+                            {isSaving ? '...' : 'Сохранить'}
+                        </button>
                     </div>
-                    {ALL_ITEMS.map(item => (
-                        <div className="setting-item" key={item.name}>
-                            <label>{`${item.name}, ${getUnitForLabel(item.unit)}`}</label>
-                            <input 
-                                type="text" 
-                                inputMode="decimal" 
-                                placeholder="-" 
-                                value={settings[item.name]?.max_stock || ''} 
-                                onChange={e => handleSettingsChange(item.name, 'max_stock', e.target.value)}
-                                onFocus={handleFocus}
-                            />
-                            <input 
-                                type="text" 
-                                inputMode="decimal" 
-                                placeholder="-" 
-                                value={settings[item.name]?.critical_stock || ''} 
-                                onChange={e => handleSettingsChange(item.name, 'critical_stock', e.target.value)}
-                                onFocus={handleFocus}
-                            />
-                        </div>
-                    ))}
                 </div>
-            </div>
-            <div className="form-footer">
-                {saveStatus.message && <span className={`save-status ${saveStatus.type}`}>{saveStatus.message}</span>}
-            </div>
-        </form>
+                
+                <div className="table-scroll-container">
+                    <div className="settings-section">
+                        <div className="setting-item-header">
+                            <span/>
+                            <span className="label-max">Максимальные</span>
+                            <span className="label-crit">Критические</span>
+                        </div>
+                        {ALL_ITEMS.map(item => (
+                            <div className="setting-item" key={item.name}>
+                                <label>{`${item.name}, ${getUnitForLabel(item.unit)}`}</label>
+                                <input 
+                                    type="text" 
+                                    inputMode="decimal" 
+                                    placeholder="-" 
+                                    value={settings[item.name]?.max_stock || ''} 
+                                    onChange={e => handleSettingsChange(item.name, 'max_stock', e.target.value)}
+                                    onFocus={handleFocus}
+                                />
+                                <input 
+                                    type="text" 
+                                    inputMode="decimal" 
+                                    placeholder="-" 
+                                    value={settings[item.name]?.critical_stock || ''} 
+                                    onChange={e => handleSettingsChange(item.name, 'critical_stock', e.target.value)}
+                                    onFocus={handleFocus}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div className="form-footer">
+                    {saveStatus.message && <span className={`save-status ${saveStatus.type}`}>{saveStatus.message}</span>}
+                </div>
+            </form>
+        </>
     );
 }

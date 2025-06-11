@@ -189,6 +189,79 @@ router.post('/vendista/:vendistaId/settings', authMiddleware, async (req, res) =
     }
 });
 
+// --- НОВЫЙ ЭНДПОИНТ ДЛЯ КОПИРОВАНИЯ НАСТРОЕК КОНТЕЙНЕРОВ ---
+router.post('/copy-settings', authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
+    const { sourceInternalId, destinationInternalIds } = req.body;
+
+    if (!sourceInternalId || !Array.isArray(destinationInternalIds) || destinationInternalIds.length === 0) {
+        return res.status(400).json({ success: false, error: 'Необходимы ID исходного и целевых терминалов.' });
+    }
+    
+    const allTerminalIds = [sourceInternalId, ...destinationInternalIds];
+
+    const client = await pool.pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // 1. Проверить, что все терминалы принадлежат пользователю
+        const ownerCheck = await client.query(
+            'SELECT id FROM terminals WHERE id = ANY($1::int[]) AND user_id = $2',
+            [allTerminalIds, userId]
+        );
+
+        if (ownerCheck.rowCount !== allTerminalIds.length) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ success: false, error: 'Доступ к одному или нескольким терминалам запрещен.' });
+        }
+        
+        // 2. Получить настройки контейнеров из исходного терминала
+        const sourceSettingsRes = await client.query(
+            `SELECT item_name, max_stock, critical_stock FROM inventories 
+             WHERE terminal_id = $1 AND location = 'machine'`,
+            [sourceInternalId]
+        );
+        const sourceSettings = sourceSettingsRes.rows;
+
+        if (sourceSettings.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'У исходного терминала нет настроек контейнеров для копирования.' });
+        }
+        
+        // 3. Скопировать каждую настройку в целевые терминалы
+        for (const destId of destinationInternalIds) {
+            for (const setting of sourceSettings) {
+                await client.query(
+                    `INSERT INTO inventories (user_id, terminal_id, item_name, location, max_stock, critical_stock, updated_at)
+                     VALUES ($1, $2, $3, 'machine', $4, $5, NOW())
+                     ON CONFLICT (user_id, terminal_id, item_name, location)
+                     DO UPDATE SET
+                        max_stock = EXCLUDED.max_stock,
+                        critical_stock = EXCLUDED.critical_stock,
+                        updated_at = NOW()`,
+                    [userId, destId, setting.item_name, setting.max_stock, setting.critical_stock]
+                );
+            }
+        }
+        
+        await client.query('COMMIT');
+        res.json({ success: true, message: `Настройки успешно скопированы в ${destinationInternalIds.length} терминал(а/ов).` });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(`[POST /api/terminals/copy-settings] UserID: ${userId} - Error:`, err);
+        sendErrorToAdmin({
+            userId,
+            errorContext: `POST /api/terminals/copy-settings`,
+            errorMessage: err.message, errorStack: err.stack, additionalInfo: { body: req.body }
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при копировании настроек.' });
+    } finally {
+        client.release();
+    }
+});
+
+
 // Получить уникальные ID кнопок (напитков) для терминала из транзакций
 router.get('/vendista/:vendistaId/machine-items', authMiddleware, async (req, res) => {
     const userId = req.user.userId;

@@ -28,32 +28,30 @@
     to { opacity: 1; transform: scale(1); }
 }
 
-/* --- ИЗМЕНЕНИЯ ЗДЕСЬ --- */
 .modal-header {
     flex-shrink: 0;
     display: flex;
     justify-content: space-between;
-    align-items: center; /* Это свойство по-прежнему важно для вертикального центрирования */
-    padding: 14px 16px; /* Задаем одинаковые вертикальные отступы */
+    align-items: center;
+    padding: 14px 16px;
     background-color: #23272f;
     border-bottom: 1px solid #3a3e47;
 }
 
 .modal-header h2 {
-    margin: 0; /* Убираем все внешние отступы у заголовка */
+    margin: 0;
     font-size: 1.1em;
     color: #e0e0e0;
-    line-height: 1.2; /* Управляем высотой строки */
+    line-height: 1.2;
 }
 
 .modal-close-btn {
     background: none; border: none;
-    color: #a0b0c8; font-size: 2em; /* Немного уменьшил для баланса */
-    line-height: 1; /* Убираем лишнюю высоту строки */
+    color: #a0b0c8; font-size: 2em;
+    line-height: 1;
     cursor: pointer; 
-    padding: 0 5px; /* Сохраняем кликабельную область */
+    padding: 0 5px;
 }
-/* --- КОНЕЦ ИЗМЕНЕНИЙ --- */
 
 .modal-body {
     flex-grow: 1;
@@ -126,9 +124,23 @@
 
 /* Адаптивность */
 @media (max-width: 767px) {
-    .modal-content.stand-detail-modal {
-        max-width: 100%; height: 100%; border-radius: 0; border: none; max-height: 100vh;
+    .modal-overlay {
+        padding: 0;
+        align-items: flex-start; /* ИЗМЕНЕНИЕ: Начинаем с верха экрана */
     }
-    .modal-body { padding: 0 10px 10px 10px; }
-    .modal-tabs { margin: 0 -10px 10px -10px; padding: 0 10px; }
+    .modal-content.stand-detail-modal {
+        width: 100%; 
+        height: 100%; /* ИЗМЕНЕНИЕ: Растягиваем на весь экран */
+        max-height: 100vh;
+        border-radius: 0; 
+        border: none;
+        animation: none; /* Убираем анимацию, чтобы избежать дерганий */
+    }
+    .modal-body { 
+        padding: 0 10px 10px 10px; 
+    }
+    .modal-tabs { 
+        margin: 0 -10px 10px -10px; 
+        padding: 0 10px; 
+    }
 }
