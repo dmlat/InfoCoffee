@@ -1,99 +1,138 @@
 // frontend/src/components/StandDetail/StandRecipesTab.js
-import React, { useState, useEffect } from 'react';
-import apiClient from '../../api';
+import React, { useState, useEffect, useMemo } from 'react';
+import apiClient from '../api';
+import { ALL_ITEMS } from '../../constants';
 import ConfirmModal from '../ConfirmModal';
 import TerminalListModal from '../TerminalListModal';
 import './StandRecipesTab.css';
 
-const RECIPE_INGREDIENTS_MAP = {
-    'Кофе': 'coffee_grams', 'Вода': 'water_ml', 'Сливки': 'milk_grams',
-    'Какао': 'cocoa_grams', 'Раф': 'raf_grams'
+// Вспомогательная функция для форматирования заголовков
+const formatHeader = (name) => {
+    if (name.length <= 4) return name;
+    return name.substring(0, 3) + '.';
 };
 
+const CONSUMABLES_WITH_DEFAULT_1 = ['Стаканы', 'Крышки', 'Размеш.'];
+
 export default function StandRecipesTab({ terminal, internalTerminalId, machineItems, initialRecipes, allTerminals, onSave }) {
-    const [recipes, setRecipes] = useState(initialRecipes);
+    const [recipes, setRecipes] = useState([]);
+    const [changedRecipeIds, setChangedRecipeIds] = useState(new Set());
     const [isSaving, setIsSaving] = useState(false);
     const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
     const [confirmModalState, setConfirmModalState] = useState({ isOpen: false, message: '', onConfirm: () => {} });
     const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
 
     useEffect(() => {
-        setRecipes(initialRecipes);
-    }, [initialRecipes]);
-
-    const normalizeNumericInput = (value) => value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
-
-    const handleRecipeChange = (machineItemId, field, value) => {
-        setRecipes(prev => ({
-            ...prev,
-            [machineItemId]: {
-                ...prev[machineItemId],
-                machine_item_id: machineItemId,
-                [field]: field.includes('_grams') || field.includes('_ml') ? normalizeNumericInput(value) : value
+        // Преобразуем данные с бэкенда в удобный для работы формат
+        const newRecipes = machineItems.map(itemId => {
+            const existingRecipe = initialRecipes.find(r => r.machine_item_id === itemId);
+            if (existingRecipe) {
+                return existingRecipe;
             }
-        }));
+            // Создаем новый "пустой" рецепт для кнопок, у которых еще нет рецепта
+            return {
+                machine_item_id: itemId,
+                terminal_id: internalTerminalId,
+                name: '',
+                items: CONSUMABLES_WITH_DEFAULT_1.map(name => ({ item_name: name, quantity: 1 })),
+            };
+        });
+        setRecipes(newRecipes);
+        setChangedRecipeIds(new Set()); // Сбрасываем изменения при обновлении данных
+    }, [initialRecipes, machineItems, internalTerminalId]);
+
+    const handleRecipeChange = (machineItemId, field, value, itemName = null) => {
+        setRecipes(prevRecipes =>
+            prevRecipes.map(recipe => {
+                if (recipe.machine_item_id === machineItemId) {
+                    const updatedRecipe = { ...recipe };
+                    if (field === 'name') {
+                        updatedRecipe.name = value;
+                    } else if (field === 'quantity' && itemName) {
+                        const newItems = [...(recipe.items || [])];
+                        const itemIndex = newItems.findIndex(i => i.item_name === itemName);
+                        const normalizedValue = value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+
+                        if (itemIndex > -1) {
+                            newItems[itemIndex] = { ...newItems[itemIndex], quantity: normalizedValue };
+                        } else {
+                            newItems.push({ item_name: itemName, quantity: normalizedValue });
+                        }
+                        updatedRecipe.items = newItems;
+                    }
+                    return updatedRecipe;
+                }
+                return recipe;
+            })
+        );
+        setChangedRecipeIds(prev => new Set(prev).add(machineItemId));
     };
 
     const showSaveStatus = (message, type) => {
         setSaveStatus({ message, type });
-        setTimeout(() => setSaveStatus({ message: '', type: '' }), 3000);
+        setTimeout(() => setSaveStatus({ message: '', type: '' }), 3500);
     };
 
     const handleSave = async () => {
         setIsSaving(true);
+        const recipesToSave = recipes.filter(r => changedRecipeIds.has(r.machine_item_id));
+
+        const savePromises = recipesToSave.map(recipe => {
+            const payload = {
+                terminalId: recipe.terminal_id,
+                machine_item_id: recipe.machine_item_id,
+                name: recipe.name,
+                items: recipe.items.filter(item => item.quantity && parseFloat(item.quantity) > 0)
+            };
+            return apiClient.post('/recipes', payload);
+        });
+
         try {
-            const recipesToSave = Object.values(recipes).filter(r => r.name || Object.values(RECIPE_INGREDIENTS_MAP).some(key => r[key]));
-            const response = await apiClient.post('/recipes', { terminalId: internalTerminalId, recipes: recipesToSave });
-            if (response.data.success) {
-                showSaveStatus('Рецепты успешно сохранены!', 'success');
-                onSave(); // Вызываем колбэк для обновления initialRecipes в родительском компоненте
-            } else {
-                 showSaveStatus(response.data.error || 'Ошибка сохранения.', 'error');
-            }
-        } catch(err) {
-            showSaveStatus(err.response?.data?.error || 'Сетевая ошибка.', 'error');
+            await Promise.all(savePromises);
+            showSaveStatus('Изменения успешно сохранены!', 'success');
+            onSave(); // Обновляем данные с сервера
+        } catch (err) {
+            showSaveStatus(err.response?.data?.error || 'Ошибка при сохранении.', 'error');
         } finally {
             setIsSaving(false);
         }
     };
-
+    
+    // Логика для копирования (использует TerminalListModal)
     const handleOpenCopyModal = () => {
-        setIsCopyModalOpen(true);
+        setConfirmModalState({
+            isOpen: true,
+            message: `Скопировать все ${recipes.length} рецептов этого терминала? Существующие рецепты в целевых терминалах будут перезаписаны.`,
+            onConfirm: () => {
+                setConfirmModalState({ isOpen: false });
+                setIsCopyModalOpen(true);
+            }
+        });
     };
 
     const handleSelectCopyDestination = async (destinationTerminal) => {
         setIsCopyModalOpen(false);
+        setIsSaving(true);
         try {
             const destDetailsRes = await apiClient.get(`/terminals/vendista/${destinationTerminal.id}/details`);
-            if (!destDetailsRes.data.success || !destDetailsRes.data.internalId) {
-                throw new Error('Не удалось получить внутренний ID целевого терминала.');
-            }
             const destinationInternalId = destDetailsRes.data.internalId;
 
-            setConfirmModalState({
-                isOpen: true,
-                message: `Скопировать рецепты в "${destinationTerminal.comment || `Терминал #${destinationTerminal.id}`}"? Существующие рецепты для тех же кнопок будут перезаписаны.`,
-                onConfirm: () => executeCopy(destinationInternalId)
-            });
-        } catch(err) {
-             showSaveStatus(err.response?.data?.error || 'Ошибка получения деталей цели.', 'error');
-        }
-    };
-
-    const executeCopy = async (destinationInternalId) => {
-        setConfirmModalState({ isOpen: false });
-        try {
             const res = await apiClient.post('/recipes/copy', {
                 sourceTerminalId: internalTerminalId,
                 destinationTerminalId: destinationInternalId
             });
             showSaveStatus(res.data.message, res.data.success ? 'success' : 'error');
         } catch (err) {
-            showSaveStatus(err.response?.data?.error || 'Ошибка при копировании.', 'error');
+             showSaveStatus(err.response?.data?.error || 'Ошибка при копировании.', 'error');
+        } finally {
+            setIsSaving(false);
         }
     };
     
-    const haveRecipesChanged = JSON.stringify(recipes) !== JSON.stringify(initialRecipes);
+    const handleFocus = (e) => e.currentTarget.select();
+
+    // Мемоизируем для производительности
+    const recipeItemsMap = useMemo(() => ALL_ITEMS.map(i => i.name), []);
 
     return (
         <>
@@ -109,46 +148,67 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
                     onSelect={handleSelectCopyDestination}
                     onClose={() => setIsCopyModalOpen(false)}
                     disabledId={terminal.id}
-                    title="Копировать в..."
+                    title="Копировать рецепты в..."
                 />
             )}
             <div className="modal-tab-content recipes-form">
-                <p className="helper-text recipes-helper">Укажите названия напитков и расход для автоматического учета остатков.</p>
-                <div className="form-footer recipes-footer">
-                    <button type="button" className="action-btn" onClick={handleSave} disabled={isSaving || !haveRecipesChanged}>
-                        {isSaving ? 'Сохранение...' : 'Сохранить рецепты'}
-                    </button>
-                    <button type="button" className="action-btn secondary" onClick={handleOpenCopyModal} disabled={isSaving}>
-                        Скопировать
-                    </button>
-                    {saveStatus.message && <span className={`save-status ${saveStatus.type}`}>{saveStatus.message}</span>}
+                <div className="settings-header-container">
+                    <h4>Укажите граммы/шт.</h4>
+                    <div className="header-buttons">
+                         <button type="button" className="action-btn secondary" onClick={handleOpenCopyModal} disabled={isSaving}>Копировать</button>
+                        <button type="button" className="action-btn header-save-btn" onClick={handleSave} disabled={isSaving || changedRecipeIds.size === 0}>
+                            {isSaving ? 'Сохранение...' : 'Сохранить'}
+                        </button>
+                    </div>
                 </div>
+                 {saveStatus.message && <div className={`save-status-recipes ${saveStatus.type}`}>{saveStatus.message}</div>}
+
                 <div className="table-scroll-container">
                     <table className="recipes-table">
                         <thead>
                             <tr>
-                                <th>ID</th>
-                                <th>Название</th>
-                                {Object.keys(RECIPE_INGREDIENTS_MAP).map(ing => <th key={ing}>{ing}</th>)}
+                                <th className="sticky-col id-col">ID</th>
+                                <th className="sticky-col name-col">Name</th>
+                                {recipeItemsMap.map(itemName => (
+                                    <th key={itemName} title={itemName}>{formatHeader(itemName)}</th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody>
-                            {machineItems.length > 0 ? machineItems.map(itemId => (
-                                <tr key={itemId}>
-                                    <td className="item-id-cell">{itemId}</td>
-                                    <td>
-                                        <input type="text" placeholder="-" value={recipes[itemId]?.name || ''} 
-                                            onChange={e => handleRecipeChange(itemId, 'name', e.target.value)} />
+                            {recipes.length > 0 ? recipes.map(recipe => {
+                                const itemsAsMap = (recipe.items || []).reduce((acc, item) => {
+                                    acc[item.item_name] = item.quantity;
+                                    return acc;
+                                }, {});
+
+                                return (
+                                <tr key={recipe.machine_item_id}>
+                                    <td className="sticky-col id-col">{recipe.machine_item_id}</td>
+                                    <td className="sticky-col name-col">
+                                        <input 
+                                            type="text" 
+                                            placeholder="Название напитка" 
+                                            value={recipe.name || ''} 
+                                            onChange={e => handleRecipeChange(recipe.machine_item_id, 'name', e.target.value)}
+                                            onFocus={handleFocus}
+                                            className="recipe-name-input"
+                                        />
                                     </td>
-                                    {Object.entries(RECIPE_INGREDIENTS_MAP).map(([ingName, fieldName]) => (
-                                        <td key={ingName}>
-                                            <input type="text" inputMode="decimal" placeholder="0" value={recipes[itemId]?.[fieldName] || ''}
-                                                onChange={e => handleRecipeChange(itemId, fieldName, e.target.value)} />
+                                    {recipeItemsMap.map(itemName => (
+                                        <td key={itemName}>
+                                            <input 
+                                                type="text" 
+                                                inputMode="decimal"
+                                                placeholder="0" 
+                                                value={itemsAsMap[itemName] || ''}
+                                                onChange={e => handleRecipeChange(recipe.machine_item_id, 'quantity', e.target.value, itemName)}
+                                                onFocus={handleFocus}
+                                            />
                                         </td>
                                     ))}
                                 </tr>
-                            )) : (
-                                <tr><td colSpan={Object.keys(RECIPE_INGREDIENTS_MAP).length + 2}>Нет данных о проданных напитках. Совершите продажу, чтобы кнопки появились.</td></tr>
+                            )}) : (
+                                <tr><td colSpan={recipeItemsMap.length + 2}>Нет данных о проданных напитках. Совершите продажу, чтобы кнопки появились.</td></tr>
                             )}
                         </tbody>
                     </table>

@@ -1,78 +1,75 @@
 // backend/routes/inventory.js
-const express = require('express');
-const router = express.Router();
-const authMiddleware = require('../middleware/auth');
-const pool = require('../db');
-const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 
-// Перемещение остатков
-router.post('/move', authMiddleware, async (req, res) => {
+// ... (существующий код файла ... /move и т.д.)
+
+// --- НОВЫЙ ЭНДПОИНТ: Обработать продажу и списать остатки ---
+router.post('/process-sale', authMiddleware, async (req, res) => {
     const userId = req.user.userId;
-    const { from, to, item_name, quantity } = req.body;
+    const { transaction } = req.body; // Ожидаем объект транзакции
 
-    console.log(`[POST /api/inventory/move] UserID: ${userId} - Request: ${item_name} (${quantity}) from ${JSON.stringify(from)} to ${JSON.stringify(to)}`);
-
-    if (!from || !to || !item_name || isNaN(parseFloat(quantity)) || quantity <= 0) {
-        return res.status(400).json({ success: false, error: 'Не все поля для перемещения заполнены корректно.' });
+    if (!transaction || !transaction.term_id || !transaction.machine_item_id) {
+        // Это не ошибка, а штатная ситуация (например, сервисная операция)
+        return res.status(200).json({ success: true, message: 'No recipe to process.' });
     }
     
-    // ... (валидация остается прежней) ...
-
     const client = await pool.pool.connect();
     try {
         await client.query('BEGIN');
-
-        const fromTerminalId = from.location === 'warehouse' ? null : from.terminal_id;
-        const toTerminalId = to.location === 'warehouse' ? null : to.terminal_id;
-
-        // 1. УМЕНЬШАЕМ остаток в источнике
-        const fromUpdateRes = await client.query(
-            `UPDATE inventories
-             SET current_stock = current_stock - $1, updated_at = NOW()
-             WHERE user_id = $2 AND location = $3 AND item_name = $4 AND (terminal_id = $5 OR (terminal_id IS NULL AND $5 IS NULL))
-             AND current_stock >= $1
-             RETURNING current_stock`,
-            [quantity, userId, from.location, item_name, fromTerminalId]
-        );
         
-        if (fromUpdateRes.rowCount === 0) {
+        // 1. Найти внутренний ID терминала
+        const terminalRes = await client.query(
+            'SELECT id FROM terminals WHERE user_id = $1 AND vendista_terminal_id = $2',
+            [userId, transaction.term_id]
+        );
+        if (terminalRes.rowCount === 0) {
+            // Терминал еще не синхронизирован, это нормально на старте
             await client.query('ROLLBACK');
-            const sourceName = from.location === 'warehouse' ? 'на складе' : `в локации "${from.location}"`;
-            return res.status(400).json({ success: false, error: `Недостаточно остатков "${item_name}" ${sourceName}.` });
+            return res.status(200).json({ success: true, message: 'Terminal not found in DB yet.' });
+        }
+        const internalTerminalId = terminalRes.rows[0].id;
+
+        // 2. Найти рецепт для этого напитка на этом терминале
+        const recipeRes = await client.query(
+            `SELECT id FROM recipes WHERE terminal_id = $1 AND machine_item_id = $2`,
+            [internalTerminalId, transaction.machine_item_id]
+        );
+        if (recipeRes.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(200).json({ success: true, message: 'Recipe not found for this item.' });
+        }
+        const recipeId = recipeRes.rows[0].id;
+
+        // 3. Получить состав рецепта
+        const itemsRes = await client.query('SELECT item_name, quantity FROM recipe_items WHERE recipe_id = $1', [recipeId]);
+        if (itemsRes.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(200).json({ success: true, message: 'Recipe is empty.' });
         }
 
-        // 2. УВЕЛИЧИВАЕМ остаток в назначении
-        const toUpdateRes = await client.query(
-            `INSERT INTO inventories (user_id, location, terminal_id, item_name, current_stock)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (user_id, terminal_id, item_name, location)
-             DO UPDATE SET
-                current_stock = inventories.current_stock + EXCLUDED.current_stock,
-                updated_at = NOW()
-             RETURNING current_stock`,
-            [userId, to.location, toTerminalId, item_name, quantity]
-        );
-
-        await client.query('COMMIT');
-        
-        // ВОЗВРАЩАЕМ ОБНОВЛЕННЫЕ ДАННЫЕ
-        res.json({ 
-            success: true, 
-            message: `"${item_name}" успешно перемещен.`,
-            updatedStock: {
-                from: { location: from.location, terminal_id: fromTerminalId, new_stock: fromUpdateRes.rows[0].current_stock },
-                to: { location: to.location, terminal_id: toTerminalId, new_stock: toUpdateRes.rows[0].current_stock }
+        // 4. Списать каждый ингредиент из инвентаря кофемашины
+        for (const item of itemsRes.rows) {
+            if (item.quantity > 0) {
+                await client.query(
+                    `UPDATE inventories 
+                     SET current_stock = current_stock - $1, updated_at = NOW()
+                     WHERE terminal_id = $2 AND item_name = $3 AND location = 'machine'`,
+                    [item.quantity, internalTerminalId, item.item_name]
+                );
             }
-        });
+        }
+        
+        await client.query('COMMIT');
+        res.status(200).json({ success: true, message: 'Stock updated successfully.' });
 
-    } catch(err) {
+    } catch (err) {
         await client.query('ROLLBACK');
-        console.error(`[POST /api/inventory/move] UserID: ${userId} - Error:`, err);
+        console.error(`[POST /api/inventory/process-sale] UserID: ${userId} - Error:`, err);
         sendErrorToAdmin({
-            userId, errorContext: `POST /api/inventory/move`,
+            userId, errorContext: `POST /api/inventory/process-sale`,
             errorMessage: err.message, errorStack: err.stack, additionalInfo: { body: req.body }
         }).catch(console.error);
-        res.status(500).json({ success: false, error: 'Ошибка сервера при перемещении остатков.' });
+        // Не отправляем 500, чтобы не прерывать основной воркер, если что-то пошло не так
+        res.status(200).json({ success: false, error: 'Server error during stock deduction.' });
     } finally {
         client.release();
     }

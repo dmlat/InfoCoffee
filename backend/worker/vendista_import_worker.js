@@ -4,21 +4,47 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const axios = require('axios');
 const pool = require('../db');
 const moment = require('moment-timezone');
-const { sendErrorToAdmin } = require('../utils/adminErrorNotifier'); // Импорт уведомителя
+const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 
 const VENDISTA_API_URL = process.env.VENDISTA_API_BASE_URL || 'https://api.vendista.ru:99';
-const MAX_RETRIES = 5; // Максимальное количество повторных попыток
-const INITIAL_RETRY_DELAY_MS = 2000; // Начальная задержка перед повтором (2 секунды)
-const PAGE_FETCH_DELAY_MS = 750; // Задержка между запросами страниц (0.75 секунды)
+const MAX_RETRIES = 5;
+const INITIAL_RETRY_DELAY_MS = 2000;
+const PAGE_FETCH_DELAY_MS = 750;
 
-// Утилита для задержки
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Новая функция для вызова списания остатков
+async function processSale(userId, transaction, appToken) {
+    // Проверяем, есть ли überhaupt что списывать по рецепту
+    if (!transaction.term_id || !transaction.machine_item_id || !appToken) {
+        return;
+    }
+
+    try {
+        // Используем новый экземпляр axios, чтобы не смешивать заголовки
+        const internalApiClient = axios.create({
+            baseURL: `http://localhost:${process.env.PORT || 3001}`,
+            headers: { 'Authorization': `Bearer ${appToken}` }
+        });
+        await internalApiClient.post('/api/inventory/process-sale', { transaction });
+    } catch (e) {
+        console.error(`[Worker] User ${userId} - Failed to process sale for transaction ${transaction.id}:`, e.message);
+        // Отправляем уведомление, но не останавливаем основной процесс импорта
+        sendErrorToAdmin({
+            userId,
+            errorContext: `Process Sale for Tx ${transaction.id}`,
+            errorMessage: e.message,
+            additionalInfo: e.response?.data
+        }).catch(console.error);
+    }
+}
 
 async function importTransactionsForPeriod({
   user_id,
   vendistaApiToken,
-  dateFrom, // YYYY-MM-DD
-  dateTo,   // YYYY-MM-DD
+  appToken, // Добавляем токен приложения для внутренних запросов
+  dateFrom,
+  dateTo,
   fetchAllPages = true
 }) {
   const logPrefix = `[Worker] User ${user_id} (Period: ${dateFrom} to ${dateTo})`;
@@ -53,10 +79,10 @@ async function importTransactionsForPeriod({
             PageNumber: currentPage,
             ItemsOnPage: itemsPerPage
           },
-          timeout: 45000 // Увеличен таймаут до 45 секунд
+          timeout: 45000
         });
 
-        retries = 0; // Сброс счетчика попыток при успешном запросе
+        retries = 0;
 
         if (!resp.data.items || resp.data.items.length === 0) {
           console.log(`${logPrefix}: Страница ${currentPage} пуста или нет больше данных.`);
@@ -105,9 +131,15 @@ async function importTransactionsForPeriod({
             tr.left_sum || 0, tr.left_bonus || 0, user_id, 
             dbMachineItemId
           ]);
+          
+          const isNew = result.rows[0].xmax === '0';
 
-          if (result.rows[0].xmax === '0') {
-              newTransactionsAdded++;
+          if (isNew) {
+            newTransactionsAdded++;
+            // Если это новая успешная продажа (не возврат) - вызываем списание
+            if (String(tr.result) === '1' && tr.reverse_id === 0) {
+               await processSale(user_id, tr, appToken);
+            }
           } else {
               transactionsUpdated++;
           }
@@ -116,16 +148,16 @@ async function importTransactionsForPeriod({
         console.log(`${logPrefix}: Страница ${currentPage} обработана. Всего: ${transactionsProcessed}, Новых: ${newTransactionsAdded}, Обновлено: ${transactionsUpdated}.`);
 
         if (!fetchAllPages || transactions.length < itemsPerPage) {
-          break; // Выход, если это не полный импорт или если данных на странице меньше, чем запрашивали
+          break;
         }
         currentPage++;
-        await delay(PAGE_FETCH_DELAY_MS); // Задержка перед запросом следующей страницы
+        await delay(PAGE_FETCH_DELAY_MS);
 
       } catch (pageError) {
         if (pageError.response && pageError.response.status === 429 && retries < MAX_RETRIES) {
           retries++;
-          let retryAfterDelay = INITIAL_RETRY_DELAY_MS * Math.pow(2, retries -1); // Exponential backoff
-          retryAfterDelay += Math.random() * 1000; // Jitter
+          let retryAfterDelay = INITIAL_RETRY_DELAY_MS * Math.pow(2, retries -1);
+          retryAfterDelay += Math.random() * 1000; 
           
           const retryAfterHeader = pageError.response.headers['retry-after'];
           if (retryAfterHeader) {
@@ -134,7 +166,7 @@ async function importTransactionsForPeriod({
               retryAfterDelay = Math.max(retryAfterDelay, secondsToWait * 1000);
             }
           }
-          console.warn(`${logPrefix}: Ошибка 429 (Rate Limit) на странице ${currentPage}. Попытка ${retries}/${MAX_RETRIES} через ${Math.round(retryAfterDelay/1000)}с. Сообщение: ${pageError.response.data?.error || pageError.message}`);
+          console.warn(`${logPrefix}: Ошибка 429 (Rate Limit) на странице ${currentPage}. Попытка ${retries}/${MAX_RETRIES} через ${Math.round(retryAfterDelay/1000)}с.`);
           await sendErrorToAdmin({ 
             userId: user_id, 
             errorContext: `Rate Limit ${logPrefix}, Page ${currentPage}`, 
@@ -142,10 +174,9 @@ async function importTransactionsForPeriod({
             additionalInfo: { retryAttempt: retries, delayMs: retryAfterDelay }
           });
           await delay(retryAfterDelay);
-          continue; // Повторяем текущую страницу
+          continue;
         }
-        // Если другая ошибка или превышены попытки retry для 429
-        throw pageError; // Перебрасываем ошибку выше для общей обработки
+        throw pageError;
       }
     }
     console.log(`${logPrefix}: Импорт успешно завершен. Обработано: ${transactionsProcessed}, Добавлено: ${newTransactionsAdded}, Обновлено: ${transactionsUpdated}.`);
@@ -165,11 +196,11 @@ async function importTransactionsForPeriod({
   }
 }
 
-async function startImport({ user_id, vendistaApiToken, first_coffee_date }) { // Переименовал для ясности, что это оригинальная функция
-    console.log(`[Worker] startImport для User ${user_id} с ${first_coffee_date}, используя API токен.`);
+async function startImport({ user_id, vendistaApiToken, first_coffee_date, appToken }) {
+    console.log(`[Worker] startImport для User ${user_id} с ${first_coffee_date}.`);
     const dateFrom = moment(first_coffee_date).tz('Europe/Moscow').format('YYYY-MM-DD');
-    const dateTo = moment().tz('Europe/Moscow').format('YYYY-MM-DD'); // Всегда до текущего дня для полного исторического
-    return importTransactionsForPeriod({ user_id, vendistaApiToken, dateFrom, dateTo, fetchAllPages: true });
+    const dateTo = moment().tz('Europe/Moscow').format('YYYY-MM-DD');
+    return importTransactionsForPeriod({ user_id, vendistaApiToken, dateFrom, dateTo, fetchAllPages: true, appToken });
 }
 
 module.exports = { importTransactionsForPeriod, startImport };

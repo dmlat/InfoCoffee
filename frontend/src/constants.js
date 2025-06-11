@@ -24,16 +24,15 @@ export function formatDateForInput(date) {
     return `${year}-${month}-${day}`;
 }
 
-// ИЗМЕНЕНИЕ: Все товары теперь имеют type: 'ingredient'. Логика разделения упразднена.
 export const ALL_ITEMS = [
-    { name: 'Кофе', unit: 'кг', multiplier: 1000, type: 'ingredient', fullName: 'Кофе в зернах' },
-    { name: 'Сливки', unit: 'кг', multiplier: 1000, type: 'ingredient', fullName: 'Сухие сливки' },
-    { name: 'Какао', unit: 'кг', multiplier: 1000, type: 'ingredient', fullName: 'Какао-порошок' },
-    { name: 'Раф', unit: 'кг', multiplier: 1000, type: 'ingredient', fullName: 'Смесь для Раф-кофе' },
-    { name: 'Вода', unit: 'л', multiplier: 1000, type: 'ingredient', fullName: 'Вода' },
-    { name: 'Стаканы', unit: 'шт', multiplier: 1, type: 'ingredient', fullName: 'Стаканы' },
-    { name: 'Крышки', unit: 'шт', multiplier: 1, type: 'ingredient', fullName: 'Крышки для стаканов' },
-    { name: 'Размеш.', unit: 'шт', multiplier: 1, type: 'ingredient', fullName: 'Размешиватели' },
-    { name: 'Сахар', unit: 'шт', multiplier: 1, type: 'ingredient', fullName: 'Сахар в стиках' },
-    { name: 'Трубочки', unit: 'шт', multiplier: 1, type: 'ingredient', fullName: 'Трубочки' },
+    { name: 'Кофе', unit: 'г', multiplier: 1000 },
+    { name: 'Вода', unit: 'мл', multiplier: 1000 },
+    { name: 'Сливки', unit: 'г', multiplier: 1000 },
+    { name: 'Какао', unit: 'г', multiplier: 1000 },
+    { name: 'Раф', unit: 'г', multiplier: 1000 },
+    { name: 'Стаканы', unit: 'шт', multiplier: 1 },
+    { name: 'Крышки', unit: 'шт', multiplier: 1 },
+    { name: 'Размеш.', unit: 'шт', multiplier: 1 },
+    { name: 'Сахар', unit: 'шт', multiplier: 1 },
+    { name: 'Трубочки', unit: 'шт', multiplier: 1 },
 ];
