@@ -1,12 +1,12 @@
 // frontend/src/components/StandDetail/StandDetailModal.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import apiClient from '../../api'; // ИСПРАВЛЕН ПУТЬ
+import apiClient from '../../api';
 import StandNavigator from './StandNavigator';
 import StandStockTab from './StandStockTab';
 import StandRecipesTab from './StandRecipesTab';
 import StandSettingsTab from './StandSettingsTab';
-import { ALL_ITEMS } from '../../constants'; // ИСПРАВЛЕН ПУТЬ
+import { ALL_ITEMS } from '../../constants';
 import './StandDetailModal.css';
 
 export default function StandDetailModal({ terminal, allTerminals, onTerminalChange, onClose }) {
@@ -55,7 +55,11 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
             
             const newSettings = {};
             ALL_ITEMS.forEach(item => {
-                const existingItem = fetchedDetails.inventory.find(i => i.item_name === item.name);
+                // --- ГЛАВНОЕ ИСПРАВЛЕНИЕ БАГА ---
+                // Ищем настройку именно для локации 'machine', чтобы избежать путаницы
+                const existingItem = fetchedDetails.inventory.find(
+                    i => i.item_name === item.name && i.location === 'machine'
+                );
                 newSettings[item.name] = {
                     max_stock: formatNumericOutput(existingItem?.max_stock),
                     critical_stock: formatNumericOutput(existingItem?.critical_stock)
@@ -95,6 +99,13 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
     const handleTabClick = (tabId) => {
         setActiveTab(tabId);
         navigate(`${location.pathname}#${tabId}`, { replace: true });
+    };
+    
+    // Переименовываем вкладку для ясности
+    const tabTitleMap = {
+        'stock': 'Остатки',
+        'recipes': 'Рецепты',
+        'settings': 'Контейнеры'
     };
 
     const renderActiveTab = () => {
@@ -137,9 +148,11 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
 
                 <div className="modal-body">
                     <div className="modal-tabs">
-                        <button onClick={() => handleTabClick('stock')} className={activeTab === 'stock' ? 'active' : ''}>Остатки</button>
-                        <button onClick={() => handleTabClick('recipes')} className={activeTab === 'recipes' ? 'active' : ''}>Рецепты</button>
-                        <button onClick={() => handleTabClick('settings')} className={activeTab === 'settings' ? 'active' : ''}>Контейнеры</button>
+                        {Object.entries(tabTitleMap).map(([tabId, title]) => (
+                             <button key={tabId} onClick={() => handleTabClick(tabId)} className={activeTab === tabId ? 'active' : ''}>
+                                {title}
+                            </button>
+                        ))}
                     </div>
                     
                     {isLoading && <div className="page-loading-container"><span>Загрузка деталей...</span></div>}

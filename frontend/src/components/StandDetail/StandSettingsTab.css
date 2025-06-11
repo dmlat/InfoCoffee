@@ -5,23 +5,44 @@
     flex-direction: column;
 }
 
-.helper-text { 
-    font-size: 0.85em; 
-    color: #8a9db8; 
-    margin: 2px 0 10px 0; 
-    text-align: center; 
-    flex-shrink: 0; 
+/* ИЗМЕНЕНИЕ: Блок для заголовка и кнопки */
+.settings-header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 0 5px; /* Небольшие отступы по бокам */
 }
 
-.settings-section { 
-    margin-bottom: 24px; 
+/* ИЗМЕНЕНИЕ: Убран лишний текст */
+.helper-text { 
+   display: none;
 }
 
 .settings-section h4 { 
     color: #8ae6ff; 
-    margin-bottom: 12px; 
-    border-bottom: 1px solid #303548; 
-    padding-bottom: 8px; 
+    margin: 0;
+    padding: 0;
+    border-bottom: none;
+    font-size: 1.05em; /* Уменьшаем кегль */
+}
+
+/* ИЗМЕНЕНИЕ: Стили для новой кнопки в шапке */
+.header-save-btn {
+    height: 32px;
+    padding: 0 18px;
+    font-size: 0.9em;
+    flex-shrink: 0; /* Чтобы кнопка не сжималась */
+}
+.header-save-btn:disabled {
+    background-color: transparent !important;
+    border: 1px solid #3a3e47 !important;
+    color: #5f6c7b !important;
+}
+
+
+.settings-section { 
+    margin-bottom: 24px; 
 }
 
 .setting-item-header {
@@ -59,6 +80,7 @@
 .setting-item label { 
     color: #c6c6c6; 
     text-align: left; 
+    white-space: nowrap; /* Чтобы лейблы не переносились */
 }
 
 .setting-item input {
@@ -73,6 +95,10 @@
     box-sizing: border-box;
 }
 
+.setting-item input::placeholder {
+    color: #5f6c7b;
+}
+
 input[type=number] { 
     -moz-appearance: textfield; 
     appearance: textfield; 
@@ -85,11 +111,13 @@ input[type=number]::-webkit-outer-spin-button {
 
 .form-footer { 
     margin-top: auto; 
-    padding-top: 15px; 
+    padding-top: 10px; 
     display: flex; 
+    justify-content: center; /* Центрируем сообщение о статусе */
     align-items: center; 
     gap: 15px; 
-    flex-shrink: 0; 
+    flex-shrink: 0;
+    min-height: 25px; /* Резервируем место под статус */
 }
 
 .save-status { 
