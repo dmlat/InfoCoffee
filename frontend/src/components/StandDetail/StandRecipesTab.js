@@ -11,6 +11,7 @@ const formatHeader = (name) => {
     return name.substring(0, 3);
 };
 
+// Константа для расходников, которым нужно значение по умолчанию
 const CONSUMABLES_WITH_DEFAULT_1 = ['Стаканы', 'Крышки', 'Размеш.', 'Сахар', 'Трубочки'];
 
 export default function StandRecipesTab({ terminal, internalTerminalId, machineItems, initialRecipes, allTerminals, onSave }) {
@@ -27,16 +28,24 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
             const existingRecipe = initialRecipes[itemId];
             
             if (existingRecipe) {
+                // Если рецепт уже существует, просто возвращаем его
                 return { ...existingRecipe };
             }
             
+            // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+            // Если рецепта нет, создаем новый с дефолтными значениями для расходников
             return {
                 machine_item_id: itemId,
                 terminal_id: internalTerminalId,
                 name: '',
-                items: CONSUMABLES_WITH_DEFAULT_1.map(name => ({ item_name: name, quantity: 1 })),
+                // Создаем массив `items` с предустановленными расходниками
+                items: CONSUMABLES_WITH_DEFAULT_1.map(name => ({
+                    item_name: name,
+                    quantity: 1
+                })),
             };
         });
+
         setRecipes(newRecipes);
         setChangedRecipeIds(new Set());
     }, [initialRecipes, machineItems, internalTerminalId]);
@@ -91,7 +100,7 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
         try {
             await Promise.all(savePromises);
             showSaveStatus('Изменения успешно сохранены!', 'success');
-            onSave();
+            onSave(); // Обновляем данные после сохранения
         } catch (err) {
             showSaveStatus(err.response?.data?.error || 'Ошибка при сохранении.', 'error');
         } finally {
@@ -99,7 +108,6 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
         }
     };
     
-    // Новая логика для копирования
     const handleCopyRecipes = async (destinationVendistaIds) => {
         setIsCopyModalOpen(false);
         if (destinationVendistaIds.length === 0) return;
