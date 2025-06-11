@@ -1,3 +1,4 @@
+// backend/routes/recipes.js
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
@@ -50,7 +51,11 @@ router.post('/', authMiddleware, async (req, res) => {
             recipeId = existingRecipe.rows[0].id;
             await client.query('UPDATE recipes SET name = $1, updated_at = NOW() WHERE id = $2', [name || `Напиток #${machine_item_id}`, recipeId]);
         } else {
-            const newRecipeRes = await client.query('INSERT INTO recipes (terminal_id, machine_item_id, name) VALUES ($1, $2, $3) RETURNING id', [terminalId, machine_item_id, name || `Напиток #${machine_item_id}`]);
+            // ИЗМЕНЕНИЕ ЗДЕСЬ: Явно указываем id и используем nextval
+            const newRecipeRes = await client.query(
+                `INSERT INTO recipes (id, terminal_id, machine_item_id, name) VALUES (nextval('recipes_id_seq'), $1, $2, $3) RETURNING id`,
+                [terminalId, machine_item_id, name || `Напиток #${machine_item_id}`]
+            );
             recipeId = newRecipeRes.rows[0].id;
         }
 
@@ -100,7 +105,9 @@ router.post('/copy', authMiddleware, async (req, res) => {
         );
 
         if (sourceRecipesRes.rows.length === 0) {
-            throw new Error('У исходного терминала нет сохраненных рецептов.');
+            // Это не ошибка, просто нечего копировать
+            await client.query('COMMIT');
+            return res.json({ success: true, message: 'У исходного терминала нет рецептов для копирования.' });
         }
 
         for (const destId of destinationTerminalIds) {
@@ -112,7 +119,11 @@ router.post('/copy', authMiddleware, async (req, res) => {
                     destRecipeId = existingRecipe.rows[0].id;
                     await client.query('UPDATE recipes SET name = $1, updated_at = NOW() WHERE id = $2', [sourceRecipe.name, destRecipeId]);
                 } else {
-                    const newRecipeRes = await client.query('INSERT INTO recipes (terminal_id, machine_item_id, name) VALUES ($1, $2, $3) RETURNING id', [destId, sourceRecipe.machine_item_id, sourceRecipe.name]);
+                    // ИЗМЕНЕНИЕ ЗДЕСЬ: Явно указываем id и используем nextval
+                    const newRecipeRes = await client.query(
+                        `INSERT INTO recipes (id, terminal_id, machine_item_id, name) VALUES (nextval('recipes_id_seq'), $1, $2, $3) RETURNING id`,
+                        [destId, sourceRecipe.machine_item_id, sourceRecipe.name]
+                    );
                     destRecipeId = newRecipeRes.rows[0].id;
                 }
 

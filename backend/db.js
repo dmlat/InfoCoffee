@@ -15,27 +15,6 @@ const pool = new Pool(
       }
 );
 
-/**
- * РАБОЧИЙ И НАДЕЖНЫЙ СПОСОБ ЛОГИРОВАНИЯ
- * * Мы подписываемся на событие 'connect', которое пул генерирует
- * каждый раз, когда создает нового клиента для выполнения запроса.
- * После получения клиента, мы "патчим" только его метод query,
- * добавляя логирование. Это безопасно и не мешает внутренним механизмам pg.
- */
-pool.on('connect', (client) => {
-    const originalClientQuery = client.query;
-    client.query = (text, params, callback) => {
-        console.log('--- [DB] EXECUTING QUERY ---');
-        console.log('Query:', text);
-        if (params) {
-          console.log('Params:', params);
-        }
-        console.log('---------------------------');
-        return originalClientQuery.call(client, text, params, callback);
-    };
-});
-
-
 module.exports = {
   // Этот метод query используется для одиночных запросов, 
   // пул сам управляет созданием и освобождением клиентов.
