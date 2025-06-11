@@ -61,6 +61,8 @@ export default function StandStockTab({ details, onConfigureClick }) {
                 <td>{item.name}</td>
                 <td className="stock-cell">{standStockText}</td>
                 <td className="machine-cell">
+                    {/* --- ИСПРАВЛЕНИЕ --- */}
+                    {/* Убрана проверка item.type. Прогресс-бар рендерится для всех товаров. */}
                     <MachineProgressBar 
                         current={machineData?.current || 0} 
                         max={machineData?.max} 
@@ -90,9 +92,9 @@ export default function StandStockTab({ details, onConfigureClick }) {
                         </tr>
                     </thead>
                     <tbody>
-                        {ALL_ITEMS.filter(item => item.type === 'ingredient' && item.name !== 'Вода').map(item => renderRow(item, 'ingredient-row'))}
-                        {renderRow(ALL_ITEMS.find(i => i.name === 'Вода'), 'water-row')}
-                        {ALL_ITEMS.filter(item => item.type === 'consumable').map(item => renderRow(item, 'consumable-row'))}
+                        {/* Восстанавливаем визуальное разделение, но логика для всех строк теперь одинакова */}
+                        {ALL_ITEMS.filter(item => ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода'].includes(item.name)).map(item => renderRow(item, 'ingredient-row'))}
+                        {ALL_ITEMS.filter(item => !['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода'].includes(item.name)).map(item => renderRow(item, 'consumable-row'))}
                     </tbody>
                 </table>
             </div>

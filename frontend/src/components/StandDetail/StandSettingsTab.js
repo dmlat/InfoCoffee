@@ -28,10 +28,11 @@ export default function StandSettingsTab({ terminal, initialSettings, onSave }) 
         e.preventDefault();
         setIsSaving(true);
         const inventorySettings = Object.entries(settings).map(([itemName, values]) => {
-            const itemInfo = ALL_ITEMS.find(i => i.name === itemName);
+            // --- ИСПРАВЛЕНИЕ ---
+            // Локация теперь всегда 'machine', так как настройки контейнеров относятся к машине для всех товаров.
             return {
                 item_name: itemName,
-                location: itemInfo.type === 'ingredient' ? 'machine' : 'stand',
+                location: 'machine',
                 max_stock: values.max_stock || null,
                 critical_stock: values.critical_stock || null
             }
