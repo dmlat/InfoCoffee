@@ -4,7 +4,7 @@ import apiClient from '../api';
 import './WarehousePage.css';
 import StockUpModal from '../components/StockUpModal';
 import TerminalListModal from '../components/TerminalListModal';
-import StandDetailModal from '../components/StandDetailModal';
+import StandDetailModal from '../components/StandDetail/StandDetailModal'; // <-- ВОЗВРАЩАЕМ ИМПОРТ С КОРРЕКТНЫМ ПУТЕМ
 import { ALL_ITEMS } from '../constants';
 
 // --- Вспомогательные компоненты ---
@@ -126,7 +126,7 @@ export default function WarehousePage() {
         } finally {
             setIsLoading(false);
         }
-    }, [fetchDataForTerminal]); // <-- ИСПРАВЛЕНО: добавлена зависимость
+    }, [fetchDataForTerminal]);
 
     useEffect(() => {
         const savedState = JSON.parse(localStorage.getItem(WAREHOUSE_STATE_KEY));
@@ -307,7 +307,7 @@ export default function WarehousePage() {
 
             {isStockUpModalOpen && <StockUpModal onClose={() => setIsStockUpModalOpen(false)} onSuccess={() => fetchInitialData(selectedTerminal)} />}
             {isTerminalModalOpen && <TerminalListModal terminals={terminals} onClose={() => setIsTerminalModalOpen(false)} onSelect={handleTerminalSelect} currentSelection={selectedTerminal?.id} />}
-            {isStandDetailModalOpen && selectedTerminal && <StandDetailModal terminal={selectedTerminal} onClose={() => { setIsStandDetailModalOpen(false); fetchDataForTerminal(selectedTerminal); }} />}
+            {isStandDetailModalOpen && selectedTerminal && <StandDetailModal terminal={selectedTerminal} allTerminals={terminals} onTerminalChange={handleTerminalSelect} onClose={() => { setIsStandDetailModalOpen(false); fetchDataForTerminal(selectedTerminal); }} />}
         </>
     );
 }
