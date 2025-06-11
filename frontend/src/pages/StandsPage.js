@@ -1,7 +1,8 @@
 // frontend/src/pages/StandsPage.js
 import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api';
-import StandDetailModal from '../components/StandDetail/StandDetailModal'; // ИЗМЕНЕН ПУТЬ
+// Вот корректный путь после перемещения файла модального окна
+import StandDetailModal from '../components/StandDetail/StandDetailModal'; 
 import './StandsPage.css';
 
 export default function StandsPage() {
@@ -39,13 +40,12 @@ export default function StandsPage() {
         }
         return () => { document.body.style.overflow = 'auto'; };
     }, [selectedTerminal]);
-
+    
     const handleCloseModal = () => {
         setSelectedTerminal(null);
         fetchTerminals();
     };
-    
-    // Функция для смены терминала из модального окна
+
     const handleTerminalChange = (newTerminal) => {
         setSelectedTerminal(newTerminal);
     };
@@ -95,8 +95,8 @@ export default function StandsPage() {
             {selectedTerminal && (
                 <StandDetailModal
                     terminal={selectedTerminal}
-                    allTerminals={terminals} // Передаем весь список
-                    onTerminalChange={handleTerminalChange} // Передаем функцию смены
+                    allTerminals={terminals}
+                    onTerminalChange={handleTerminalChange}
                     onClose={handleCloseModal}
                 />
             )}

@@ -2,14 +2,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../../api';
-// import ConfirmModal from '../ConfirmModal'; // УДАЛЕНА ЭТА СТРОКА
 import StandNavigator from './StandNavigator';
 import StandStockTab from './StandStockTab';
 import StandRecipesTab from './StandRecipesTab';
 import StandSettingsTab from './StandSettingsTab';
-import { ALL_ITEMS } from '../../constants'; // Добавим импорт сюда, т.к. он нужен для настроек
+import { ALL_ITEMS } from '../../constants';
 import './StandDetailModal.css';
-
 
 export default function StandDetailModal({ terminal, allTerminals, onTerminalChange, onClose }) {
     const location = useLocation();
@@ -20,7 +18,7 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
         if (['stock', 'recipes', 'settings'].includes(hash)) {
             return hash;
         }
-        return 'stock'; // Вкладка по умолчанию
+        return 'stock';
     }
 
     const [activeTab, setActiveTab] = useState(getTabFromHash);
