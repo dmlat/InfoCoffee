@@ -91,7 +91,7 @@ export default function StandStockTab({ details, onConfigureClick }) {
                     </thead>
                     <tbody>
                         {ALL_ITEMS.filter(item => item.type === 'ingredient' && item.name !== 'Вода').map(item => renderRow(item, 'ingredient-row'))}
-                        {renderRow(ALL_ITEMS.find(i => i.name === 'Вода'), 'water-row')}
+                        {renderRow(ALL_ITEMS.find(i => i.name === 'Вода'), 'water-row ingredient-row')}
                         {ALL_ITEMS.filter(item => item.type === 'consumable').map(item => renderRow(item, 'consumable-row'))}
                     </tbody>
                 </table>
