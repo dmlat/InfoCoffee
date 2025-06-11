@@ -58,11 +58,10 @@ export default function StandStockTab({ details, onConfigureClick }) {
         
         return (
             <tr key={item.name} className={extraClass}>
+                {/* ИСПРАВЛЕНИЕ: Используем короткое имя item.name, как и просил */}
                 <td>{item.name}</td>
                 <td className="stock-cell">{standStockText}</td>
                 <td className="machine-cell">
-                    {/* --- ИСПРАВЛЕНИЕ --- */}
-                    {/* Убрана проверка item.type. Прогресс-бар рендерится для всех товаров. */}
                     <MachineProgressBar 
                         current={machineData?.current || 0} 
                         max={machineData?.max} 
@@ -92,7 +91,6 @@ export default function StandStockTab({ details, onConfigureClick }) {
                         </tr>
                     </thead>
                     <tbody>
-                        {/* Восстанавливаем визуальное разделение, но логика для всех строк теперь одинакова */}
                         {ALL_ITEMS.filter(item => ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода'].includes(item.name)).map(item => renderRow(item, 'ingredient-row'))}
                         {ALL_ITEMS.filter(item => !['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода'].includes(item.name)).map(item => renderRow(item, 'consumable-row'))}
                     </tbody>

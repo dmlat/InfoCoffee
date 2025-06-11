@@ -5,16 +5,15 @@
     flex-direction: column;
 }
 
-/* ИЗМЕНЕНИЕ: Блок для заголовка и кнопки */
 .settings-header-container {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
-    padding: 0 5px; /* Небольшие отступы по бокам */
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding: 0 5px;
 }
 
-/* ИЗМЕНЕНИЕ: Убран лишний текст */
 .helper-text { 
    display: none;
 }
@@ -24,22 +23,20 @@
     margin: 0;
     padding: 0;
     border-bottom: none;
-    font-size: 1.05em; /* Уменьшаем кегль */
+    font-size: 1.05em;
 }
 
-/* ИЗМЕНЕНИЕ: Стили для новой кнопки в шапке */
 .header-save-btn {
     height: 32px;
     padding: 0 18px;
     font-size: 0.9em;
-    flex-shrink: 0; /* Чтобы кнопка не сжималась */
+    flex-shrink: 0;
 }
 .header-save-btn:disabled {
     background-color: transparent !important;
     border: 1px solid #3a3e47 !important;
     color: #5f6c7b !important;
 }
-
 
 .settings-section { 
     margin-bottom: 24px; 
@@ -80,7 +77,7 @@
 .setting-item label { 
     color: #c6c6c6; 
     text-align: left; 
-    white-space: nowrap; /* Чтобы лейблы не переносились */
+    white-space: nowrap;
 }
 
 .setting-item input {
@@ -113,11 +110,11 @@ input[type=number]::-webkit-outer-spin-button {
     margin-top: auto; 
     padding-top: 10px; 
     display: flex; 
-    justify-content: center; /* Центрируем сообщение о статусе */
+    justify-content: center;
     align-items: center; 
     gap: 15px; 
     flex-shrink: 0;
-    min-height: 25px; /* Резервируем место под статус */
+    min-height: 25px;
 }
 
 .save-status { 

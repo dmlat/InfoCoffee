@@ -49,17 +49,13 @@ export default function StandSettingsTab({ terminal, initialSettings, onSave }) 
         }
     };
     
-    // ИСПРАВЛЕНИЕ: Функция для установки курсора в конец поля
+    // ИСПРАВЛЕНИЕ: Убираем setTimeout, чтобы избежать мерцания на мобильных
     const handleFocus = (e) => {
         const input = e.currentTarget;
         const length = input.value.length;
-        // Устанавливаем курсор в конец. setTimeout(0) нужен для некоторых браузеров.
-        setTimeout(() => {
-            input.setSelectionRange(length, length);
-        }, 0);
+        input.setSelectionRange(length, length);
     };
 
-    // ИСПРАВЛЕНИЕ: Функция для получения единицы измерения для лейбла
     const getUnitForLabel = (unit) => {
         if (unit === 'кг') return 'г';
         if (unit === 'л') return 'мл';
@@ -70,7 +66,6 @@ export default function StandSettingsTab({ terminal, initialSettings, onSave }) 
 
     return (
         <form className="modal-tab-content settings-form" onSubmit={handleSave}>
-            {/* ИЗМЕНЕНИЕ: Заголовок и кнопка теперь в одном блоке */}
             <div className="settings-header-container">
                 <h4>Контейнеры кофемашины</h4>
                 <button type="submit" className="action-btn header-save-btn" disabled={isSaving || !haveSettingsChanged}>
@@ -78,8 +73,6 @@ export default function StandSettingsTab({ terminal, initialSettings, onSave }) 
                 </button>
             </div>
             
-            {/* ИЗМЕНЕНИЕ: Удален блок с поясняющим текстом */}
-
             <div className="table-scroll-container">
                 <div className="settings-section">
                     <div className="setting-item-header">
@@ -89,7 +82,6 @@ export default function StandSettingsTab({ terminal, initialSettings, onSave }) 
                     </div>
                     {ALL_ITEMS.map(item => (
                         <div className="setting-item" key={item.name}>
-                             {/* ИЗМЕНЕНИЕ: Обновлен формат лейбла */}
                             <label>{`${item.fullName || item.name}, ${getUnitForLabel(item.unit)}`}</label>
                             <input 
                                 type="text" 
@@ -97,7 +89,7 @@ export default function StandSettingsTab({ terminal, initialSettings, onSave }) 
                                 placeholder="-" 
                                 value={settings[item.name]?.max_stock || ''} 
                                 onChange={e => handleSettingsChange(item.name, 'max_stock', e.target.value)}
-                                onFocus={handleFocus} // ИСПРАВЛЕНИЕ: Добавлен обработчик фокуса
+                                onFocus={handleFocus}
                             />
                             <input 
                                 type="text" 
@@ -105,13 +97,12 @@ export default function StandSettingsTab({ terminal, initialSettings, onSave }) 
                                 placeholder="-" 
                                 value={settings[item.name]?.critical_stock || ''} 
                                 onChange={e => handleSettingsChange(item.name, 'critical_stock', e.target.value)}
-                                onFocus={handleFocus} // ИСПРАВЛЕНИЕ: Добавлен обработчик фокуса
+                                onFocus={handleFocus}
                             />
                         </div>
                     ))}
                 </div>
             </div>
-            {/* ИЗМЕНЕНИЕ: Сообщение о статусе перенесено вниз, чтобы не мешать кнопке */}
             <div className="form-footer">
                 {saveStatus.message && <span className={`save-status ${saveStatus.type}`}>{saveStatus.message}</span>}
             </div>
