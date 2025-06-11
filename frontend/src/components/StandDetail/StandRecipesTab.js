@@ -11,7 +11,7 @@ const formatHeader = (name) => {
     return name.substring(0, 3);
 };
 
-const CONSUMABLES_WITH_DEFAULT_1 = ['Стаканы', 'Крышки', 'Размеш.'];
+const CONSUMABLES_WITH_DEFAULT_1 = ['Стаканы', 'Крышки', 'Размеш.', 'Сахар', 'Трубочки'];
 
 export default function StandRecipesTab({ terminal, internalTerminalId, machineItems, initialRecipes, allTerminals, onSave }) {
     const [recipes, setRecipes] = useState([]);
