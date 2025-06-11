@@ -5,22 +5,25 @@ import './WarehousePage.css';
 import StockUpModal from '../components/StockUpModal';
 import TerminalListModal from '../components/TerminalListModal';
 import StandDetailModal from '../components/StandDetailModal';
+import { ALL_ITEMS } from '../constants';
 
-// --- Константы и Хелперы ---
-const ALL_ITEMS = [
-    { name: 'Кофе', unit: 'кг', multiplier: 1000, type: 'consumable' },
-    { name: 'Вода', unit: 'л', multiplier: 1000, type: 'consumable' },
-    { name: 'Сливки', unit: 'кг', multiplier: 1000, type: 'consumable' },
-    { name: 'Какао', unit: 'кг', multiplier: 1000, type: 'consumable' },
-    { name: 'Раф', unit: 'кг', multiplier: 1000, type: 'consumable' },
-    { name: 'Стаканы', unit: 'шт', multiplier: 1, type: 'disposable' },
-    { name: 'Крышки', unit: 'шт', multiplier: 1, type: 'disposable' },
-    { name: 'Размеш.', unit: 'шт', multiplier: 1, type: 'disposable' },
-    { name: 'Сахар', unit: 'шт', multiplier: 1, type: 'disposable' },
-    { name: 'Трубочки', unit: 'шт', multiplier: 1, type: 'disposable' },
-];
+// --- Вспомогательные компоненты ---
+const ProgressBar = ({ current, max, critical }) => {
+    const percentage = max > 0 ? (current / max) * 100 : 0;
+    let barColorClass = 'normal';
+    if (percentage < 25) barColorClass = 'low';
+    if (percentage < 10) barColorClass = 'critical';
 
-const getUnitInfo = (itemName) => ALL_ITEMS.find(i => i.name === itemName) || {};
+    return (
+        <div className="progress-bar-container">
+            <div className={`progress-bar-fill ${barColorClass}`} style={{ width: `${Math.min(percentage, 100)}%` }}></div>
+            {critical > 0 && max > 0 && <div className="progress-bar-critical-marker" style={{ left: `${(critical / max) * 100}%` }}></div>}
+            <span className="progress-bar-text">{current.toLocaleString('ru-RU')} / {max.toLocaleString('ru-RU')}</span>
+        </div>
+    );
+};
+
+
 const WAREHOUSE_STATE_KEY = 'warehouse_page_state_v3';
 
 // --- Основной Компонент ---
@@ -44,13 +47,17 @@ export default function WarehousePage() {
         setNotification({ message, isError });
         setTimeout(() => setNotification({ message: '', isError: false }), 3500);
     };
-    
+
     const fetchDataForTerminal = useCallback(async (terminal) => {
         if (!terminal?.id) {
             setStandStock({});
             setMachineData({});
+            setSelectedTerminal(null);
             return;
         }
+
+        setSelectedTerminal(terminal); // Оптимистичное обновление
+        
         try {
             const res = await apiClient.get(`/terminals/vendista/${terminal.id}/details`);
             if (res.data.success) {
@@ -60,23 +67,17 @@ export default function WarehousePage() {
                 
                 inventory.forEach(item => {
                     const stockValue = parseFloat(item.current_stock || 0);
-                    if (item.location === 'stand') {
-                        newStandStock[item.item_name] = {
-                            current: stockValue,
-                            max: parseFloat(item.max_stock || 0),
-                            critical: parseFloat(item.critical_stock || 0)
-                        };
-                    } else if (item.location === 'machine') {
-                        newMachineData[item.item_name] = { 
-                            current: stockValue, 
-                            max: parseFloat(item.max_stock || 0), 
-                            critical: parseFloat(item.critical_stock || 0)
-                        };
-                    }
+                    const itemData = {
+                        current: stockValue,
+                        max: parseFloat(item.max_stock || 0),
+                        critical: parseFloat(item.critical_stock || 0)
+                    };
+                    if (item.location === 'stand') newStandStock[item.item_name] = itemData;
+                    else if (item.location === 'machine') newMachineData[item.item_name] = itemData;
                 });
+
                 setStandStock(newStandStock);
                 setMachineData(newMachineData);
-                // Обновляем терминал, сохраняя предыдущие данные и добавляя internalId
                 setSelectedTerminal(prev => ({...prev, ...terminal, internalId: res.data.internalId}));
             }
         } catch (err) {
@@ -84,7 +85,7 @@ export default function WarehousePage() {
         }
     }, []);
 
-    const fetchInitialData = useCallback(async () => {
+    const fetchInitialData = useCallback(async (terminalToSelect = null) => {
         setIsLoading(true);
         setError('');
         try {
@@ -101,24 +102,31 @@ export default function WarehousePage() {
                 setWarehouseStock((warehouseRes.data.warehouseStock || []).reduce((acc, item) => ({...acc, [item.item_name]: parseFloat(item.current_stock || 0)}), {}));
             }
 
-            const savedState = JSON.parse(localStorage.getItem(WAREHOUSE_STATE_KEY));
-            let initialTerminal = null;
-            if (savedState?.selectedTerminalId) {
-                initialTerminal = fetchedTerminals.find(t => t.id === savedState.selectedTerminalId);
+            let terminalForDetails = terminalToSelect;
+            if (!terminalForDetails) {
+                const savedState = JSON.parse(localStorage.getItem(WAREHOUSE_STATE_KEY));
+                if (savedState?.selectedTerminalId) {
+                    terminalForDetails = fetchedTerminals.find(t => t.id === savedState.selectedTerminalId);
+                }
             }
-            if (!initialTerminal && fetchedTerminals.length > 0) {
-                initialTerminal = fetchedTerminals[0];
+            if (!terminalForDetails && fetchedTerminals.length > 0) {
+                terminalForDetails = fetchedTerminals[0];
+            }
+            
+            if (terminalForDetails) {
+                await fetchDataForTerminal(terminalForDetails);
+            } else {
+                 setStandStock({});
+                 setMachineData({});
+                 setSelectedTerminal(null);
             }
 
-            if (initialTerminal) {
-                await fetchDataForTerminal(initialTerminal);
-            }
         } catch (err) {
             setError(err.response?.data?.error || err.message || 'Ошибка загрузки данных');
         } finally {
             setIsLoading(false);
         }
-    }, [fetchDataForTerminal]);
+    }, [fetchDataForTerminal]); // <-- ИСПРАВЛЕНО: добавлена зависимость
 
     useEffect(() => {
         const savedState = JSON.parse(localStorage.getItem(WAREHOUSE_STATE_KEY));
@@ -130,7 +138,7 @@ export default function WarehousePage() {
     }, [fetchInitialData]);
 
     useEffect(() => {
-        if (!isLoading) { // Сохраняем только после начальной загрузки
+        if (!isLoading) {
             const stateToSave = {
                 selectedTerminalId: selectedTerminal ? selectedTerminal.id : null,
                 activeStepKg,
@@ -151,7 +159,7 @@ export default function WarehousePage() {
             return;
         }
 
-        const { multiplier } = getUnitInfo(itemName);
+        const { multiplier } = ALL_ITEMS.find(i => i.name === itemName) || {};
         const stepQuantity = step * multiplier;
 
         let sourceStock = 0;
@@ -186,8 +194,7 @@ export default function WarehousePage() {
             const response = await apiClient.post('/inventory/move', { from: fromPayload, to: toPayload, item_name: itemName, quantity: quantityToTransfer });
             
             if (response.data.success) {
-                // Прямое обновление состояния из ответа сервера - самый надежный способ
-                await fetchInitialData(); // Полная перезагрузка для гарантии консистентности
+                await fetchInitialData(selectedTerminal);
             } else {
                 showNotification(response.data.error || 'Ошибка перемещения', true);
             }
@@ -198,7 +205,7 @@ export default function WarehousePage() {
         }
     };
     
-    // ... render функции
+    // ... остальной код компонента без изменений ...
     const renderStepSelector = () => (
         <div className="step-selector-container">
             <div className="step-group">
@@ -222,61 +229,44 @@ export default function WarehousePage() {
 
     const renderInventoryRow = (item) => {
         const { name, unit, type, multiplier } = item;
-        const step = type === 'consumable' ? parseFloat(activeStepKg) : parseFloat(activeStepPcs);
+        const step = type === 'ingredient' ? parseFloat(activeStepKg) : parseFloat(activeStepPcs);
         
         const whValue = (warehouseStock[name] || 0) / multiplier;
         const stData = standStock[name];
         const mcData = machineData[name];
 
-        return(
-            <div className={`inventory-flat-row ${isRowLoading[name] ? 'loading' : ''}`} key={name}>
-                <div className="flat-row-item-name">
-                    <span>{name}</span>, {unit}
-                </div>
-                {/* Склад */}
-                <div className="flat-row-cell">{whValue.toLocaleString('ru-RU', {maximumFractionDigits: 2})}</div>
-                <div className="flat-row-separator"></div>
+        const canFillMachine = stData && stData.current > 0;
+        const machineHasStock = mcData && mcData.current > 0;
+        const canFillStand = warehouseStock[name] > 0;
+        const standHasStock = stData && stData.current > 0;
 
-                {/* Перемещение на стойку */}
-                <div className="flat-row-transfer">
-                    <button className="transfer-arrow left" onClick={() => handleTransfer('stand', 'warehouse', name, step)} disabled={!stData || stData.current < 1}>{'<'}</button>
-                    <button className="transfer-arrow right" onClick={() => handleTransfer('warehouse', 'stand', name, step)} disabled={warehouseStock[name] < 1}>{'>'}</button>
+        return (
+            <div className={`inventory-item-wrapper ${isRowLoading[name] ? 'loading' : ''}`} key={name}>
+                <div className="inventory-row-main">
+                    <div className="item-name-cell">{name}, {unit}</div>
+                    <div className="stock-cell">{whValue.toLocaleString('ru-RU', {maximumFractionDigits: 2})}</div>
+                    <div className="transfer-cell">
+                        <button className="transfer-arrow left" onClick={() => handleTransfer('stand', 'warehouse', name, step)} disabled={!standHasStock}>{'<'}</button>
+                        <button className="transfer-arrow right" onClick={() => handleTransfer('warehouse', 'stand', name, step)} disabled={!canFillStand}>{'>'}</button>
+                    </div>
+                    <div className="stock-cell">
+                        {stData ? stData.current.toLocaleString('ru-RU') : '—'}
+                    </div>
                 </div>
-                <div className="flat-row-separator"></div>
 
-                {/* Стойка */}
-                <div className="flat-row-cell progress-cell">
-                    {stData && stData.max > 0 ? (
-                        <div className="progress-bar-container">
-                            <div className="progress-bar-fill" style={{ width: `${(stData.current / stData.max) * 100}%` }}></div>
-                            {stData.critical > 0 && <div className="progress-bar-critical-marker" style={{ left: `${(stData.critical / stData.max) * 100}%` }}></div>}
-                            <span className="progress-bar-text">{stData.current} / {stData.max}</span>
+                {type === 'ingredient' && (
+                    <div className="inventory-row-machine">
+                        <button className="adjust-btn-machine minus" onClick={() => handleTransfer('machine', 'stand', name, step)} disabled={!machineHasStock}>-</button>
+                        <div className="progress-cell-machine">
+                        {mcData && mcData.max > 0 ? (
+                           <ProgressBar current={mcData.current} max={mcData.max} critical={mcData.critical} />
+                        ) : (
+                           <span className="placeholder-machine" onClick={() => setIsStandDetailModalOpen(true)}>Настройте остатки в машине →</span>
+                        )}
                         </div>
-                    ) : ( <span className="value-placeholder" onClick={() => setIsStandDetailModalOpen(true)}>{stData ? stData.current : 'N/A'}</span> )}
-                </div>
-                <div className="flat-row-separator"></div>
-                
-                {/* Перемещение в машину */}
-                {type === 'consumable' ? (
-                    <>
-                    <div className="flat-row-transfer">
-                        <button className="transfer-arrow left" onClick={() => handleTransfer('machine', 'stand', name, step)} disabled={!mcData || mcData.current < 1}>{'<'}</button>
-                        <button className="transfer-arrow right" onClick={() => handleTransfer('stand', 'machine', name, step)} disabled={!stData || stData.current < 1}>{'>'}</button>
+                        <button className="adjust-btn-machine plus" onClick={() => handleTransfer('stand', 'machine', name, step)} disabled={!canFillMachine}>+</button>
                     </div>
-                    <div className="flat-row-separator"></div>
-
-                    {/* Машина */}
-                    <div className="flat-row-cell progress-cell">
-                         {mcData && mcData.max > 0 ? (
-                            <div className="progress-bar-container">
-                                <div className="progress-bar-fill" style={{ width: `${(mcData.current / mcData.max) * 100}%` }}></div>
-                                {mcData.critical > 0 && <div className="progress-bar-critical-marker" style={{ left: `${(mcData.critical / mcData.max) * 100}%` }}></div>}
-                                <span className="progress-bar-text">{mcData.current} / {mcData.max}</span>
-                            </div>
-                        ) : ( <span className="value-placeholder" onClick={() => setIsStandDetailModalOpen(true)}>N/A</span> )}
-                    </div>
-                    </>
-                ) : <div className="disposable-placeholder"></div>}
+                )}
             </div>
         );
     };
@@ -303,25 +293,19 @@ export default function WarehousePage() {
                 <div className="inventory-block">
                     <h3 className="inventory-block-title">Переместить остатки</h3>
                     {renderStepSelector()}
-                    <div className="inventory-flat-grid">
-                        <div className="flat-grid-header">
-                            <div className="flat-row-item-name">Название</div>
-                            <div className="flat-row-cell">Склад</div>
-                            <div className="flat-row-separator"></div>
-                            <div className="flat-row-transfer"></div>
-                            <div className="flat-row-separator"></div>
-                            <div className="flat-row-cell">Стойка</div>
-                            <div className="flat-row-separator"></div>
-                            <div className="flat-row-transfer"></div>
-                            <div className="flat-row-separator"></div>
-                            <div className="flat-row-cell">Машина</div>
+                    <div className="inventory-grid">
+                        <div className="inventory-grid-header">
+                            <div>Название</div>
+                            <div>Склад</div>
+                            <div/>
+                            <div>Стойка</div>
                         </div>
                          {ALL_ITEMS.map(renderInventoryRow)}
                     </div>
                 </div>
             </div>
 
-            {isStockUpModalOpen && <StockUpModal onClose={() => setIsStockUpModalOpen(false)} onSuccess={fetchInitialData} />}
+            {isStockUpModalOpen && <StockUpModal onClose={() => setIsStockUpModalOpen(false)} onSuccess={() => fetchInitialData(selectedTerminal)} />}
             {isTerminalModalOpen && <TerminalListModal terminals={terminals} onClose={() => setIsTerminalModalOpen(false)} onSelect={handleTerminalSelect} currentSelection={selectedTerminal?.id} />}
             {isStandDetailModalOpen && selectedTerminal && <StandDetailModal terminal={selectedTerminal} onClose={() => { setIsStandDetailModalOpen(false); fetchDataForTerminal(selectedTerminal); }} />}
         </>

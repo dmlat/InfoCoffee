@@ -88,4 +88,81 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 });
 
+// --- НОВЫЙ ЭНДПОИНТ ДЛЯ КОПИРОВАНИЯ РЕЦЕПТОВ ---
+router.post('/copy', authMiddleware, async (req, res) => {
+    const userId = req.user.userId;
+    const { sourceTerminalId, destinationTerminalId } = req.body;
+
+    if (!sourceTerminalId || !destinationTerminalId) {
+        return res.status(400).json({ success: false, error: 'Необходимы ID исходного и целевого терминала.' });
+    }
+
+    const client = await pool.pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Проверить, что оба терминала принадлежат пользователю
+        const ownerCheck = await client.query(
+            'SELECT id FROM terminals WHERE id = ANY($1::int[]) AND user_id = $2',
+            [[sourceTerminalId, destinationTerminalId], userId]
+        );
+        if (ownerCheck.rowCount !== 2) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ success: false, error: 'Доступ к одному или обоим терминалам запрещен.' });
+        }
+
+        // 2. Получить рецепты из исходного терминала
+        const sourceRecipesRes = await client.query(
+            'SELECT * FROM recipes WHERE terminal_id = $1',
+            [sourceTerminalId]
+        );
+        const sourceRecipes = sourceRecipesRes.rows;
+
+        if (sourceRecipes.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'У исходного терминала нет сохраненных рецептов.' });
+        }
+        
+        // 3. Скопировать каждый рецепт в целевой терминал
+        for (const recipe of sourceRecipes) {
+             await client.query(
+                `INSERT INTO recipes (terminal_id, machine_item_id, name, coffee_grams, water_ml, milk_grams, cocoa_grams, raf_grams, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+                 ON CONFLICT (terminal_id, machine_item_id)
+                 DO UPDATE SET
+                    name = EXCLUDED.name,
+                    coffee_grams = EXCLUDED.coffee_grams,
+                    water_ml = EXCLUDED.water_ml,
+                    milk_grams = EXCLUDED.milk_grams,
+                    cocoa_grams = EXCLUDED.cocoa_grams,
+                    raf_grams = EXCLUDED.raf_grams,
+                    updated_at = NOW()`,
+                [
+                    destinationTerminalId, recipe.machine_item_id, recipe.name,
+                    recipe.coffee_grams || 0, recipe.water_ml || 0, recipe.milk_grams || 0,
+                    recipe.cocoa_grams || 0, recipe.raf_grams || 0
+                ]
+            );
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, message: `Рецепты успешно скопированы. Скопировано ${sourceRecipes.length} позиций.` });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(`[POST /api/recipes/copy] UserID: ${userId} - Error:`, err);
+        sendErrorToAdmin({
+            userId,
+            errorContext: `POST /api/recipes/copy`,
+            errorMessage: err.message,
+            errorStack: err.stack,
+            additionalInfo: { body: req.body }
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при копировании рецептов.' });
+    } finally {
+        client.release();
+    }
+});
+
+
 module.exports = router;

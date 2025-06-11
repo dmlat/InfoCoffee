@@ -2,36 +2,32 @@
 import React from 'react';
 import './TerminalListModal.css';
 
-export default function TerminalListModal({ terminals, onSelect, onClose, currentSelection, excludeLocation = null }) {
+export default function TerminalListModal({ terminals, onSelect, onClose, currentSelection, disabledId = null, title = "Выберите стойку" }) {
     
     const onlineTerminals = terminals.filter(t => (t.last_hour_online || 0) > 0);
     const offlineTerminals = terminals.filter(t => (t.last_hour_online || 0) === 0);
 
-    const isTerminalExcluded = (terminal) => {
-        if (!excludeLocation) return false;
-        // Блокируем, только если и ID терминала, и тип локации совпадают
-        // Это позволит перемещать из "Стойка А" в "Машина А"
-        return terminal.id === excludeLocation.terminalId && 
-               (excludeLocation.type === 'stand' || excludeLocation.type === 'machine');
+    const isTerminalDisabled = (terminal) => {
+        return terminal.id === disabledId;
     };
 
     const handleCardClick = (terminal) => {
-        if (isTerminalExcluded(terminal)) return;
+        if (isTerminalDisabled(terminal)) return;
         onSelect(terminal);
         onClose();
     };
 
     const renderTerminal = (terminal) => {
-        const isExcluded = isTerminalExcluded(terminal);
+        const isDisabled = isTerminalDisabled(terminal);
         return (
             <div
                 key={terminal.id}
-                className={`terminal-card ${currentSelection === terminal.id ? 'selected' : ''} ${isExcluded ? 'disabled' : ''}`}
+                className={`terminal-card ${currentSelection === terminal.id ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
                 onClick={() => handleCardClick(terminal)}
             >
                 <span className={`status-indicator ${ (terminal.last_hour_online || 0) > 0 ? 'online' : 'offline'}`}></span>
                 <span className="terminal-name">{terminal.comment || `Терминал #${terminal.id}`}</span>
-                {isExcluded && <span className="disabled-label">(Источник)</span>}
+                {isDisabled && <span className="disabled-label">(Источник)</span>}
             </div>
         );
     }
@@ -40,7 +36,7 @@ export default function TerminalListModal({ terminals, onSelect, onClose, curren
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content terminal-list-modal" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>Выберите стойку</h2>
+                    <h2>{title}</h2>
                     <button type="button" className="modal-close-btn" onClick={onClose}>&times;</button>
                 </div>
                 <div className="modal-body">

@@ -1,6 +1,7 @@
 // frontend/src/components/StockUpModal.js
 import React, { useState } from 'react';
 import apiClient from '../api';
+import ConfirmModal from './ConfirmModal';
 import './StockUpModal.css';
 
 const INGREDIENTS = ['Кофе', 'Сливки', 'Какао', 'Раф', 'Вода'];
@@ -17,6 +18,8 @@ export default function StockUpModal({ onClose, onSuccess }) {
     const [deltas, setDeltas] = useState({});
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
+    const [isDirty, setIsDirty] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
 
     const handleStepChange = (type, step) => {
         setActiveSteps(prev => ({ ...prev, [type]: step }));
@@ -28,18 +31,15 @@ export default function StockUpModal({ onClose, onSuccess }) {
     
         setDeltas(prev => {
             const currentDelta = prev[itemName] || 0;
-        // Используем Math.max, чтобы не уйти в минус
-            const newDelta = Math.max(0, currentDelta + (step * increment)); 
-        
-        // Для штучных товаров округляем до целого, для остальных - до 3 знаков
+            const newDelta = Math.max(0, currentDelta + (step * increment));
             const finalValue = itemType === 'pcs' ? Math.round(newDelta) : parseFloat(newDelta.toFixed(3));
-
             return { ...prev, [itemName]: finalValue };
         });
+        setIsDirty(true);
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         setIsSaving(true);
         setError('');
         
@@ -65,6 +65,14 @@ export default function StockUpModal({ onClose, onSuccess }) {
             setError(err.response?.data?.error || 'Сетевая ошибка.');
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleClose = () => {
+        if (isDirty) {
+            setShowConfirm(true);
+        } else {
+            onClose();
         }
     };
 
@@ -95,43 +103,52 @@ export default function StockUpModal({ onClose, onSuccess }) {
     );
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content stock-up-modal-fullscreen" onClick={e => e.stopPropagation()}>
-                <form onSubmit={handleSubmit}>
-                    <div className="modal-header">
-                        <h2>Пополнить склад</h2>
-                        <button type="button" className="modal-close-btn" onClick={onClose}>&times;</button>
-                    </div>
-                    <div className="modal-body">
-                        {error && <p className="error-message small">{error}</p>}
-                        
-                        <div className="step-selectors-container">
-                            {renderStepSelector('kg', 'Шаг для Кофе, Сливок, Какао, Раф (кг)', STEPS.kg)}
-                            {renderStepSelector('l', 'Шаг для Воды (л)', STEPS.l)}
-                            {renderStepSelector('pcs', 'Шаг для Расходников (шт)', STEPS.pcs)}
+        <>
+            <ConfirmModal
+                isOpen={showConfirm}
+                message="У вас есть несохраненные изменения. Сохранить их?"
+                onConfirm={() => { setShowConfirm(false); handleSubmit(); }}
+                onCancel={() => { setShowConfirm(false); onClose(); }}
+                confirmText="Сохранить"
+                cancelText="Не сохранять"
+            />
+            <div className="modal-overlay" onClick={handleClose}>
+                <div className="modal-content stock-up-modal-fullscreen" onClick={e => e.stopPropagation()}>
+                    <form onSubmit={handleSubmit}>
+                        <div className="modal-header">
+                            <h2>Пополнить склад</h2>
+                            <button type="button" className="modal-close-btn" onClick={handleClose}>&times;</button>
                         </div>
+                        <div className="modal-body">
+                            {error && <p className="error-message small">{error}</p>}
+                            
+                            <div className="step-selectors-container">
+                                {renderStepSelector('kg', 'Шаг (кг/л)', [...STEPS.kg, ...STEPS.l])}
+                                {renderStepSelector('pcs', 'Шаг (шт)', STEPS.pcs)}
+                            </div>
 
-                        <div className="item-columns-container">
-                            <div className="item-column">
-                                <h3>Ингредиенты</h3>
-                                {INGREDIENTS.map(renderItemControl)}
+                            <div className="item-columns-container">
+                                <div className="item-column">
+                                    <h3>Ингредиенты</h3>
+                                    {INGREDIENTS.map(renderItemControl)}
+                                </div>
+                                <div className="column-separator"></div>
+                                <div className="item-column">
+                                    <h3>Расходники</h3>
+                                    {CONSUMABLES.map(renderItemControl)}
+                                </div>
                             </div>
-                            <div className="column-separator"></div>
-                            <div className="item-column">
-                                <h3>Расходники</h3>
-                                {CONSUMABLES.map(renderItemControl)}
-                            </div>
+
                         </div>
-
-                    </div>
-                    <div className="modal-footer">
-                        <button type="button" className="action-btn secondary" onClick={onClose}>Отмена</button>
-                        <button type="submit" className="action-btn" disabled={isSaving}>
-                            {isSaving ? 'Сохранение...' : 'Пополнить'}
-                        </button>
-                    </div>
-                </form>
+                        <div className="modal-footer">
+                            <button type="button" className="action-btn secondary" onClick={handleClose}>Отмена</button>
+                            <button type="submit" className="action-btn" disabled={isSaving || !isDirty}>
+                                {isSaving ? 'Сохранение...' : 'Пополнить'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </div>
+        </>
     );
 }

@@ -121,7 +121,7 @@ router.get('/vendista/:vendistaId/details', authMiddleware, async (req, res) => 
         
         res.json({
             success: true,
-            internalId: internalTerminalId, // <<<--- ВОТ ИСПРАВЛЕНИЕ: ДОБАВЛЕНА ЭТА СТРОКА
+            internalId: internalTerminalId,
             details: { inventory: inventoryRes.rows }
         });
 
@@ -157,6 +157,7 @@ router.post('/vendista/:vendistaId/settings', authMiddleware, async (req, res) =
             const { item_name, location, max_stock, critical_stock } = item;
             
             if (!item_name || !location) continue;
+            // Логика позволяет сохранять max_stock для любого товара, что нам и нужно.
             const max = max_stock !== null && !isNaN(parseFloat(max_stock)) ? parseFloat(max_stock) : null;
             const critical = critical_stock !== null && !isNaN(parseFloat(critical_stock)) ? parseFloat(critical_stock) : null;
 
