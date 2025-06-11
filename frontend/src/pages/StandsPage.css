@@ -92,7 +92,6 @@
     font-size: 0.95em;
     color: #e0e0e0;
     font-weight: 600;
-    /* --- ИЗМЕНЕНЫ СТИЛИ НИЖЕ --- */
     white-space: normal;      /* УДАЛЕНО: nowrap. Разрешаем перенос текста. */
     overflow-wrap: break-word; /* Добавляем правило для переноса длинных слов без пробелов. */
     overflow: visible;         /* УДАЛЕНО: hidden. Больше не прячем текст. */

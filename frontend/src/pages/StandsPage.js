@@ -1,7 +1,7 @@
 // frontend/src/pages/StandsPage.js
 import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api';
-import StandDetailModal from '../components/StandDetailModal';
+import StandDetailModal from '../components/StandDetail/StandDetailModal'; // ИЗМЕНЕН ПУТЬ
 import './StandsPage.css';
 
 export default function StandsPage() {
@@ -16,9 +16,7 @@ export default function StandsPage() {
         try {
             const response = await apiClient.get('/terminals');
             if (response.data.success) {
-                // Сортировка остается здесь, чтобы навигация была предсказуемой
-                const sortedTerminals = response.data.terminals || [];
-                setTerminals(sortedTerminals);
+                setTerminals(response.data.terminals || []);
             } else {
                 setError(response.data.error || 'Не удалось загрузить список стоек.');
             }
@@ -41,13 +39,13 @@ export default function StandsPage() {
         }
         return () => { document.body.style.overflow = 'auto'; };
     }, [selectedTerminal]);
-    
+
     const handleCloseModal = () => {
         setSelectedTerminal(null);
-        fetchTerminals(); // Обновляем данные после закрытия модального окна
+        fetchTerminals();
     };
-
-    // НОВАЯ ФУНКЦИЯ: для смены терминала из модального окна
+    
+    // Функция для смены терминала из модального окна
     const handleTerminalChange = (newTerminal) => {
         setSelectedTerminal(newTerminal);
     };

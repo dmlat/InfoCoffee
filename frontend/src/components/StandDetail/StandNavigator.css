@@ -1,0 +1,49 @@
+/* frontend/src/components/StandDetail/StandNavigator.css */
+.stand-navigator {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: #282c34;
+    flex-shrink: 0;
+    border-bottom: 1px solid #3a3e47;
+}
+
+.nav-arrow {
+    background: transparent;
+    border: none;
+    color: #8ae6ff;
+    font-size: 1.8em;
+    cursor: pointer;
+    padding: 0 10px;
+    line-height: 1;
+}
+
+.nav-arrow:hover {
+    color: #fff;
+}
+
+.nav-terminal-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: #ffffff;
+    text-align: center;
+}
+
+.nav-terminal-name .status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.nav-terminal-name .status-indicator.online { 
+    background-color: #4caf50; 
+}
+
+.nav-terminal-name .status-indicator.offline { 
+    background-color: #f44336; 
+}
