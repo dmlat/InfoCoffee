@@ -64,15 +64,29 @@ router.post('/', authMiddleware, async (req, res) => {
             return res.status(403).json({ success: false, error: 'Доступ запрещен' });
         }
 
-        const recipeRes = await client.query(
-            `INSERT INTO recipes (terminal_id, machine_item_id, name, updated_at)
-             VALUES ($1, $2, $3, NOW())
-             ON CONFLICT (terminal_id, machine_item_id)
-             DO UPDATE SET name = EXCLUDED.name, updated_at = NOW()
-             RETURNING id`,
-            [terminalId, machine_item_id, name || `Напиток #${machine_item_id}`]
+        // --- НОВАЯ ЛОГИКА UPSERT ---
+        let recipeId;
+        const existingRecipe = await client.query(
+            'SELECT id FROM recipes WHERE terminal_id = $1 AND machine_item_id = $2',
+            [terminalId, machine_item_id]
         );
-        const recipeId = recipeRes.rows[0].id;
+
+        if (existingRecipe.rows.length > 0) {
+            // Рецепт существует, обновляем его
+            recipeId = existingRecipe.rows[0].id;
+            await client.query(
+                'UPDATE recipes SET name = $1, updated_at = NOW() WHERE id = $2',
+                [name || `Напиток #${machine_item_id}`, recipeId]
+            );
+        } else {
+            // Рецепта нет, создаем новый
+            const newRecipeRes = await client.query(
+                'INSERT INTO recipes (terminal_id, machine_item_id, name, updated_at) VALUES ($1, $2, $3, NOW()) RETURNING id',
+                [terminalId, machine_item_id, name || `Напиток #${machine_item_id}`]
+            );
+            recipeId = newRecipeRes.rows[0].id;
+        }
+        // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
         await client.query('DELETE FROM recipe_items WHERE recipe_id = $1', [recipeId]);
         
@@ -121,7 +135,6 @@ router.post('/copy', authMiddleware, async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // Проверяем, что все терминалы принадлежат пользователю
         const ownerCheck = await client.query(
             'SELECT id FROM terminals WHERE id = ANY($1::int[]) AND user_id = $2',
             [allIdsToCheck, userId]
@@ -131,7 +144,6 @@ router.post('/copy', authMiddleware, async (req, res) => {
             return res.status(403).json({ success: false, error: 'Доступ к одному или нескольким терминалам запрещен.' });
         }
 
-        // Получаем рецепты из исходного терминала
         const sourceRecipesRes = await client.query(
             `SELECT r.machine_item_id, r.name, 
                     COALESCE(
@@ -150,25 +162,32 @@ router.post('/copy', authMiddleware, async (req, res) => {
             return res.status(404).json({ success: false, error: 'У исходного терминала нет сохраненных рецептов.' });
         }
         
-        // Для каждого целевого терминала...
         for (const destId of destinationTerminalIds) {
-            // ...копируем каждый рецепт
             for (const sourceRecipe of sourceRecipes) {
-                // Вставляем или обновляем основную запись рецепта
-                const destRecipeRes = await client.query(
-                    `INSERT INTO recipes (terminal_id, machine_item_id, name, updated_at)
-                     VALUES ($1, $2, $3, NOW())
-                     ON CONFLICT (terminal_id, machine_item_id)
-                     DO UPDATE SET name = EXCLUDED.name, updated_at = NOW()
-                     RETURNING id`,
-                    [destId, sourceRecipe.machine_item_id, sourceRecipe.name]
+                // --- НОВАЯ ЛОГИКА UPSERT ДЛЯ КОПИРОВАНИЯ ---
+                let destRecipeId;
+                const existingRecipe = await client.query(
+                    'SELECT id FROM recipes WHERE terminal_id = $1 AND machine_item_id = $2',
+                    [destId, sourceRecipe.machine_item_id]
                 );
-                const destRecipeId = destRecipeRes.rows[0].id;
-                
-                // Удаляем старые ингредиенты для этого рецепта (на случай обновления)
+
+                if (existingRecipe.rows.length > 0) {
+                    destRecipeId = existingRecipe.rows[0].id;
+                    await client.query(
+                        'UPDATE recipes SET name = $1, updated_at = NOW() WHERE id = $2',
+                        [sourceRecipe.name, destRecipeId]
+                    );
+                } else {
+                    const newRecipeRes = await client.query(
+                        'INSERT INTO recipes (terminal_id, machine_item_id, name, updated_at) VALUES ($1, $2, $3, NOW()) RETURNING id',
+                        [destId, sourceRecipe.machine_item_id, sourceRecipe.name]
+                    );
+                    destRecipeId = newRecipeRes.rows[0].id;
+                }
+                // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+
                 await client.query('DELETE FROM recipe_items WHERE recipe_id = $1', [destRecipeId]);
                 
-                // Фильтруем и вставляем новые ингредиенты
                 const items = sourceRecipe.items.filter(item => item.item_name && !isNaN(parseFloat(item.quantity)) && parseFloat(item.quantity) > 0);
                 if (items.length > 0) {
                     const values = [];
