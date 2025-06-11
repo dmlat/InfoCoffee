@@ -24,13 +24,13 @@ export function formatDateForInput(date) {
     return `${year}-${month}-${day}`;
 }
 
-// Новый унифицированный список товаров
+// Новый унифицированный список товаров с измененным порядком
 export const ALL_ITEMS = [
     { name: 'Кофе', unit: 'кг', multiplier: 1000, type: 'ingredient' },
-    { name: 'Вода', unit: 'л', multiplier: 1000, type: 'ingredient' },
     { name: 'Сливки', unit: 'кг', multiplier: 1000, type: 'ingredient' },
     { name: 'Какао', unit: 'кг', multiplier: 1000, type: 'ingredient' },
     { name: 'Раф', unit: 'кг', multiplier: 1000, type: 'ingredient' },
+    { name: 'Вода', unit: 'л', multiplier: 1000, type: 'ingredient' }, // Вода теперь здесь
     { name: 'Стаканы', unit: 'шт', multiplier: 1, type: 'consumable', fullName: 'Стаканы' },
     { name: 'Крышки', unit: 'шт', multiplier: 1, type: 'consumable', fullName: 'Крышки' },
     { name: 'Размеш.', unit: 'шт', multiplier: 1, type: 'consumable', fullName: 'Размешиватели' },

@@ -85,37 +85,83 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    padding-right: 5px; /* for scrollbar */
+    padding-right: 5px;
 }
 
-/* --- Вкладка Остатки --- */
+/* --- Стили для НОВОЙ таблицы Остатков --- */
 .stock-tab-content { padding-top: 10px; }
-.stock-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-.stock-table td {
-    padding: 9px 12px;
+.stock-table-reworked {
+    width: 100%;
+    border-collapse: collapse;
+}
+.stock-table-reworked th, .stock-table-reworked td {
+    padding: 9px 8px; /* Уменьшил горизонтальный паддинг */
+    text-align: left;
     vertical-align: middle;
+    white-space: nowrap;
 }
-.stock-table tr:nth-child(odd) { background-color: #282c34; }
-.stock-table td:first-child {
+.stock-table-reworked th {
+    font-size: 0.8em;
+    color: #a0b0c8;
+    font-weight: 600;
+    text-transform: uppercase;
+    border-bottom: 2px solid #3a3e47;
+}
+.stock-table-reworked td {
+    font-size: 0.95em;
     color: #c6c6c6;
-    border-left: 1px solid #3a3e47;
 }
-.stock-table td:last-child {
-    text-align: right;
-    font-weight: 500;
-    color: #e0e0e0;
+.stock-table-reworked tr:nth-child(even) {
+    background-color: #282c34;
+}
+.stock-table-reworked th:not(:last-child),
+.stock-table-reworked td:not(:last-child) {
     border-right: 1px solid #3a3e47;
 }
-.stock-table tr.critical-row td { background-color: rgba(224, 107, 107, 0.1); color: #ffb8b8; }
-.stock-table tr:first-child td { border-top: 1px solid #3a3e47; }
-.stock-table tr:last-child td { border-bottom: 1px solid #3a3e47; }
-.table-divider-row td { padding: 0; }
-.table-divider { height: 1px; background-color: #3a3e47; margin: 4px 0; }
+.table-divider-row td {
+    padding: 0 !important;
+    border-right: none !important;
+}
+.table-divider { height: 1px; background-color: #3a3e47; }
+
+/* Выравнивание и ширина колонок */
+.stock-table-reworked th, .stock-table-reworked td { width: 33.33%; }
+.stock-table-reworked th:first-child, .stock-table-reworked td:first-child { width: 40%; } /* Первая колонка шире */
+.align-right { text-align: right; }
+.align-center { text-align: center; }
+.header-blue { color: #8ae6ff; }
+
+/* Прогресс-бар */
+.machine-progress-bar-container {
+    position: relative;
+    height: 12px;
+    background-color: #2a2e37;
+    border-radius: 6px;
+    margin: 0 auto;
+    overflow: hidden;
+}
+.machine-progress-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background-color: #3e67e0;
+    border-radius: 6px;
+    transition: width 0.3s;
+}
+.machine-progress-critical-marker {
+    position: absolute; top: 0; bottom: 0;
+    width: 2px;
+    background-color: #f44336;
+    z-index: 1;
+}
+.configure-container-notice {
+    color: #f44336;
+    font-size: 0.8em;
+    font-style: italic;
+}
 
 
-/* --- Вкладка Настройки --- */
+/* --- Вкладка Настройки (Контейнеры) --- */
 .settings-form { padding-top: 8px; }
-.helper-text { font-size: 0.85em; color: #8a9db8; margin: 5px 0 15px 0; text-align: center; flex-shrink: 0; }
+.helper-text { font-size: 0.85em; color: #8a9db8; margin: 2px 0 10px 0; text-align: center; flex-shrink: 0; }
 .settings-section { margin-bottom: 24px; }
 .settings-section h4 { color: #8ae6ff; margin-bottom: 12px; border-bottom: 1px solid #303548; padding-bottom: 8px; }
 
@@ -165,4 +211,5 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
     .modal-body { padding: 0 10px 10px 10px; }
     .modal-tabs { margin: 0 -10px 10px -10px; padding: 0 10px; }
     .recipes-table { font-size: 0.8em; }
+    .stock-table-reworked th, .stock-table-reworked td { padding: 7px 5px; }
 }

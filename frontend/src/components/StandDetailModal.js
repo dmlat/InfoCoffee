@@ -3,10 +3,24 @@ import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api';
 import { ALL_ITEMS } from '../constants';
 import TerminalListModal from './TerminalListModal';
-import ConfirmModal from './ConfirmModal'; // Используем существующий ConfirmModal
+import ConfirmModal from './ConfirmModal';
 import './StandDetailModal.css';
 
-// --- Вспомогательные компоненты и константы ---
+// --- Вспомогательные компоненты ---
+const MachineProgressBar = ({ current, max, critical }) => {
+    if (!max || max === 0) {
+        return <span className="configure-container-notice">Настройте контейнер</span>;
+    }
+    const percentage = (current / max) * 100;
+    const criticalPercentage = (critical / max) * 100;
+    return (
+        <div className="machine-progress-bar-container">
+            <div className="machine-progress-fill" style={{ width: `${Math.min(percentage, 100)}%` }} />
+            {critical > 0 && <div className="machine-progress-critical-marker" style={{ left: `${criticalPercentage}%` }} />}
+        </div>
+    );
+};
+
 const RECIPE_INGREDIENTS_MAP = {
     'Кофе': 'coffee_grams', 'Вода': 'water_ml', 'Сливки': 'milk_grams',
     'Какао': 'cocoa_grams', 'Раф': 'raf_grams'
@@ -19,18 +33,15 @@ export default function StandDetailModal({ terminal, onClose }) {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     
-    // Состояния для вкладки Настройки
     const [settings, setSettings] = useState({});
     const [initialSettings, setInitialSettings] = useState({});
     const [isSavingSettings, setIsSavingSettings] = useState(false);
     
-    // Состояния для вкладки Рецепты
     const [machineItems, setMachineItems] = useState([]);
     const [recipes, setRecipes] = useState({});
     const [initialRecipes, setInitialRecipes] = useState({});
     const [isSavingRecipes, setIsSavingRecipes] = useState(false);
     
-    // Состояния для модальных окон копирования
     const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
     const [allTerminals, setAllTerminals] = useState([]);
     const [confirmModalState, setConfirmModalState] = useState({ isOpen: false, message: '', onConfirm: () => {} });
@@ -38,8 +49,8 @@ export default function StandDetailModal({ terminal, onClose }) {
     const [internalTerminalId, setInternalTerminalId] = useState(null);
     const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
 
-    // ... (код функций normalizeNumericInput и formatNumericOutput остается) ...
     const normalizeNumericInput = (value) => value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    
     const formatNumericOutput = (value) => {
         const num = parseFloat(value);
         if (isNaN(num)) return '';
@@ -102,8 +113,6 @@ export default function StandDetailModal({ terminal, onClose }) {
     useEffect(() => {
         fetchDetailsAndRecipes();
     }, [fetchDetailsAndRecipes]);
-
-    // ... (код handleSettingsChange, handleSaveSettings, handleRecipeChange, handleSaveRecipes без изменений) ...
 
     const showSaveStatus = (message, type) => {
         setSaveStatus({ message, type });
@@ -170,8 +179,7 @@ export default function StandDetailModal({ terminal, onClose }) {
             setIsSavingRecipes(false);
         }
     };
-
-    // ИСПРАВЛЕНО: Интеграция ConfirmModal в логику копирования
+    
     const handleOpenCopyModal = async () => {
         try {
             const res = await apiClient.get('/terminals');
@@ -186,29 +194,28 @@ export default function StandDetailModal({ terminal, onClose }) {
         }
     };
     
-    const handleSelectCopyDestination = (destinationTerminal) => {
-        setIsCopyModalOpen(false); // Закрываем список терминалов
-        setConfirmModalState({
-            isOpen: true,
-            message: `Скопировать рецепты в "${destinationTerminal.comment || `Терминал #${destinationTerminal.id}`}"? Существующие рецепты для тех же кнопок будут перезаписаны.`,
-            onConfirm: () => executeCopy(destinationTerminal)
-        });
-    };
-
-    const executeCopy = async (destinationTerminal) => {
-        // Сначала закрываем ConfirmModal
-        setConfirmModalState({ isOpen: false });
-
-        // Выполняем запрос
+    const handleSelectCopyDestination = async (destinationTerminal) => {
+        setIsCopyModalOpen(false);
         try {
-            // Для копирования нужен наш внутренний ID, а не ID Vendista.
-            // Нужно получить его для целевого терминала.
             const destDetailsRes = await apiClient.get(`/terminals/vendista/${destinationTerminal.id}/details`);
             if (!destDetailsRes.data.success || !destDetailsRes.data.internalId) {
                 throw new Error('Не удалось получить внутренний ID целевого терминала.');
             }
             const destinationInternalId = destDetailsRes.data.internalId;
 
+            setConfirmModalState({
+                isOpen: true,
+                message: `Скопировать рецепты в "${destinationTerminal.comment || `Терминал #${destinationTerminal.id}`}"? Существующие рецепты для тех же кнопок будут перезаписаны.`,
+                onConfirm: () => executeCopy(destinationInternalId)
+            });
+        } catch(err) {
+             showSaveStatus(err.response?.data?.error || 'Ошибка получения деталей цели.', 'error');
+        }
+    };
+
+    const executeCopy = async (destinationInternalId) => {
+        setConfirmModalState({ isOpen: false });
+        try {
             const res = await apiClient.post('/recipes/copy', {
                 sourceTerminalId: internalTerminalId,
                 destinationTerminalId: destinationInternalId
@@ -221,51 +228,59 @@ export default function StandDetailModal({ terminal, onClose }) {
 
     const haveRecipesChanged = JSON.stringify(recipes) !== JSON.stringify(initialRecipes);
     const haveSettingsChanged = JSON.stringify(settings) !== JSON.stringify(initialSettings);
+    
+    // --- Рендер-функции ---
 
-    // ... (Рендер-функции renderStock, renderRecipes, renderSettings остаются такими же, как в предыдущем ответе)
     const renderStock = () => {
-        const inventoryByLocation = details.inventory.reduce((acc, item) => {
-            acc[item.item_name] = item;
+        const inventoryMap = details.inventory.reduce((acc, item) => {
+            acc[item.item_name] = acc[item.item_name] || {};
+            acc[item.item_name][item.location] = {
+                current: parseFloat(item.current_stock || 0),
+                max: parseFloat(item.max_stock || 0),
+                critical: parseFloat(item.critical_stock || 0),
+            };
             return acc;
         }, {});
 
-        const sortedItems = [...ALL_ITEMS]; 
-        const waterIndex = sortedItems.findIndex(i => i.name === 'Вода');
-        const rafIndex = sortedItems.findIndex(i => i.name === 'Раф');
+        const renderRow = (item) => {
+            const standData = inventoryMap[item.name]?.stand;
+            const machineData = inventoryMap[item.name]?.machine;
+            const isIngredient = item.type === 'ingredient';
+            const stockText = standData ? `${standData.current.toLocaleString('ru-RU')} ${item.unit}` : '—';
+            
+            return (
+                <tr key={item.name}>
+                    <td>{item.name}</td>
+                    <td className="align-right">{stockText}</td>
+                    <td className="align-center">
+                        {isIngredient && machineData ? (
+                            <MachineProgressBar current={machineData.current} max={machineData.max} critical={machineData.critical} />
+                        ) : null}
+                    </td>
+                </tr>
+            );
+        };
+        
+        const renderDivider = (key) => (
+             <tr key={key} className="table-divider-row"><td colSpan="3"><div className="table-divider"></div></td></tr>
+        );
 
         return (
             <div className="modal-tab-content stock-tab-content">
-                <table className="stock-table">
+                <table className="stock-table-reworked">
+                    <thead>
+                        <tr>
+                            <th>Ингредиент/расходник</th>
+                            <th>Стойка</th>
+                            <th><span className="header-blue">Кофемашина</span></th>
+                        </tr>
+                    </thead>
                     <tbody>
-                        {sortedItems.map((item, index) => {
-                            const inventoryItem = inventoryByLocation[item.name];
-                            const stockValue = parseFloat(inventoryItem?.current_stock || 0);
-                            const unit = item.unit;
-                            const criticalStock = parseFloat(inventoryItem?.critical_stock || 0);
-                            const isCritical = stockValue > 0 && criticalStock > 0 && stockValue <= criticalStock;
-
-                            const rowClass = isCritical ? 'critical-row' : '';
-
-                             const row = (
-                                <tr key={item.name} className={rowClass}>
-                                    <td>{item.fullName || item.name}</td>
-                                    <td>
-                                        {stockValue.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} {unit}
-                                        {criticalStock > 0 && ` (крит. ${criticalStock.toLocaleString('ru-RU', { maximumFractionDigits: 2 })})`}
-                                    </td>
-                                </tr>
-                            );
-
-                            if (index === waterIndex || index === rafIndex) {
-                                return (
-                                    <React.Fragment key={`${item.name}-fragment`}>
-                                        {row}
-                                        <tr className="table-divider-row"><td colSpan="2"><div className="table-divider"></div></td></tr>
-                                    </React.Fragment>
-                                );
-                            }
-                            return row;
-                        })}
+                        {ALL_ITEMS.filter(item => item.type === 'ingredient' && item.name !== 'Вода').map(renderRow)}
+                        {renderDivider('div1')}
+                        {renderRow(ALL_ITEMS.find(i => i.name === 'Вода'))}
+                        {renderDivider('div2')}
+                        {ALL_ITEMS.filter(item => item.type === 'consumable').map(renderRow)}
                     </tbody>
                 </table>
             </div>
@@ -346,7 +361,6 @@ export default function StandDetailModal({ terminal, onClose }) {
 
     return (
         <>
-            {/* ИСПРАВЛЕНО: рендер ConfirmModal */}
             <ConfirmModal 
                 isOpen={confirmModalState.isOpen}
                 message={confirmModalState.message}
@@ -363,7 +377,7 @@ export default function StandDetailModal({ terminal, onClose }) {
                         <div className="modal-tabs">
                             <button onClick={() => setActiveTab('stock')} className={activeTab === 'stock' ? 'active' : ''}>Остатки</button>
                             <button onClick={() => setActiveTab('recipes')} className={activeTab === 'recipes' ? 'active' : ''}>Рецепты</button>
-                            <button onClick={() => setActiveTab('settings')} className={activeTab === 'settings' ? 'active' : ''}>Настройки</button>
+                            <button onClick={() => setActiveTab('settings')} className={activeTab === 'settings' ? 'active' : ''}>Контейнеры</button>
                         </div>
                         {isLoading && <div className="page-loading-container"><span>Загрузка деталей...</span></div>}
                         {error && <p className="error-message">{error}</p>}

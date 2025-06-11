@@ -1,62 +1,55 @@
 /* frontend/src/pages/StandsPage.css */
+/* ... (все существующие стили) ... */
 
-.stands-page {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-.stands-page-header {
-    background: #282c34;
-    padding: 10px 16px;
+.page-description {
+    background-color: #282c34;
+    padding: 12px 16px;
     border-radius: 12px;
     margin-bottom: 20px;
     font-size: 0.9em;
-    color: #a0b0c8;
+    color: #c6c6c6;
 }
-.stands-page-header p {
+
+.page-description p {
     margin: 0 0 8px 0;
     font-weight: 500;
 }
-.stands-page-header ul {
+
+.page-description ul {
     margin: 0;
     padding-left: 20px;
-    line-height: 1.5;
+    list-style-type: '— '; /* Modern list style */
 }
 
-.stands-list-container {
+.page-description li {
+    margin-bottom: 4px;
+}
+
+.stands-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
-    width: 100%;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
 }
 
 .stand-card {
     background: #282c34;
     border-radius: 12px;
-    padding: 14px 18px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
-    border: 1px solid #303548;
+    padding: 16px;
     cursor: pointer;
-    transition: background-color 0.2s ease-in-out;
-    min-height: 65px;
-    box-sizing: border-box;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid #3a3e47;
 }
 
 .stand-card:hover {
-    background-color: #2f343e;
-    /* Убрана анимация смещения */
+    transform: translateY(-3px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
-.stand-info {
+.stand-card-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    overflow: hidden;
-    min-width: 0;
+    gap: 10px;
+    margin-bottom: 12px;
 }
 
 .status-indicator {
@@ -68,7 +61,7 @@
 
 .status-indicator.online {
     background-color: #4caf50;
-    /* Убрано свечение */
+    box-shadow: 0 0 8px #4caf50;
 }
 
 .status-indicator.offline {
@@ -77,23 +70,32 @@
 
 .stand-name {
     margin: 0;
-    font-size: 0.95em;
+    font-size: 1.1em;
     color: #e0e0e0;
-    font-weight: 600;
-    white-space: wrap; /* Разрешаем перенос текста */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.stand-details-arrow {
-    font-size: 1.8em;
-    color: #3e67e0;
-    font-weight: bold;
-    line-height: 1;
-    flex-shrink: 0;
+.stand-details {
+    font-size: 0.9em;
 }
 
-@media (max-width: 767px) {
-    .stands-list-container {
-        grid-template-columns: 1fr;
-        gap: 12px;
-    }
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+}
+
+.detail-label {
+    color: #8a9db8;
+}
+
+.detail-value {
+    color: #c6c6c6;
+    text-align: right;
+}
+
+.text-highlight-blue {
+    color: #8ae6ff;
+    font-weight: 500;
 }
