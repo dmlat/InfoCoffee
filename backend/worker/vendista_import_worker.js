@@ -9,19 +9,17 @@ const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 const VENDISTA_API_URL = process.env.VENDISTA_API_BASE_URL || 'https://api.vendista.ru:99';
 const MAX_RETRIES = 5;
 const INITIAL_RETRY_DELAY_MS = 2000;
-const PAGE_FETCH_DELAY_MS = 750;
+// ИЗМЕНЕНО: Увеличиваем задержку между запросами страниц до 1.5 секунд
+const PAGE_FETCH_DELAY_MS = 1500; 
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// Новая функция для вызова списания остатков
 async function processSale(userId, transaction, appToken) {
-    // Проверяем, есть ли überhaupt что списывать по рецепту
     if (!transaction.term_id || !transaction.machine_item_id || !appToken) {
         return;
     }
 
     try {
-        // Используем новый экземпляр axios, чтобы не смешивать заголовки
         const internalApiClient = axios.create({
             baseURL: `http://localhost:${process.env.PORT || 3001}`,
             headers: { 'Authorization': `Bearer ${appToken}` }
@@ -29,7 +27,6 @@ async function processSale(userId, transaction, appToken) {
         await internalApiClient.post('/api/inventory/process-sale', { transaction });
     } catch (e) {
         console.error(`[Worker] User ${userId} - Failed to process sale for transaction ${transaction.id}:`, e.message);
-        // Отправляем уведомление, но не останавливаем основной процесс импорта
         sendErrorToAdmin({
             userId,
             errorContext: `Process Sale for Tx ${transaction.id}`,
@@ -42,7 +39,7 @@ async function processSale(userId, transaction, appToken) {
 async function importTransactionsForPeriod({
   user_id,
   vendistaApiToken,
-  appToken, // Добавляем токен приложения для внутренних запросов
+  appToken,
   dateFrom,
   dateTo,
   fetchAllPages = true
@@ -136,7 +133,6 @@ async function importTransactionsForPeriod({
 
           if (isNew) {
             newTransactionsAdded++;
-            // Если это новая успешная продажа (не возврат) - вызываем списание
             if (String(tr.result) === '1' && tr.reverse_id === 0) {
                await processSale(user_id, tr, appToken);
             }

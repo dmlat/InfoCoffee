@@ -6,13 +6,15 @@ const pool = require('../db');
 const { importTransactionsForPeriod } = require('./vendista_import_worker');
 const moment = require('moment-timezone');
 const crypto = require('crypto');
-const jwt = require('jsonwebtoken'); // <-- НОВЫЙ ИМПОРТ
+const jwt = require('jsonwebtoken');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 
 const TIMEZONE = 'Europe/Moscow';
-const USER_PROCESSING_DELAY_MS = 10000;
-const MAX_CONCURRENT_IP_IMPORTS = 2;
-const JWT_SECRET = process.env.JWT_SECRET; // <-- НОВАЯ КОНСТАНТА
+// ИЗМЕНЕНО: Увеличиваем задержку между обработкой разных пользователей до 1.5 секунд
+const USER_PROCESSING_DELAY_MS = 1500; 
+// ИЗМЕНЕНО: Строго ограничиваем количество одновременных импортов до одного
+const MAX_CONCURRENT_IP_IMPORTS = 1; 
+const JWT_SECRET = process.env.JWT_SECRET;
 
 let activeIpImports = 0;
 const importQueue = [];
@@ -20,7 +22,7 @@ const importQueue = [];
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 const ALGORITHM = 'aes-256-cbc';
 
-if (!ENCRYPTION_KEY || !JWT_SECRET) { // <-- ДОБАВЛЕНА ПРОВЕРКА
+if (!ENCRYPTION_KEY || !JWT_SECRET) {
     console.error("[FATAL ERROR in schedule_imports.js] ENCRYPTION_KEY or JWT_SECRET is not defined. Worker cannot run.");
     process.exit(1);
 }
@@ -162,17 +164,16 @@ async function runScheduledJob(jobName, dateSubtractArgs, fetchAllPages) {
         continue;
       }
 
-      // --- ГЕНЕРАЦИЯ JWT ДЛЯ ВНУТРЕННИХ ЗАПРОСОВ ---
       const appToken = jwt.sign(
         { userId: user.id, telegramId: user.telegram_id, accessLevel: 'owner' },
         JWT_SECRET,
-        { expiresIn: '15m' } // Короткоживущий токен для безопасности
+        { expiresIn: '15m' }
       );
 
       addToImportQueue({
         user_id: user.id,
         vendistaApiToken: plainVendistaToken,
-        appToken: appToken, // Передаем сгенерированный токен
+        appToken: appToken,
         dateFrom, dateTo, fetchAllPages,
       }, jobName);
     }
