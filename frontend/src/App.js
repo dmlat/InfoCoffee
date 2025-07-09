@@ -7,6 +7,21 @@ import apiClient from './api';
 import { saveUserDataToLocalStorage, clearUserDataFromLocalStorage } from './utils/user';
 import './styles/auth.css';
 
+// --- Новая утилита для отправки логов ---
+const logFrontendError = (error, context) => {
+    // Используем navigator.sendBeacon, если возможно, чтобы гарантировать отправку
+    // даже если страница закрывается. В данном случае, можно и простой fetch.
+    const tgData = window.Telegram?.WebApp?.initData || null;
+    apiClient.post('/auth/log-frontend-error', {
+        error: error instanceof Error ? error.message : String(error),
+        context: context,
+        tgInitData: tgData
+    }).catch(e => {
+        // Не логируем ошибку логирования, чтобы не уйти в цикл
+        console.error("Failed to log frontend error:", e);
+    });
+};
+
 // --- Компоненты-заглушки и страницы ---
 function ServiceUserPage() {
     useEffect(() => { window.Telegram?.WebApp?.ready(); }, []);
@@ -66,6 +81,7 @@ function AuthProvider({ children }) {
                 setAuthStatus(accessLevel === 'service' ? 'service_access' : 'authenticated');
             } else {
                 setAuthStatus('error');
+                logFrontendError('No tgWebApp.initData and no local token', 'Not in Telegram Environment');
             }
             return;
         }
@@ -92,6 +108,7 @@ function AuthProvider({ children }) {
             }
         } catch (err) {
             console.error("Auth initialization failed:", err);
+            logFrontendError(err, 'Telegram Handshake Failed');
             setAuthStatus('error');
         }
     }, [navigate]);

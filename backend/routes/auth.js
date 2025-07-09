@@ -11,6 +11,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 const { startImport } = require('../worker/vendista_import_worker');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
+const { clearUserDataFromLocalStorage } = require('../../frontend/src/utils/user');
 
 const router = express.Router();
 
@@ -197,6 +198,39 @@ router.post('/telegram-handshake', async (req, res) => {
         sendErrorToAdmin({ telegramId: telegram_id, errorContext: 'Telegram Handshake DB/Server', errorMessage: err.message, errorStack: err.stack })
         .catch(notifyErr => console.error("Failed to send admin notification from telegram-handshake DB error:", notifyErr));
         res.status(500).json({ success: false, error: 'Server error during handshake.' });
+    }
+});
+
+router.post('/log-frontend-error', async (req, res) => {
+    const { error, context, tgInitData } = req.body;
+
+    try {
+        let additionalInfo = {
+            'User-Agent': req.headers['user-agent'],
+            'Source-IP': req.ip
+        };
+
+        if (tgInitData) {
+            try {
+                const initDataParams = new URLSearchParams(tgInitData);
+                const user = JSON.parse(initDataParams.get('user') || '{}');
+                additionalInfo = { ...additionalInfo, ...user };
+            } catch {
+                additionalInfo.rawInitData = tgInitData.substring(0, 500); // Log part of the raw data if parsing fails
+            }
+        }
+        
+        await sendErrorToAdmin({
+            errorContext: `Frontend Auth Error: ${context || 'Unknown context'}`,
+            errorMessage: error || 'No error message provided.',
+            additionalInfo: additionalInfo
+        });
+
+        res.status(200).send({ success: true });
+
+    } catch(e) {
+        // If logging itself fails, just send a simple response.
+        res.status(500).send({ success: false });
     }
 });
 

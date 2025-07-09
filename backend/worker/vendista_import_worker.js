@@ -1,7 +1,7 @@
 // backend/worker/vendista_import_worker.js
 const path = require('path');
 const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
-require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
+require('dotenv').config({ path: path.resolve(__dirname, '..', envPath) });
 const axios = require('axios');
 const pool = require('../db');
 const moment = require('moment-timezone');
@@ -18,12 +18,12 @@ const PAGE_FETCH_DELAY_MS = 1500;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Функция для получения всех админов и владельца
-async function getAdminsAndOwner(ownerUserId, client) {
-    const adminRes = await client.query(
+async function getAdminsAndOwner(ownerUserId, client) { // client is unused now but we keep it for now
+    const adminRes = await pool.query(
         `SELECT shared_with_telegram_id FROM user_access_rights WHERE owner_user_id = $1 AND access_level = 'admin'`,
         [ownerUserId]
     );
-    const ownerRes = await client.query('SELECT telegram_id FROM users WHERE id = $1', [ownerUserId]);
+    const ownerRes = await pool.query('SELECT telegram_id FROM users WHERE id = $1', [ownerUserId]);
     
     const adminIds = adminRes.rows.map(r => r.shared_with_telegram_id);
     if (ownerRes.rowCount > 0) {
@@ -33,11 +33,11 @@ async function getAdminsAndOwner(ownerUserId, client) {
 }
 
 // НОВАЯ ФУНКЦИЯ для проверки остатков и создания задачи
-async function checkStockAndCreateTask(ownerUserId, internalTerminalId, updatedItems, client) {
+async function checkStockAndCreateTask(ownerUserId, internalTerminalId, updatedItems, client) { // client is unused now
     if (!updatedItems || updatedItems.length === 0) return;
 
     try {
-        const settingsRes = await client.query(
+        const settingsRes = await pool.query(
             `SELECT cleaning_frequency, restock_thresholds, assignee_ids FROM stand_service_settings WHERE terminal_id = $1`,
             [internalTerminalId]
         );
@@ -49,7 +49,7 @@ async function checkStockAndCreateTask(ownerUserId, internalTerminalId, updatedI
 
         // Получаем текущие остатки и крит. значения для измененных товаров
         const itemNames = updatedItems.map(i => i.item_name);
-        const stockRes = await client.query(
+        const stockRes = await pool.query(
             `SELECT item_name, current_stock, critical_stock FROM inventories WHERE terminal_id = $1 AND item_name = ANY($2::text[]) AND location = 'machine' AND critical_stock IS NOT NULL`,
             [internalTerminalId, itemNames]
         );
@@ -65,7 +65,7 @@ async function checkStockAndCreateTask(ownerUserId, internalTerminalId, updatedI
         if (itemsToRestock.length === 0) return;
 
         // Проверяем, есть ли уже активная задача на пополнение для этой стойки
-        const existingTaskRes = await client.query(
+        const existingTaskRes = await pool.query(
             `SELECT id FROM service_tasks WHERE terminal_id = $1 AND task_type = 'restock' AND status = 'pending'`,
             [internalTerminalId]
         );
@@ -76,11 +76,11 @@ async function checkStockAndCreateTask(ownerUserId, internalTerminalId, updatedI
         }
 
         // --- Создаем задачу ---
-        const terminalDetails = await client.query('SELECT name FROM terminals WHERE id = $1', [internalTerminalId]);
+        const terminalDetails = await pool.query('SELECT name FROM terminals WHERE id = $1', [internalTerminalId]);
         const terminalName = terminalDetails.rows[0]?.name || `Терминал #${internalTerminalId}`;
 
         const taskDetails = { items: itemsToRestock.join(', ') };
-        const insertRes = await client.query(
+        const insertRes = await pool.query(
             `INSERT INTO service_tasks (terminal_id, owner_user_id, task_type, status, details, assignee_ids)
              VALUES ($1, $2, 'restock', 'pending', $3, $4) RETURNING id`,
             [internalTerminalId, ownerUserId, JSON.stringify(taskDetails), assignee_ids]
@@ -99,8 +99,8 @@ async function checkStockAndCreateTask(ownerUserId, internalTerminalId, updatedI
         }
 
         // 2. Владельцу и админам
-        const adminIds = await getAdminsAndOwner(ownerUserId, client);
-        const assigneesInfo = await client.query('SELECT name FROM users WHERE telegram_id = ANY($1::bigint[])', [assignee_ids]);
+        const adminIds = await getAdminsAndOwner(ownerUserId, pool); // Pass pool instead of client
+        const assigneesInfo = await pool.query('SELECT name FROM users WHERE telegram_id = ANY($1::bigint[])', [assignee_ids]);
         const assigneeNames = assigneesInfo.rows.map(r => r.name).join(', ');
         
         const adminMessage = `ℹ️ Поставлена задача на пополнение стойки "<b>${terminalName}</b>".\n\nНазначены: ${assigneeNames || 'не указаны'}`;
@@ -122,7 +122,7 @@ async function checkStockAndCreateTask(ownerUserId, internalTerminalId, updatedI
 
 
 // ФУНКЦИЯ для обработки транзакций (продаж и возвратов)
-async function processInventoryUpdate(ownerUserId, transaction, client) {
+async function processInventoryUpdate(ownerUserId, transaction, client) { // client is unused now
     if (!transaction.term_id || !transaction.machine_item_id) {
         return; // Нечего обрабатывать
     }
@@ -139,14 +139,14 @@ async function processInventoryUpdate(ownerUserId, transaction, client) {
     const logPrefix = isSale ? 'Sale' : 'Refund';
 
     try {
-        const terminalRes = await client.query(
+        const terminalRes = await pool.query(
             'SELECT id FROM terminals WHERE user_id = $1 AND vendista_terminal_id = $2',
             [ownerUserId, transaction.term_id]
         );
         if (terminalRes.rowCount === 0) return; // Терминал не найден
         const internalTerminalId = terminalRes.rows[0].id;
 
-        const recipeRes = await client.query(
+        const recipeRes = await pool.query(
             'SELECT ri.item_name, ri.quantity FROM recipes r JOIN recipe_items ri ON r.id = ri.recipe_id WHERE r.terminal_id = $1 AND r.machine_item_id = $2',
             [internalTerminalId, transaction.machine_item_id]
         );
@@ -155,7 +155,7 @@ async function processInventoryUpdate(ownerUserId, transaction, client) {
         for (const item of recipeRes.rows) {
             if (item.quantity > 0) {
                 const quantityChange = item.quantity * operation;
-                await client.query(
+                await pool.query(
                     `UPDATE inventories
                      SET current_stock = current_stock + $1, updated_at = NOW()
                      WHERE terminal_id = $2 AND item_name = $3 AND location = 'machine'`,
@@ -167,7 +167,7 @@ async function processInventoryUpdate(ownerUserId, transaction, client) {
         // --- ВЫЗОВ НОВОЙ ФУНКЦИИ ---
         // Проверяем остатки только после списания (продажи)
         if (isSale) {
-            await checkStockAndCreateTask(ownerUserId, internalTerminalId, recipeRes.rows, client);
+            await checkStockAndCreateTask(ownerUserId, internalTerminalId, recipeRes.rows, pool); // Pass pool
         }
 
         console.log(`[Worker] User ${ownerUserId} - Processed inventory for Tx ${transaction.id} (${logPrefix})`);
@@ -235,67 +235,54 @@ async function importTransactionsForPeriod({
         const transactions = resp.data.items;
         transactionsProcessed += transactions.length;
 
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-            for (const tr of transactions) {
-                let dbMachineItemId = null;
-                if (tr.machine_item && Array.isArray(tr.machine_item) && tr.machine_item.length > 0 && tr.machine_item[0]) {
-                    if (typeof tr.machine_item[0].machine_item_id !== 'undefined') {
-                        dbMachineItemId = tr.machine_item[0].machine_item_id;
-                    }
-                }
-    
-                const result = await client.query(`
-                    INSERT INTO transactions (
-                        id, coffee_shop_id, amount, transaction_time, result, 
-                        reverse_id, terminal_comment, card_number, status, bonus, 
-                        left_sum, left_bonus, user_id, machine_item_id, last_updated_at
-                    ) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW()
-                    )
-                    ON CONFLICT (id) DO UPDATE SET
-                        coffee_shop_id = EXCLUDED.coffee_shop_id,
-                        amount = EXCLUDED.amount,
-                        transaction_time = EXCLUDED.transaction_time,
-                        result = EXCLUDED.result,
-                        reverse_id = EXCLUDED.reverse_id,
-                        terminal_comment = EXCLUDED.terminal_comment,
-                        card_number = EXCLUDED.card_number,
-                        status = EXCLUDED.status,
-                        bonus = EXCLUDED.bonus,
-                        left_sum = EXCLUDED.left_sum,
-                        left_bonus = EXCLUDED.left_bonus,
-                        user_id = EXCLUDED.user_id,
-                        machine_item_id = EXCLUDED.machine_item_id,
-                        last_updated_at = NOW()
-                    RETURNING xmax, (SELECT status FROM transactions WHERE id = $1) as old_status;
-                `, [
-                    tr.id, tr.term_id || null, tr.sum || 0, tr.time,
-                    String(tr.result || '0'), tr.reverse_id || 0, tr.terminal_comment || '',
-                    tr.card_number || '', String(tr.status || '0'), tr.bonus || 0,
-                    tr.left_sum || 0, tr.left_bonus || 0, ownerUserId, 
-                    dbMachineItemId
-                ]);
-              
-                const isNew = result.rows[0].xmax === '0';
-                const oldStatus = result.rows[0].old_status;
-
-                // Обрабатываем инвентарь если это новая транзакция, или если статус изменился
-                // (например, была продажа, а стал возврат)
-                if (isNew || oldStatus !== String(tr.status)) {
-                    await processInventoryUpdate(ownerUserId, tr, client);
-                }
-    
-                if (isNew) {
-                    newTransactionsAdded++;
-                } else {
-                    transactionsUpdated++;
+        for (const tr of transactions) {
+            let dbMachineItemId = null;
+            if (tr.machine_item && Array.isArray(tr.machine_item) && tr.machine_item.length > 0 && tr.machine_item[0]) {
+                if (typeof tr.machine_item[0].machine_item_id !== 'undefined') {
+                    dbMachineItemId = tr.machine_item[0].machine_item_id;
                 }
             }
-            await client.query('COMMIT');
-        } finally {
-            client.release();
+
+            const result = await pool.query(`
+                INSERT INTO transactions (
+                  id, coffee_shop_id, amount, transaction_time, result, 
+                  reverse_id, terminal_comment, card_number, status, bonus, 
+                  left_sum, left_bonus, user_id, machine_item_id, last_updated_at
+                ) VALUES (
+                  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW()
+                )
+                ON CONFLICT (id) DO UPDATE SET
+                  coffee_shop_id = EXCLUDED.coffee_shop_id,
+                  amount = EXCLUDED.amount,
+                  transaction_time = EXCLUDED.transaction_time,
+                  result = EXCLUDED.result,
+                  reverse_id = EXCLUDED.reverse_id,
+                  terminal_comment = EXCLUDED.terminal_comment,
+                  card_number = EXCLUDED.card_number,
+                  status = EXCLUDED.status,
+                  bonus = EXCLUDED.bonus,
+                  left_sum = EXCLUDED.left_sum,
+                  left_bonus = EXCLUDED.left_bonus,
+                  user_id = EXCLUDED.user_id,
+                  machine_item_id = EXCLUDED.machine_item_id,
+                  last_updated_at = NOW()
+                RETURNING xmax;
+              `, [
+                tr.id, tr.term_id || null, tr.sum || 0, tr.time,
+                String(tr.result || '0'), tr.reverse_id || 0, tr.terminal_comment || '',
+                tr.card_number || '', String(tr.status || '0'), tr.bonus || 0,
+                tr.left_sum || 0, tr.left_bonus || 0, ownerUserId, 
+                dbMachineItemId
+              ]);
+
+            if (result.rows[0].xmax === '0') {
+                newTransactionsAdded++;
+            } else {
+                transactionsUpdated++;
+            }
+
+            // Обрабатываем обновление инвентаря для каждой транзакции
+            await processInventoryUpdate(ownerUserId, tr, pool); // Pass pool
         }
         
         console.log(`${logPrefix}: Страница ${currentPage} обработана. Всего: ${transactionsProcessed}, Новых: ${newTransactionsAdded}, Обновлено: ${transactionsUpdated}.`);

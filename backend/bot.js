@@ -1,6 +1,7 @@
 // backend/bot.js
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
+require('dotenv').config({ path: path.resolve(__dirname, envPath) });
 const TelegramBot = require('node-telegram-bot-api');
 const pool = require('./db');
 const moment = require('moment-timezone');
@@ -377,11 +378,11 @@ bot.on('callback_query', async (ctx) => {
 });
 
 // Запускаем бота
-bot.launch().then(() => {
-    console.log('Telegram bot started successfully.');
-}).catch(err => {
-    console.error('Failed to start Telegram bot:', err);
-});
+// bot.launch().then(() => {
+//     console.log('Telegram bot started successfully.');
+// }).catch(err => {
+//     console.error('Failed to start Telegram bot:', err);
+// });
 
 module.exports = bot;
 

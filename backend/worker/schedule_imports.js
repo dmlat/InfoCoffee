@@ -1,7 +1,7 @@
 // backend/worker/schedule_imports.js
 const path = require('path');
 const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
-require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
+require('dotenv').config({ path: path.resolve(__dirname, '..', envPath) });
 const cron = require('node-cron');
 const pool = require('../db');
 const { importTransactionsForPeriod } = require('./vendista_import_worker');

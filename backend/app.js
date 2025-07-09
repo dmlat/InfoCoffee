@@ -1,7 +1,7 @@
 // backend/app.js
 const path = require('path');
 const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
-require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
+require('dotenv').config({ path: path.resolve(__dirname, envPath) });
 const express = require('express');
 const cors = require('cors');
 const pool = require('./db'); // db.js
