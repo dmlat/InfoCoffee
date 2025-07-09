@@ -172,7 +172,7 @@ async function runScheduledJob(jobName, dateSubtractArgs, fetchAllPages) {
       );
 
       addToImportQueue({
-        user_id: user.id,
+        ownerUserId: user.id, // <-- ИСПРАВЛЕНИЕ
         vendistaApiToken: plainVendistaToken,
         appToken: appToken,
         dateFrom, dateTo, fetchAllPages,
@@ -249,7 +249,7 @@ async function manualImportLastNDays(days, specificUserId = null) {
             }
 
             addToImportQueue({
-                user_id: user.id,
+                ownerUserId: user.id, // <-- ИСПРАВЛЕНИЕ
                 vendistaApiToken: plainVendistaToken,
                 dateFrom, dateTo, fetchAllPages: true,
                 user_telegram_id: user.telegram_id,
