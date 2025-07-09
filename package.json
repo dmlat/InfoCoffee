@@ -6,9 +6,12 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "install:backend": "cd backend && npm install",
     "install:frontend": "cd frontend && npm install",
-    "start:backend": "cross-env NODE_ENV=development nodemon backend/app.js",
+    "start:backend": "node backend/app.js",
     "start:frontend": "cd frontend && npm start",
     "start": "npm-run-all -p start:backend start:frontend",
+    "dev:backend": "cross-env NODE_ENV=development nodemon backend/app.js",
+    "dev:frontend": "cd frontend && npm start",
+    "dev": "npm-run-all -p dev:backend dev:frontend",
     "build:frontend": "cd frontend && npm run build"
   },
   "keywords": [],

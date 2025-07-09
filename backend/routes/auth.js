@@ -1,8 +1,6 @@
 // backend/routes/auth.js
 const path = require('path');
-// Универсальный загрузчик .env файлов
-const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
-require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const express = require('express');
 const jwt = require('jsonwebtoken');

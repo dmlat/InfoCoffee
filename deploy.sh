@@ -16,7 +16,7 @@ echo " "
 
 # Step 1: Build the frontend application
 echo "[1/6] Building frontend..."
-(cd frontend && npm run build)
+(cd frontend && REACT_APP_API_BASE_URL="https://infocoffee.ru/api" npm run build)
 echo "      Done."
 
 # Step 2: Verify that the build directory exists

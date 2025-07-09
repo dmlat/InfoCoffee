@@ -1,8 +1,8 @@
 // backend/middleware/auth.js
 const path = require('path');
-const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
-require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
-const jwt = require('jsonwebtoken'); // <-- ИСПРАВЛЕНИЕ
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); 
+
+const jwt = require('jsonwebtoken');
 const pool = require('../db'); // <-- НОВЫЙ ИМПОРТ
 
 // Middleware для проверки JWT-токена в Authorization header
