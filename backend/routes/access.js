@@ -182,7 +182,7 @@ router.get('/users/list', authMiddleware, async (req, res) => {
 
         // Получаем тех, кому дали доступ
         const sharedUsersRes = await pool.query(
-            'SELECT shared_with_telegram_id as telegram_id, shared_with_name as name FROM user_access_rights WHERE owner_user_id = $1',
+            'SELECT id, shared_with_telegram_id as telegram_id, shared_with_name as name FROM user_access_rights WHERE owner_user_id = $1',
             [ownerUserId]
         );
 
