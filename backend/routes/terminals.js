@@ -84,10 +84,10 @@ async function findOrCreateTerminal(client, ownerUserId, vendistaId, details = {
 
 // Получить список всех терминалов (стоек) для пользователя
 router.get('/', authMiddleware, async (req, res) => {
-    const { userId, ownerUserId } = req.user;
+    const { ownerUserId } = req.user;
 
     try {
-        const userRes = await pool.query('SELECT vendista_api_token FROM users WHERE id = $1', [userId]);
+        const userRes = await pool.query('SELECT vendista_api_token FROM users WHERE id = $1', [ownerUserId]);
         if (userRes.rows.length === 0 || !userRes.rows[0].vendista_api_token) {
             return res.status(403).json({ success: false, error: 'API токен Vendista не найден для этого пользователя.' });
         }
@@ -221,9 +221,9 @@ router.get('/', authMiddleware, async (req, res) => {
         res.json({ success: true, terminals: terminals });
 
     } catch (err) {
-        console.error(`[GET /api/terminals] UserID: ${userId} - Error:`, err);
+        console.error(`[GET /api/terminals] UserID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
-            userId, errorContext: `GET /api/terminals`, errorMessage: err.message, errorStack: err.stack
+            userId: ownerUserId, errorContext: `GET /api/terminals`, errorMessage: err.message, errorStack: err.stack
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при получении списка стоек' });
     }

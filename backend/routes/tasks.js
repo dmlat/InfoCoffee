@@ -9,7 +9,7 @@ const moment = require('moment-timezone'); // Added for date handling
 
 // Получить все терминалы и их текущие настройки обслуживания
 router.get('/settings', authMiddleware, async (req, res) => {
-    const { ownerUserId } = req.user;
+    const ownerUserId = req.user.ownerUserId;
     try {
         const query = `
             SELECT
@@ -40,7 +40,7 @@ router.get('/settings', authMiddleware, async (req, res) => {
 
 // Сохранить или обновить настройки для одного терминала
 router.post('/settings', authMiddleware, async (req, res) => {
-    const { ownerUserId } = req.user;
+    const ownerUserId = req.user.ownerUserId;
     const {
         terminal_id,
         cleaning_frequency,
@@ -99,7 +99,7 @@ router.post('/settings', authMiddleware, async (req, res) => {
 
 // Получить журнал задач
 router.get('/', authMiddleware, async (req, res) => {
-    const { ownerUserId } = req.user;
+    const ownerUserId = req.user.ownerUserId;
     const moscowTime = moment().tz('Europe/Moscow');
     // Получаем задачи, которые либо в работе, либо были выполнены сегодня
     const todayStart = moscowTime.startOf('day').toISOString();
@@ -114,7 +114,7 @@ router.get('/', authMiddleware, async (req, res) => {
                 t.details,
                 t.created_at,
                 t.completed_at,
-                (SELECT array_agg(u.name) FROM users u WHERE u.telegram_id = ANY(t.assignee_ids)) as assignees
+                (SELECT array_agg(COALESCE(u.first_name, u.user_name, u.telegram_id::text)) FROM users u WHERE u.telegram_id = ANY(t.assignee_ids)) as assignees
             FROM service_tasks t
             JOIN terminals term ON t.terminal_id = term.id
             WHERE term.user_id = $1
@@ -137,7 +137,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
 // Удалить задачу
 router.delete('/:taskId', authMiddleware, async (req, res) => {
-    const { ownerUserId } = req.user;
+    const ownerUserId = req.user.ownerUserId;
     const { taskId } = req.params;
 
     if (req.user.accessLevel !== 'owner' && req.user.accessLevel !== 'admin') {
