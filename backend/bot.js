@@ -1,7 +1,6 @@
 // backend/bot.js
 const path = require('path');
-const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
-require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 const TelegramBot = require('node-telegram-bot-api');
 const pool = require('./db');
 const moment = require('moment-timezone');

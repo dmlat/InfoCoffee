@@ -17,7 +17,9 @@ const processQueue = (error, token = null) => {
 };
 
 const apiClient = axios.create({
-    baseURL: process.env.REACT_APP_API_BASE_URL || '/api'
+    baseURL: process.env.NODE_ENV === 'production' 
+        ? 'https://infocoffee.ru/api' 
+        : process.env.REACT_APP_API_BASE_URL || '/api'
 });
 
 apiClient.interceptors.request.use(
@@ -63,7 +65,11 @@ apiClient.interceptors.response.use(
             }
 
             try {
-                const refreshClient = axios.create({ baseURL: process.env.REACT_APP_API_BASE_URL || '/api' });
+                const refreshClient = axios.create({ 
+                    baseURL: process.env.NODE_ENV === 'production' 
+                        ? 'https://infocoffee.ru/api' 
+                        : process.env.REACT_APP_API_BASE_URL || '/api' 
+                });
                 const rs = await refreshClient.post('/auth/refresh-app-token', { initData: tgInitData });
 
                 if (rs.data.success && rs.data.token) {
