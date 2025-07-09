@@ -7,17 +7,17 @@ const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 
 // Получить остатки на центральном складе
 router.get('/', authMiddleware, async (req, res) => {
-    const userId = req.user.userId;
+    const ownerUserId = req.user.ownerUserId;
     try {
         const result = await pool.query(
             `SELECT item_name, current_stock FROM inventories WHERE user_id = $1 AND location = 'warehouse' AND terminal_id IS NULL`,
-            [userId]
+            [ownerUserId]
         );
         res.json({ success: true, warehouseStock: result.rows });
     } catch (err) {
-        console.error(`[GET /api/warehouse] UserID: ${userId} - Error:`, err);
+        console.error(`[GET /api/warehouse] UserID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
-            userId, errorContext: `GET /api/warehouse`,
+            userId: ownerUserId, errorContext: `GET /api/warehouse`,
             errorMessage: err.message, errorStack: err.stack
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при получении остатков склада.' });
@@ -26,7 +26,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
 // "Приходовать" товар на склад (через модальное окно)
 router.post('/stock-up', authMiddleware, async (req, res) => {
-    const userId = req.user.userId;
+    const ownerUserId = req.user.ownerUserId;
     const { items } = req.body; // Ожидаем массив { item_name, quantity }
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -47,7 +47,7 @@ router.post('/stock-up', authMiddleware, async (req, res) => {
                  DO UPDATE SET
                     current_stock = inventories.current_stock + EXCLUDED.current_stock,
                     updated_at = NOW()`,
-                [userId, item.item_name, item.quantity]
+                [ownerUserId, item.item_name, item.quantity]
             );
         }
 
@@ -56,9 +56,9 @@ router.post('/stock-up', authMiddleware, async (req, res) => {
 
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error(`[POST /api/warehouse/stock-up] UserID: ${userId} - Error:`, err);
+        console.error(`[POST /api/warehouse/stock-up] UserID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
-            userId, errorContext: `POST /api/warehouse/stock-up`,
+            userId: ownerUserId, errorContext: `POST /api/warehouse/stock-up`,
             errorMessage: err.message, errorStack: err.stack, additionalInfo: { body: req.body }
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при приходовании товара.' });
@@ -69,10 +69,10 @@ router.post('/stock-up', authMiddleware, async (req, res) => {
 
 // Изменить количество товара на складе (для кнопок +/-)
 router.post('/adjust', authMiddleware, async (req, res) => {
-    const userId = req.user.userId;
+    const ownerUserId = req.user.ownerUserId;
     const { item_name, quantity } = req.body; // quantity может быть отрицательным для списания
 
-    console.log(`[POST /api/warehouse/adjust] UserID: ${userId}, Item: ${item_name}, Quantity: ${quantity}`);
+    console.log(`[POST /api/warehouse/adjust] UserID: ${ownerUserId}, Item: ${item_name}, Quantity: ${quantity}`);
 
     if (!item_name || isNaN(parseFloat(quantity))) {
         return res.status(400).json({ success: false, error: 'Некорректные данные для изменения остатка.' });
@@ -85,7 +85,7 @@ router.post('/adjust', authMiddleware, async (req, res) => {
         // Проверяем, есть ли такая позиция на складе
         const existingItem = await client.query(
             `SELECT id, current_stock FROM inventories WHERE user_id = $1 AND location = 'warehouse' AND item_name = $2 AND terminal_id IS NULL`,
-            [userId, item_name]
+            [ownerUserId, item_name]
         );
 
         if (existingItem.rows.length > 0) {
@@ -110,7 +110,7 @@ router.post('/adjust', authMiddleware, async (req, res) => {
             const insertRes = await client.query(
                 `INSERT INTO inventories (user_id, location, terminal_id, item_name, current_stock)
                  VALUES ($1, 'warehouse', NULL, $2, $3) RETURNING current_stock`,
-                [userId, item_name, quantity]
+                [ownerUserId, item_name, quantity]
             );
              await client.query('COMMIT');
              res.status(201).json({ success: true, new_stock: insertRes.rows[0].current_stock });
@@ -121,9 +121,9 @@ router.post('/adjust', authMiddleware, async (req, res) => {
         }
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error(`[POST /api/warehouse/adjust] UserID: ${userId} - Error:`, err);
+        console.error(`[POST /api/warehouse/adjust] UserID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
-            userId, errorContext: `POST /api/warehouse/adjust`,
+            userId: ownerUserId, errorContext: `POST /api/warehouse/adjust`,
             errorMessage: err.message, errorStack: err.stack, additionalInfo: { body: req.body }
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при изменении остатков.' });

@@ -3,6 +3,12 @@
 *.env
 backend/.env
 frontend/.env
+# ДОБАВЛЕНО: Исключаем .env файлы для разных сред, они не должны быть в git
+backend/.env.development
+backend/.env.production
+frontend/.env.development
+frontend/.env.production
+frontend/.env.local
 
 # Папки с зависимостями
 node_modules/
@@ -42,3 +48,6 @@ ehthumbs_vista.db
 # Другие специфичные для проекта или временные файлы
 # Например, если ваш скрипт update_app_version.sh создает бэкапы:
 *.bak
+
+# Утилита для мока Telegram API
+frontend/src/utils/dev.js

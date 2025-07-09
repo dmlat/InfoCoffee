@@ -1,0 +1,52 @@
+/* frontend/src/components/AssigneeModal.css */
+
+.assignee-modal-content {
+    padding: 10px;
+    min-width: 350px;
+}
+
+.users-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #3a3e47;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.users-list li {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-bottom: 1px solid #3a3e47;
+}
+
+.users-list li:last-child {
+    border-bottom: none;
+}
+
+.users-list li:hover {
+    background-color: #3e67e0;
+}
+
+.users-list li input[type="checkbox"] {
+    margin-right: 15px;
+    width: 18px;
+    height: 18px;
+    pointer-events: none; /* Чтобы клик обрабатывался на <li> */
+}
+
+.users-list li span {
+    color: #e0e0e0;
+    font-size: 1.1em;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+} 

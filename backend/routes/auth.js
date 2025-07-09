@@ -1,6 +1,8 @@
 // backend/routes/auth.js
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+// Универсальный загрузчик .env файлов
+const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
+require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
 
 const express = require('express');
 const jwt = require('jsonwebtoken');
@@ -17,10 +19,18 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 
-if (!JWT_SECRET || !TELEGRAM_BOT_TOKEN || !ENCRYPTION_KEY) {
-    console.error("FATAL ERROR: JWT_SECRET, TELEGRAM_BOT_TOKEN, or ENCRYPTION_KEY is not defined in .env file.");
-    process.exit(1); // Exit if critical env variables are missing
+// --- ФИНАЛЬНАЯ УМНАЯ ПРОВЕРКА ---
+// В продакшене требуем все ключи, включая токен бота.
+if (process.env.NODE_ENV === 'production' && (!JWT_SECRET || !ENCRYPTION_KEY || !TELEGRAM_BOT_TOKEN)) {
+    console.error("FATAL PRODUCTION ERROR: One of the critical environment variables (JWT_SECRET, ENCRYPTION_KEY, TELEGRAM_BOT_TOKEN) is not defined.");
+    process.exit(1);
 }
+// В разработке требуем только ключи, необходимые для работы приложения.
+if (process.env.NODE_ENV !== 'production' && (!JWT_SECRET || !ENCRYPTION_KEY)) {
+    console.error("FATAL DEVELOPMENT ERROR: JWT_SECRET or ENCRYPTION_KEY is not defined in .env.development file.");
+    process.exit(1);
+}
+// ------------------------------------
 
 const ALGORITHM = 'aes-256-cbc';
 const IV_LENGTH = 16; 
@@ -63,8 +73,9 @@ function decrypt(text) {
 }
 
 const validateTelegramInitData = (initDataString) => {
+    // ИЗМЕНЕНИЕ: Явная проверка на пустой токен для режима разработки
     if (!TELEGRAM_BOT_TOKEN) {
-        console.warn('[Auth Validate] TELEGRAM_BOT_TOKEN not configured. Critical for validation. Skipping hash check (DEV ONLY).');
+        console.warn('[Auth Validate] TELEGRAM_BOT_TOKEN is missing or empty. Skipping hash check (DEV MODE).');
         try {
             const params = new URLSearchParams(initDataString);
             const user = params.get('user');
@@ -297,7 +308,6 @@ router.post('/complete-registration', async (req, res) => {
         }
         await client.query('COMMIT');
 
-        // --- ИСПРАВЛЕНИЕ: Генерируем и передаем токен для фоновой задачи ---
         const appTokenForWorker = jwt.sign(
             { userId: userId, telegramId: telegram_id.toString(), accessLevel: 'owner' },
             JWT_SECRET, { expiresIn: '15m' } 
@@ -308,7 +318,7 @@ router.post('/complete-registration', async (req, res) => {
             user_id: userId,
             vendistaApiToken: vendista_api_token_plain, 
             first_coffee_date: setup_date,
-            appToken: appTokenForWorker // <-- ПЕРЕДАЕМ ТОКЕН
+            appToken: appTokenForWorker
         }).catch(importError => {
             console.error(`[POST /api/auth/complete-registration] Initial import failed for user ${userId}:`, importError.message, importError.stack);
             sendErrorToAdmin({ 

@@ -61,7 +61,7 @@ export default function CopySettingsModal({ terminals, sourceTerminalId, onClose
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content copy-settings-modal" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>{title}</h2>
+                    <h2 className="modal-title">{title}</h2>
                     <button type="button" className="modal-close-btn" onClick={onClose}>&times;</button>
                 </div>
                 <div className="modal-body">

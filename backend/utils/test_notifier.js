@@ -1,44 +1,41 @@
-// ~/VA/backend/utils/test_notifier.js
-// Путь к .env файлу вашего бэкенда
+// backend/utils/test_notifier.js
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); 
+const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
+require('dotenv').config({ path: path.resolve(__dirname, `../../${envPath}`) });
 
-// Путь к вашему основному уведомителю
-const { sendErrorToAdmin } = require('./adminErrorNotifier'); 
+const { sendNotification } = require('./botNotifier');
+const { sendNotificationWithKeyboard } = require('./botHelpers');
 
-async function runTestNotification() {
-    console.log("Попытка отправки тестового уведомления об ошибке...");
+async function testNotify() {
+    const args = process.argv.slice(2);
+    const telegramId = args[0];
+    const message = args[1];
+    const useKeyboard = args[2] === 'keyboard';
+
+    if (!telegramId || !message) {
+        console.error('Usage: node backend/utils/test_notifier.js <TELEGRAM_ID> "<MESSAGE>" [keyboard]');
+        console.error('Example: node backend/utils/test_notifier.js 12345678 "<b>Test Message</b>"');
+        console.error('Example with keyboard: node backend/utils/test_notifier.js 12345678 "Test with button" keyboard');
+        return;
+    }
+
+    console.log(`Sending message to ${telegramId}...`);
+
     try {
-        await sendErrorToAdmin({
-            userId: 999, // Тестовый ID пользователя из БД (может не существовать, это для теста)
-            telegramId: 123456789, // Тестовый Telegram ID
-            userFirstName: "ТестИмя", // Тестовое имя
-            userUsername: "testadminuser", // Тестовый username
-            errorContext: "Ручной Тест Уведомлений (test_notifier.js)",
-            errorMessage: "Это тестовое сообщение об ошибке для проверки работы уведомлений администратора. Если вы это видите, всё работает!",
-            errorStack: new Error("Это пример стека вызовов для теста").stack,
-            additionalInfo: { 
-                testParameter: "value123", 
-                timestamp: new Date().toISOString(),
-                triggeredBy: "manual_test_script"
-            }
-        });
-        console.log("Функция sendErrorToAdmin вызвана. Проверьте ваш Telegram-бот @infocoffee_support_bot (или чат, указанный в ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS).");
-    } catch (e) {
-        console.error("Ошибка при вызове sendErrorToAdmin напрямую:", e.message);
-        if (e.stack) {
-            console.error(e.stack);
+        if (useKeyboard) {
+            const keyboard = {
+                inline_keyboard: [
+                    [{ text: '✅ Тест Выполнено', callback_data: `task_complete_99999` }]
+                ]
+            };
+            await sendNotificationWithKeyboard(telegramId, message, keyboard);
+        } else {
+            await sendNotification(telegramId, message);
         }
+        console.log('Message sent successfully!');
+    } catch (error) {
+        console.error('Failed to send message:', error.message);
     }
 }
 
-runTestNotification().then(() => {
-    // Даем немного времени на отправку сообщения ботом перед выходом
-    setTimeout(() => {
-        console.log("Тестовый скрипт завершил работу.");
-        process.exit(0);
-    }, 2000); // 2 секунды задержки
-}).catch(err => {
-    console.error("Критическая ошибка в тестовом скрипте:", err);
-    process.exit(1);
-});
+testNotify().then(() => process.exit(0));

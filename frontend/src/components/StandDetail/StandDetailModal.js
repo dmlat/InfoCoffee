@@ -6,6 +6,7 @@ import StandNavigator from './StandNavigator';
 import StandStockTab from './StandStockTab';
 import StandRecipesTab from './StandRecipesTab';
 import StandSettingsTab from './StandSettingsTab';
+import TerminalListModal from '../TerminalListModal';
 import { ALL_ITEMS } from '../../constants';
 import './StandDetailModal.css';
 
@@ -13,13 +14,13 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
     const location = useLocation();
     const navigate = useNavigate();
 
-    const getTabFromHash = () => {
+    const getTabFromHash = useCallback(() => {
         const hash = location.hash.replace('#', '');
         if (['stock', 'recipes', 'settings'].includes(hash)) {
             return hash;
         }
         return 'stock';
-    }
+    }, [location.hash]);
 
     const [activeTab, setActiveTab] = useState(getTabFromHash);
     const [details, setDetails] = useState({ inventory: [] });
@@ -30,6 +31,7 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
     const [machineItems, setMachineItems] = useState([]);
     const [initialRecipes, setInitialRecipes] = useState({});
     const [internalTerminalId, setInternalTerminalId] = useState(null);
+    const [isTerminalListModalOpen, setIsTerminalListModalOpen] = useState(false);
 
     const formatNumericOutput = (value) => {
         const num = parseFloat(value);
@@ -94,6 +96,10 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
         fetchDetailsAndRecipes();
     }, [fetchDetailsAndRecipes]);
 
+    useEffect(() => {
+        setActiveTab(getTabFromHash());
+    }, [getTabFromHash]);
+
     const handleTabClick = (tabId) => {
         setActiveTab(tabId);
         navigate(`${location.pathname}#${tabId}`, { replace: true });
@@ -131,34 +137,61 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
         }
     }
 
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content stand-detail-modal" onClick={e => e.stopPropagation()}>
-                <div className="modal-header">
-                    <h2>Настройки стойки</h2>
-                    <button className="modal-close-btn" onClick={onClose}>&times;</button>
-                </div>
-                
-                <StandNavigator 
-                    terminal={terminal}
-                    allTerminals={allTerminals}
-                    onTerminalChange={onTerminalChange}
-                />
+    const handleSelectAndClose = (selectedTerminal) => {
+        onTerminalChange(selectedTerminal);
+        setIsTerminalListModalOpen(false);
+    };
 
-                <div className="modal-body">
-                    <div className="modal-tabs">
-                        {Object.entries(tabTitleMap).map(([tabId, title]) => (
-                             <button key={tabId} onClick={() => handleTabClick(tabId)} className={activeTab === tabId ? 'active' : ''}>
-                                {title}
-                            </button>
-                        ))}
+    return (
+        <>
+            <div className="modal-overlay" onClick={onClose}>
+                <div className="modal-content stand-detail-modal" onClick={e => e.stopPropagation()}>
+                    <div className="modal-header">
+                        <h2 className="modal-title">Настройки стойки</h2>
+                        <button className="modal-close-btn" onClick={onClose}>&times;</button>
                     </div>
                     
-                    {isLoading && <div className="page-loading-container"><span>Загрузка деталей...</span></div>}
-                    {error && <p className="error-message">{error}</p>}
-                    {!isLoading && !error && renderActiveTab()}
+                    <StandNavigator 
+                        terminal={terminal}
+                        allTerminals={allTerminals}
+                        onTerminalChange={onTerminalChange}
+                        onNameClick={() => setIsTerminalListModalOpen(true)}
+                    />
+
+                    <div className="modal-body">
+                        <div className="modal-tabs">
+                            {Object.entries(tabTitleMap).map(([tabId, title]) => {
+                                let isPending = false;
+                                if (tabId === 'recipes') isPending = terminal.needs_recipes_config;
+                                if (tabId === 'settings') isPending = terminal.needs_containers_config;
+                                
+                                return (
+                                    <button 
+                                        key={tabId} 
+                                        onClick={() => handleTabClick(tabId)} 
+                                        className={`${activeTab === tabId ? 'active' : ''} ${isPending ? 'pending' : ''}`}
+                                    >
+                                        {title}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        
+                        {isLoading && <div className="page-loading-container"><span>Загрузка деталей...</span></div>}
+                        {error && <p className="error-message">{error}</p>}
+                        {!isLoading && !error && renderActiveTab()}
+                    </div>
                 </div>
             </div>
-        </div>
+
+            {isTerminalListModalOpen && (
+                <TerminalListModal
+                    terminals={allTerminals}
+                    onSelect={handleSelectAndClose}
+                    onClose={() => setIsTerminalListModalOpen(false)}
+                    currentSelection={terminal.id}
+                />
+            )}
+        </>
     );
 }

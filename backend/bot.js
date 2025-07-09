@@ -1,6 +1,7 @@
 // backend/bot.js
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
+require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
 const TelegramBot = require('node-telegram-bot-api');
 const pool = require('./db');
 const moment = require('moment-timezone');
@@ -334,5 +335,55 @@ bot.on('callback_query', async (query) => {
             break;
     }
 });
+
+// Обработка всех callback_query
+bot.on('callback_query', async (ctx) => {
+    const data = ctx.callbackQuery.data;
+    const telegramId = ctx.from.id;
+
+    if (data.startsWith('task_complete_')) {
+        const taskId = data.split('_')[2];
+        try {
+            // Проверяем, что у пользователя есть права на выполнение этой задачи
+            const taskRes = await pool.query(
+                `SELECT id, assignee_ids FROM service_tasks WHERE id = $1 AND $2 = ANY(assignee_ids)`,
+                [taskId, telegramId]
+            );
+
+            if (taskRes.rowCount === 0) {
+                return ctx.answerCbQuery('Это не ваша задача, или она уже выполнена.', { show_alert: true });
+            }
+
+            // Обновляем статус задачи
+            await pool.query(
+                `UPDATE service_tasks SET status = 'completed', completed_at = NOW() WHERE id = $1`,
+                [taskId]
+            );
+
+            // Редактируем исходное сообщение, убирая кнопку
+            await ctx.editMessageText(ctx.callbackQuery.message.text + '\n\n✅ <b>Выполнено</b>', {
+                parse_mode: 'HTML'
+            });
+            ctx.answerCbQuery('Задача отмечена как выполненная!');
+
+            // TODO: Отправить уведомление админам о выполнении
+
+        } catch (err) {
+            console.error(`[Bot] Error completing task ${taskId} by user ${telegramId}:`, err);
+            ctx.answerCbQuery('Ошибка при обновлении задачи.', { show_alert: true });
+        }
+    }
+
+    // Здесь могут быть другие обработчики callback_query
+});
+
+// Запускаем бота
+bot.launch().then(() => {
+    console.log('Telegram bot started successfully.');
+}).catch(err => {
+    console.error('Failed to start Telegram bot:', err);
+});
+
+module.exports = bot;
 
 bot.on('polling_error', (error) => console.error('[Bot Polling Error]', error.code, error.message));

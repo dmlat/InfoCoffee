@@ -2,7 +2,7 @@
 import React from 'react';
 import './StandNavigator.css';
 
-export default function StandNavigator({ terminal, allTerminals, onTerminalChange }) {
+export default function StandNavigator({ terminal, allTerminals, onTerminalChange, onNameClick }) {
 
     const handleTerminalSwitch = (direction) => {
         const currentIndex = allTerminals.findIndex(t => t.id === terminal.id);
@@ -21,15 +21,15 @@ export default function StandNavigator({ terminal, allTerminals, onTerminalChang
         }
     };
 
-    const isOnline = (terminal.last_hour_online || 0) > 0;
-
     return (
         <div className="stand-navigator">
             <button className="nav-arrow" onClick={() => handleTerminalSwitch(-1)}>&lt;</button>
-            <div className="nav-terminal-name">
-                <span className={`status-indicator ${isOnline ? 'online' : 'offline'}`}></span>
+            <div className="nav-separator"></div>
+            <div className="nav-terminal-name" onClick={onNameClick}>
+                {onNameClick && <span className="nav-list-icon">☰</span>}
                 <span>{terminal.comment || `Терминал #${terminal.id}`}</span>
             </div>
+            <div className="nav-separator"></div>
             <button className="nav-arrow" onClick={() => handleTerminalSwitch(1)}>&gt;</button>
         </div>
     );

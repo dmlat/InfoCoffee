@@ -221,36 +221,33 @@ export default function FinancesPage() {
             )}
         </div>
 
-        <div className="coffee-stats-card">
-            {statsError && <p className="error-message">Ошибка загрузки статистики по кофейням.</p>}
-            <div className="table-scroll-container">
-                <table className="data-table coffee-stats-table"> 
-                <thead>
-                    <tr>
-                    <th>Кофейня</th>
-                    <th className="text-right">Выручка</th>
-                    <th className="text-right">Продажи</th>
+        <div className="table-block coffee-stats-card">
+            <table className="data-table coffee-stats-table"> 
+            <thead>
+                <tr>
+                <th>Кофейня</th>
+                <th className="text-right">Выручка</th>
+                <th className="text-right">Продажи</th>
+                </tr>
+            </thead>
+            <tbody>
+                {coffeeLoading && !statsError && (
+                <tr><td colSpan={3} className="loading-message text-center">Загрузка кофеен...</td></tr>
+                )}
+                {!coffeeLoading && !statsError && (!coffeeStats || coffeeStats.length === 0) && (
+                <tr className="empty-data-row"><td colSpan={3}>Нет данных по кофейням за период</td></tr>
+                )}
+                {!coffeeLoading && !statsError && coffeeStats && coffeeStats.length > 0 && (
+                coffeeStats.map((row, idx) => (
+                    <tr key={row.coffee_shop_id || idx}>
+                    <td className="td-coffee-shop-name">{row.terminal_comment || `Кофейня ${row.coffee_shop_id}`}</td>
+                    <td className="td-revenue text-right">{Number(row.revenue).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{` `}₽</td>
+                    <td className="td-sales-count text-right">{Number(row.sales_count).toLocaleString('ru-RU')}</td>
                     </tr>
-                </thead>
-                <tbody>
-                    {coffeeLoading && !statsError && (
-                    <tr><td colSpan={3} className="loading-message text-center">Загрузка кофеен...</td></tr>
-                    )}
-                    {!coffeeLoading && !statsError && (!coffeeStats || coffeeStats.length === 0) && (
-                    <tr className="empty-data-row"><td colSpan={3}>Нет данных по кофейням за период</td></tr>
-                    )}
-                    {!coffeeLoading && !statsError && coffeeStats && coffeeStats.length > 0 && (
-                    coffeeStats.map((row, idx) => (
-                        <tr key={row.coffee_shop_id || idx}>
-                        <td className="td-coffee-shop-name">{row.terminal_comment || `Кофейня ${row.coffee_shop_id}`}</td>
-                        <td className="td-revenue text-right">{Number(row.revenue).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td>
-                        <td className="td-sales-count text-right">{Number(row.sales_count).toLocaleString('ru-RU')}</td>
-                        </tr>
-                    ))
-                    )}
-                </tbody>
-                </table>
-            </div>
+                ))
+                )}
+            </tbody>
+            </table>
         </div>
       </div>
     </div>

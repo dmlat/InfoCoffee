@@ -1,6 +1,6 @@
 /* frontend/src/components/StandDetail/StandStockTab.css */
 .stock-tab-content { 
-    padding-top: 5px; 
+    padding-top: 0; /* Уменьшаем отступ сверху */
     display: flex;
     flex-direction: column;
 }
@@ -10,96 +10,114 @@
     border-collapse: collapse;
 }
 
+/* --- Mobile First: Базовые стили для маленьких экранов --- */
 .stock-table-reworked th, .stock-table-reworked td {
-    padding: 12px 8px;
-    text-align: left;
+    padding: 10px 4px;
+    font-size: 0.8em;
     vertical-align: middle;
     white-space: nowrap;
-    border-bottom: 1px solid #3a3e47; /* Тонкая линия по умолчанию */
-    border-right: 1.5px solid #3a3e47; /* Вертикальная линия */
-}
-
-.stock-table-reworked th:last-child, .stock-table-reworked td:last-child {
-    border-right: none; /* Убираем у последнего столбца */
+    border-bottom: none; 
 }
 
 .stock-table-reworked th {
-    font-size: 0.95em; /* Такой же кегль, как у строк */
-    color: #ffffff; /* Белый цвет */
-    font-weight: 500;
-    text-transform: none;
-    position: sticky; 
-    top: 0; 
-    background: #23272f; 
-    z-index: 1;
-    border-bottom-width: 1.5px; /* Нижняя граница шапки */
+    font-weight: 500; /* Шрифт тоньше, как просили */
+    color: #ffffff; /* Белый цвет шапки */
+    border-bottom: 1px solid #3a3e47;
+    padding-bottom: 8px;
 }
 
 .stock-table-reworked td {
-    font-size: 0.95em;
     color: #c6c6c6;
+    font-weight: 500;
 }
 
-/* Специальные классы для управления толщиной разделителей */
-.stock-table-reworked tr.water-row td {
-    border-top: 2.5px solid #3a3e47;
-    border-bottom: 2.5px solid #3a3e47;
+/* Чередование строк */
+.stock-table-reworked tbody tr:nth-of-type(odd) {
+    background-color: rgba(40, 44, 52, 0.6);
+}
+.stock-table-reworked tbody tr:nth-of-type(odd) td:first-child { border-radius: 6px 0 0 6px; }
+.stock-table-reworked tbody tr:nth-of-type(odd) td:last-child { border-radius: 0 6px 6px 0; }
+
+.table-separator-row,
+.stock-table-reworked tbody tr.table-separator-row:nth-of-type(odd) {
+    height: 8px;
+    background: none !important; 
+}
+.table-separator-row td {
+    padding: 0;
 }
 
-.stock-table-reworked tr.consumable-row:first-child td {
-     border-top: 2.5px solid #3a3e47;
+/* --- Выравнивание и ширина колонок --- */
+/* 1. Товар: по левому краю, ширина по содержимому */
+.stock-table-reworked .name-col {
+    text-align: left;
+}
+.stock-table-reworked .name-col-colgroup {
+    width: 1%;
+    white-space: nowrap;
 }
 
-/* Ширины и выравнивание колонок */
-.stock-table-reworked td:nth-child(2),
-.stock-table-reworked th:nth-child(2) {
+/* 2. Стойка: по центру */
+.stock-table-reworked .stock-col {
+    text-align: center;
+}
+.stock-table-reworked .stock-col-colgroup {
+    width: 25%;
+}
+
+/* 3. Кофемашина: по правому краю */
+.stock-table-reworked .machine-col {
     text-align: right;
+    padding-right: 8px; /* Добавляем отступ для красоты */
 }
 
-.stock-table-reworked .header-coffeemachine {
-    color: #ffffff; /* Белый цвет */
-    text-align: right; /* Выравнивание по правому краю */
+.stock-table-reworked .machine-col-colgroup {
+    /* Ширина не задана, чтобы она заняла оставшееся место */
 }
 
-.stock-table-reworked .machine-cell {
-    width: 60%;
-    padding-left: 10px; /* Дополнительный отступ слева */
-    padding-right: 10px; /* Дополнительный отступ справа */
-}
-
-.stock-table-reworked td.stock-cell { 
-    font-weight: 500; 
-}
 
 /* Прогресс-бар */
 .machine-progress-bar-container {
     position: relative;
-    height: 24px;
+    height: 22px;
     background-color: #2a2e37;
     border-radius: 5px;
-    margin: 0 auto;
+    margin: 0; /* Убираем все margin */
+    display: inline-block; /* Делаем инлайн-блоком для text-align */
+    vertical-align: middle; /* Выравниваем по центру строки */
     overflow: hidden;
-    min-width: 120px;
+    width: 120px; /* Базовая ширина для мобильных */
+    min-width: 90px;
 }
 
 .machine-progress-fill {
     position: absolute; left: 0; top: 0; bottom: 0;
-    background-color: #4caf50; /* Приятный зеленый */
+    background-color: #4caf50; /* Зеленый по-умолчанию */
     border-radius: 5px;
-    transition: width 0.3s;
+    transition: width 0.3s, background-color 0.3s;
+}
+
+.machine-progress-fill.high {
+    background-color: #ffd600; /* Желтый */
+}
+
+.machine-progress-fill.critical {
+    background-color: #f44336; /* Красный */
 }
 
 .machine-progress-critical-marker {
     position: absolute; top: 0; bottom: 0;
     width: 2px;
-    background-color: #f44336; /* Красный маркер */
+    background-color: #f44336;
     z-index: 1;
 }
 
 .machine-progress-text {
     position: absolute; top: 0; left: 0; right: 0; bottom: 0;
     display: flex; justify-content: center; align-items: center;
-    font-size: 0.8em; color: white; text-shadow: 1px 1px 1px rgba(0,0,0,0.6);
+    font-size: 0.75em;
+    color: white; 
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.6);
     font-weight: 600;
 }
 
@@ -109,4 +127,16 @@
     font-style: italic;
     cursor: pointer;
     text-align: center;
+}
+
+/* --- Адаптивность для больших экранов --- */
+@media (min-width: 768px) {
+    .stock-table-reworked th, .stock-table-reworked td {
+        font-size: 0.85em;
+        padding: 12px 8px;
+    }
+    .machine-progress-bar-container {
+        width: 200px; /* Увеличиваем прогресс-бар на десктопе */
+        max-width: none; /* Снимаем ограничение max-width */
+    }
 }

@@ -1,6 +1,7 @@
 // backend/app.js
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '.env') }); 
+const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
+require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
 const express = require('express');
 const cors = require('cors');
 const pool = require('./db'); // db.js
@@ -13,6 +14,7 @@ const terminalsRoutes = require('./routes/terminals');
 const recipesRoutes = require('./routes/recipes');
 const warehouseRoutes = require('./routes/warehouse'); // <-- Убедимся, что он есть
 const inventoryRoutes = require('./routes/inventory'); // <-- НОВЫЙ ИМПОРТ
+const tasksRoutes = require('./routes/tasks'); // <-- НОВЫЙ ИМПОРТ
 
 const app = express();
 
@@ -27,8 +29,9 @@ app.use('/api/expenses', expensesRoutes);
 app.use('/api/access', accessRoutes);
 app.use('/api/terminals', terminalsRoutes);
 app.use('/api/recipes', recipesRoutes);
-app.use('/api/warehouse', warehouseRoutes); 
+app.use('/api/warehouse', warehouseRoutes);
 app.use('/api/inventory', inventoryRoutes); // <-- НОВОЕ ПОДКЛЮЧЕНИЕ
+app.use('/api/tasks', tasksRoutes); // <-- НОВАЯ СТРОКА
 
 // DB Connection Test Endpoint
 app.get('/api/test-db', async (req, res) => {

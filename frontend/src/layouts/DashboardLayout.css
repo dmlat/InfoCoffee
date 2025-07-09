@@ -52,8 +52,8 @@
   background: none;
   border: none;
   color: #8a9db8;
-  padding: 10px 5px;
-  font-size: clamp(0.75rem, 2.8vw, 0.9rem);
+  padding: 10px 4px;
+  font-size: clamp(0.7rem, 2.5vw, 0.9rem);
   font-weight: 600;
   cursor: pointer;
   border-bottom: 3px solid transparent;
@@ -96,6 +96,6 @@
   }
 
   .tab-btn {
-    padding: 9px 4px;
+    padding: 8px 3px;
   }
 }

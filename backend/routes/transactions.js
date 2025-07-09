@@ -1,7 +1,7 @@
 // backend/routes/transactions.js
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-
+const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
+require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');

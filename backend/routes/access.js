@@ -14,7 +14,7 @@ const formatAccessLevelName = (level) => {
 
 // Получить список всех, кому предоставлен доступ
 router.get('/', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.userId;
+    const ownerUserId = req.user.ownerUserId;
     if (req.user.accessLevel !== 'owner' && req.user.accessLevel !== 'admin') {
         return res.status(403).json({ success: false, error: 'Недостаточно прав для просмотра доступов' });
     }
@@ -39,7 +39,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
 // Предоставить доступ новому пользователю
 router.post('/', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.userId;
+    const ownerUserId = req.user.ownerUserId;
     const { shared_with_telegram_id, shared_with_name, access_level } = req.body;
 
     if (req.user.accessLevel !== 'owner' && req.user.accessLevel !== 'admin') {
@@ -89,7 +89,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
 // Обновить доступ
 router.put('/:accessId', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.userId;
+    const ownerUserId = req.user.ownerUserId;
     const { accessId } = req.params;
     const { shared_with_name, access_level } = req.body;
 
@@ -135,7 +135,7 @@ router.put('/:accessId', authMiddleware, async (req, res) => {
 
 // Отозвать доступ
 router.delete('/:accessId', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.userId;
+    const ownerUserId = req.user.ownerUserId;
     const { accessId } = req.params;
 
      if (req.user.accessLevel !== 'owner' && req.user.accessLevel !== 'admin') {
@@ -164,5 +164,55 @@ router.delete('/:accessId', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, error: 'Ошибка сервера при отзыве доступа.' });
     }
 });
+
+// Получить список всех пользователей, кому предоставлен доступ (включая владельца)
+router.get('/users/list', authMiddleware, async (req, res) => {
+    const ownerUserId = req.user.ownerUserId;
+
+    try {
+        // Получаем владельца
+        const ownerRes = await pool.query('SELECT id, telegram_id, name FROM users WHERE id = $1', [ownerUserId]);
+        const owner = ownerRes.rows[0] 
+            ? { 
+                id: ownerRes.rows[0].id, 
+                telegram_id: ownerRes.rows[0].telegram_id, 
+                name: `${ownerRes.rows[0].name} (Владелец)` 
+              } 
+            : null;
+
+        // Получаем тех, кому дали доступ
+        const sharedUsersRes = await pool.query(
+            'SELECT shared_with_telegram_id as telegram_id, shared_with_name as name FROM user_access_rights WHERE owner_user_id = $1',
+            [ownerUserId]
+        );
+
+        let allUsers = [];
+        if (owner) {
+            allUsers.push(owner);
+        }
+        
+        // Добавляем остальных, избегая дубликатов по telegram_id
+        const existingTelegramIds = new Set(allUsers.map(u => u.telegram_id));
+        sharedUsersRes.rows.forEach(user => {
+            if (!existingTelegramIds.has(user.telegram_id)) {
+                allUsers.push(user);
+                existingTelegramIds.add(user.telegram_id);
+            }
+        });
+        
+        res.json({ success: true, users: allUsers });
+
+    } catch (err) {
+        console.error(`[GET /api/access/users/list] UserID: ${ownerUserId} - Error:`, err);
+        sendErrorToAdmin({
+            userId: ownerUserId,
+            errorContext: `GET /api/access/users/list`,
+            errorMessage: err.message,
+            errorStack: err.stack
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при получении списка пользователей.' });
+    }
+});
+
 
 module.exports = router;

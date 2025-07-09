@@ -1,11 +1,12 @@
 // backend/middleware/auth.js
-const path = require('path'); // Добавь это
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); // И это, если JWT_SECRET в .env
-
-const jwt = require('jsonwebtoken');
+const path = require('path');
+const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
+require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
+const jwt = require('jsonwebtoken'); // <-- ИСПРАВЛЕНИЕ
+const pool = require('../db'); // <-- НОВЫЙ ИМПОРТ
 
 // Middleware для проверки JWT-токена в Authorization header
-function auth(req, res, next) {
+async function auth(req, res, next) { // <-- ИЗМЕНЕНИЕ: функция стала асинхронной
     const header = req.headers['authorization'];
     if (!header) {
         return res.status(401).json({ success: false, error: 'Требуется авторизация (нет заголовка)' });
@@ -22,17 +23,37 @@ function auth(req, res, next) {
     }
 
     try {
-        // Убедись, что JWT_SECRET доступен
         if (!process.env.JWT_SECRET) {
             console.error('[Middleware Auth] FATAL: JWT_SECRET is not defined!');
             return res.status(500).json({ success: false, error: 'Ошибка конфигурации сервера (JWT)' });
         }
+        
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded; // теперь userId доступен как req.user.userId (и telegramId)
+        req.user = decoded; 
+
+        // --- НОВАЯ ЛОГИКА ОПРЕДЕЛЕНИЯ ID ВЛАДЕЛЬЦА ---
+        if (req.user.accessLevel === 'owner') {
+            // Если это владелец, его ID и есть ID владельца
+            req.user.ownerUserId = req.user.userId;
+        } else {
+            // Если это админ или сервис, ищем ID владельца в таблице доступов
+            const accessRightRes = await pool.query(
+                'SELECT owner_user_id FROM user_access_rights WHERE shared_with_telegram_id = $1',
+                [req.user.telegramId]
+            );
+
+            if (accessRightRes.rowCount === 0) {
+                console.warn(`[Auth Middleware] User with access level "${req.user.accessLevel}" and telegramId ${req.user.telegramId} not found in access rights table.`);
+                return res.status(403).json({ success: false, error: 'Доступ не найден. Обратитесь к владельцу.' });
+            }
+            req.user.ownerUserId = accessRightRes.rows[0].owner_user_id;
+        }
+        
         next();
+
     } catch (err) {
-        console.error('[Middleware Auth] JWT Verification Error:', err.message);
-        return res.status(401).json({ success: false, error: 'Невалидный или истёкший токен' });
+        console.error('[Middleware Auth] JWT Verification Error or DB Error:', err.message);
+        return res.status(401).json({ success: false, error: 'Невалидный или истёкший токен, или ошибка доступа.' });
     }
 }
 

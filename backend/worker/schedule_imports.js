@@ -1,9 +1,11 @@
 // backend/worker/schedule_imports.js
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
+require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
 const cron = require('node-cron');
 const pool = require('../db');
 const { importTransactionsForPeriod } = require('./vendista_import_worker');
+const { createCleaningTasks } = require('./cleaning_task_worker'); // <-- НОВЫЙ ИМПОРТ
 const moment = require('moment-timezone');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');

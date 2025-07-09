@@ -1,11 +1,18 @@
 // frontend/src/pages/WarehousePage.js
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '../api';
 import './WarehousePage.css';
-import StockUpModal from '../components/StockUpModal';
 import TerminalListModal from '../components/TerminalListModal';
-import StandDetailModal from '../components/StandDetail/StandDetailModal'; // <-- ВОЗВРАЩАЕМ ИМПОРТ С КОРРЕКТНЫМ ПУТЕМ
+import StandDetailModal from '../components/StandDetail/StandDetailModal';
+import StandNavigator from '../components/StandDetail/StandNavigator';
+import ConfirmModal from '../components/ConfirmModal';
 import { ALL_ITEMS } from '../constants';
+import '../components/StandDetail/StandNavigator.css';
+
+const UNIFIED_STEPS = ['38000', '19000', '5000', '1000', '100', '10'];
+const ITEMS_IN_PIECES = new Set(ALL_ITEMS.filter(i => i.unit === 'шт').map(i => i.name));
+const WAREHOUSE_STATE_KEY = 'warehouse_page_state_v5';
 
 // --- Вспомогательные компоненты ---
 const ProgressBar = ({ current, max, critical }) => {
@@ -23,11 +30,43 @@ const ProgressBar = ({ current, max, critical }) => {
     );
 };
 
+const MachineProgressDisplay = ({ data, unit, onConfigureClick }) => {
+    if (!data || data.max === null || data.max === undefined || data.max === 0) {
+        return (
+            <div className="configure-machine-notice" onClick={onConfigureClick}>
+                <span>Настроить</span>
+                <span className="arrow-icon">&gt;</span>
+            </div>
+        );
+    }
 
-const WAREHOUSE_STATE_KEY = 'warehouse_page_state_v3';
+    const { current, max, critical } = data;
+    const percentage = max > 0 ? (current / max) * 100 : 0;
+    
+    let barColorClass = '';
+    if (critical > 0) {
+        if (current <= critical) {
+            barColorClass = 'critical';
+        } else if (current <= critical * 2) {
+            barColorClass = 'high';
+        }
+    }
+
+    const formattedCurrent = current % 1 === 0 ? Math.round(current) : current.toFixed(1);
+    const formattedMax = max % 1 === 0 ? Math.round(max) : max.toFixed(1);
+
+    return (
+        <div className="machine-progress-bar-container">
+            <div className={`machine-progress-fill ${barColorClass}`} style={{ width: `${Math.min(percentage, 100)}%` }} />
+            {critical > 0 && <div className="machine-progress-critical-marker" style={{ left: `${(critical / max) * 100}%` }} />}
+            <span className="machine-progress-text">{formattedCurrent} / {formattedMax} {unit}</span>
+        </div>
+    );
+};
 
 // --- Основной Компонент ---
 export default function WarehousePage() {
+    const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [notification, setNotification] = useState({ message: '', isError: false });
@@ -37,11 +76,14 @@ export default function WarehousePage() {
     const [standStock, setStandStock] = useState({});
     const [machineData, setMachineData] = useState({});
     const [isRowLoading, setRowLoading] = useState({});
-    const [activeStepKg, setActiveStepKg] = useState('1');
-    const [activeStepPcs, setActiveStepPcs] = useState('100');
-    const [isStockUpModalOpen, setIsStockUpModalOpen] = useState(false);
-    const [isTerminalModalOpen, setIsTerminalModalOpen] = useState(false);
+    const [activeStep, setActiveStep] = useState('1000');
+    const [transferMode, setTransferMode] = useState('stand');
     const [isStandDetailModalOpen, setIsStandDetailModalOpen] = useState(false);
+    
+    // УДАЛЯЕМ состояние, связанное со старым режимом пополнения склада
+    // const [stockUpDeltas, setStockUpDeltas] = useState({});
+    // const [isDirty, setIsDirty] = useState(false);
+    // const [showConfirm, setShowConfirm] = useState(false);
     
     const showNotification = (message, isError = false) => {
         setNotification({ message, isError });
@@ -66,11 +108,11 @@ export default function WarehousePage() {
                 const newMachineData = {};
                 
                 inventory.forEach(item => {
-                    const stockValue = parseFloat(item.current_stock || 0);
+                    const stockValue = Math.round(parseFloat(item.current_stock || 0));
                     const itemData = {
                         current: stockValue,
-                        max: parseFloat(item.max_stock || 0),
-                        critical: parseFloat(item.critical_stock || 0)
+                        max: Math.round(parseFloat(item.max_stock || 0)),
+                        critical: Math.round(parseFloat(item.critical_stock || 0))
                     };
                     if (item.location === 'stand') newStandStock[item.item_name] = itemData;
                     else if (item.location === 'machine') newMachineData[item.item_name] = itemData;
@@ -99,7 +141,7 @@ export default function WarehousePage() {
             setTerminals(fetchedTerminals);
 
             if (warehouseRes.data.success) {
-                setWarehouseStock((warehouseRes.data.warehouseStock || []).reduce((acc, item) => ({...acc, [item.item_name]: parseFloat(item.current_stock || 0)}), {}));
+                setWarehouseStock((warehouseRes.data.warehouseStock || []).reduce((acc, item) => ({...acc, [item.item_name]: Math.round(parseFloat(item.current_stock || 0))}), {}));
             }
 
             let terminalForDetails = terminalToSelect;
@@ -131,8 +173,8 @@ export default function WarehousePage() {
     useEffect(() => {
         const savedState = JSON.parse(localStorage.getItem(WAREHOUSE_STATE_KEY));
         if (savedState) {
-            setActiveStepKg(savedState.activeStepKg || '1');
-            setActiveStepPcs(savedState.activeStepPcs || '100');
+            setActiveStep(savedState.activeStep || '1000');
+            setTransferMode(savedState.transferMode || 'stand');
         }
         fetchInitialData();
     }, [fetchInitialData]);
@@ -141,16 +183,62 @@ export default function WarehousePage() {
         if (!isLoading) {
             const stateToSave = {
                 selectedTerminalId: selectedTerminal ? selectedTerminal.id : null,
-                activeStepKg,
-                activeStepPcs,
+                activeStep,
+                transferMode,
             };
             localStorage.setItem(WAREHOUSE_STATE_KEY, JSON.stringify(stateToSave));
         }
-    }, [selectedTerminal, activeStepKg, activeStepPcs, isLoading]);
+    }, [selectedTerminal, activeStep, transferMode, isLoading]);
+
+    // useEffect(() => {
+    //     const hasChanges = Object.values(stockUpDeltas).some(q => q > 0);
+    //     setIsDirty(hasChanges);
+    // }, [stockUpDeltas]);
+    
+    const handleStockUpAdjust = (itemName, increment) => {
+        const step = parseFloat(activeStep);
+        setRowLoading(prev => ({ ...prev, [itemName]: true }));
+        setWarehouseStock(prev => {
+            const currentDelta = prev[itemName] || 0;
+            const newDelta = Math.max(0, currentDelta + (step * increment));
+            const finalValue = ITEMS_IN_PIECES.has(itemName) ? Math.round(newDelta) : parseFloat(newDelta.toFixed(3));
+            return { ...prev, [itemName]: finalValue };
+        });
+        setRowLoading(prev => ({ ...prev, [itemName]: false }));
+    };
+
+    const handleStockUpSubmit = async (e) => {
+        if (e) e.preventDefault();
+        // ... (логика отправки, скопированная из StockUpModal)
+    };
+
+    const handleWarehouseAdjust = async (itemName, increment) => {
+        const step = parseFloat(activeStep);
+        const currentStock = warehouseStock[itemName] || 0;
+
+        // ИСПРАВЛЕНИЕ: Если списываем, то не больше, чем есть на складе
+        const quantity = increment < 0 ? -Math.min(step, currentStock) : step;
+
+        if (quantity === 0) return; // Если нечего менять, выходим
+
+        setRowLoading(prev => ({ ...prev, [itemName]: true }));
+        try {
+            const response = await apiClient.post('/warehouse/adjust', { item_name: itemName, quantity });
+            if (response.data.success) {
+                setWarehouseStock(prev => ({ ...prev, [itemName]: response.data.new_stock }));
+            } else {
+                showNotification(response.data.error || 'Ошибка изменения остатка', true);
+            }
+        } catch (err) {
+            showNotification(err.response?.data?.error || 'Сетевая ошибка', true);
+        } finally {
+            setRowLoading(prev => ({ ...prev, [itemName]: false }));
+        }
+    };
 
     const handleTerminalSelect = (terminal) => {
         fetchDataForTerminal(terminal);
-        setIsTerminalModalOpen(false);
+        setIsStandDetailModalOpen(false);
     };
 
     const handleTransfer = async (fromLoc, toLoc, itemName, step) => {
@@ -159,8 +247,7 @@ export default function WarehousePage() {
             return;
         }
 
-        const { multiplier } = ALL_ITEMS.find(i => i.name === itemName) || {};
-        const stepQuantity = step * multiplier;
+        const stepQuantity = step; // Шаг уже в базовых единицах (г, мл, шт)
 
         let sourceStock = 0;
         if (fromLoc === 'warehouse') sourceStock = warehouseStock[itemName] || 0;
@@ -182,7 +269,8 @@ export default function WarehousePage() {
         }
         
         if (quantityToTransfer <= 0) {
-             showNotification("Нет свободного места.", true);
+             const reason = sourceStock <= 0 ? "Нет в наличии." : "Нет свободного места.";
+             showNotification(reason, true);
              return;
         }
 
@@ -193,8 +281,29 @@ export default function WarehousePage() {
             const toPayload = { location: toLoc, terminal_id: toLoc === 'warehouse' ? null : selectedTerminal.internalId };
             const response = await apiClient.post('/inventory/move', { from: fromPayload, to: toPayload, item_name: itemName, quantity: quantityToTransfer });
             
-            if (response.data.success) {
-                await fetchInitialData(selectedTerminal);
+            if (response.data.success && response.data.updatedStock) {
+                const { from, to } = response.data.updatedStock;
+
+                // Округляем до целых, чтобы избежать ошибок с плавающей точкой
+                const newFromStock = Math.round(parseFloat(from.new_stock));
+                const newToStock = Math.round(parseFloat(to.new_stock));
+
+                if (from.location === 'warehouse') {
+                    setWarehouseStock(prev => ({ ...prev, [itemName]: newFromStock }));
+                } else if (from.location === 'stand') {
+                    setStandStock(prev => ({ ...prev, [itemName]: { ...(prev[itemName] || {}), current: newFromStock } }));
+                } else if (from.location === 'machine') {
+                    setMachineData(prev => ({ ...prev, [itemName]: { ...(prev[itemName] || {}), current: newFromStock } }));
+                }
+
+                if (to.location === 'warehouse') {
+                    setWarehouseStock(prev => ({ ...prev, [itemName]: newToStock }));
+                } else if (to.location === 'stand') {
+                    setStandStock(prev => ({ ...prev, [itemName]: { ...(prev[itemName] || {}), current: newToStock } }));
+                } else if (to.location === 'machine') {
+                    setMachineData(prev => ({ ...prev, [itemName]: { ...(prev[itemName] || {}), current: newToStock } }));
+                }
+                
             } else {
                 showNotification(response.data.error || 'Ошибка перемещения', true);
             }
@@ -205,109 +314,198 @@ export default function WarehousePage() {
         }
     };
     
-    // ... остальной код компонента без изменений ...
     const renderStepSelector = () => (
-        <div className="step-selector-container">
-            <div className="step-group">
-                <span className="step-label">Шаг, кг/л:</span>
-                <div className="step-buttons">
-                    {['10', '5', '1', '0.1', '0.01'].map(step => (
-                        <button key={step} className={`step-btn ${activeStepKg === step ? 'active' : ''}`} onClick={() => setActiveStepKg(step)}>{step}</button>
-                    ))}
-                </div>
+        <div className="step-selectors-container">
+            <div className="panel-header">
+                {/* ИЗМЕНЕНИЕ: h4 заменен на div, удален специфичный класс */}
+                <div>2. Шаг (единицы*)</div>
+                <p className="steps-header-note">* - гр / мл / шт</p>
             </div>
-            <div className="step-group">
-                <span className="step-label">Шаг, шт:</span>
-                <div className="step-buttons">
-                    {['1000', '500', '100', '10', '1'].map(step => (
-                        <button key={step} className={`step-btn ${activeStepPcs === step ? 'active' : ''}`} onClick={() => setActiveStepPcs(step)}>{step}</button>
-                    ))}
-                </div>
+            <div className="step-selector-buttons">
+                {UNIFIED_STEPS.map(step => (
+                    <button type="button" key={step}
+                        className={`control-btn step-btn ${activeStep === step ? 'active' : ''}`}
+                        onClick={() => setActiveStep(step)}>
+                        {parseInt(step, 10).toLocaleString('ru-RU')}
+                    </button>
+                ))}
             </div>
         </div>
     );
 
-    const renderInventoryRow = (item) => {
-        const { name, unit, type, multiplier } = item;
-        const step = type === 'ingredient' ? parseFloat(activeStepKg) : parseFloat(activeStepPcs);
-        
-        const whValue = (warehouseStock[name] || 0) / multiplier;
-        const stData = standStock[name];
-        const mcData = machineData[name];
-
-        const canFillMachine = stData && stData.current > 0;
-        const machineHasStock = mcData && mcData.current > 0;
-        const canFillStand = warehouseStock[name] > 0;
-        const standHasStock = stData && stData.current > 0;
-
-        return (
-            <div className={`inventory-item-wrapper ${isRowLoading[name] ? 'loading' : ''}`} key={name}>
-                <div className="inventory-row-main">
-                    <div className="item-name-cell">{name}, {unit}</div>
-                    <div className="stock-cell">{whValue.toLocaleString('ru-RU', {maximumFractionDigits: 2})}</div>
-                    <div className="transfer-cell">
-                        <button className="transfer-arrow left" onClick={() => handleTransfer('stand', 'warehouse', name, step)} disabled={!standHasStock}>{'<'}</button>
-                        <button className="transfer-arrow right" onClick={() => handleTransfer('warehouse', 'stand', name, step)} disabled={!canFillStand}>{'>'}</button>
+    const renderTable = () => {
+        if (transferMode === 'stand') {
+            return (
+                <div className="inventory-table mode-stand">
+                    <div className="inventory-header">
+                        <div className="item-name-cell">Название</div>
+                        <div className="unit-cell">Ед.</div>
+                        <div className="stock-cell">Склад</div>
+                        <div className="arrow-cell"></div>
+                        <div className="arrow-cell"></div>
+                        <div className="stock-cell">Стойка</div>
                     </div>
-                    <div className="stock-cell">
-                        {stData ? stData.current.toLocaleString('ru-RU') : '—'}
+                    {ALL_ITEMS.map(item => renderStandRow(item))}
+                </div>
+            );
+        }
+
+        if (transferMode === 'machine') {
+            return (
+                <div className="inventory-table mode-machine">
+                    <div className="inventory-header">
+                        <div className="header-merged-stock">Кол-во в стойке</div>
+                        <div className="header-merged-container">Контейнер</div>
+                    </div>
+                    {ALL_ITEMS.map(item => renderMachineRow(item))}
+                </div>
+            );
+        }
+        return null;
+    };
+    
+    const renderStandRow = (item) => {
+        const { name, unit } = item;
+        const step = parseFloat(activeStep);
+        const whValue = warehouseStock[name] || 0;
+        const stData = standStock[name];
+        const stValue = stData?.current || 0;
+        const isPiece = unit === 'шт';
+        const displayUnit = { 'г': 'кг', 'мл': 'л', 'шт': 'шт' }[unit] || unit;
+        const formatValue = (val) => (isPiece ? val : val / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+        
+        return (
+            <React.Fragment key={name}>
+                <div className={`inventory-row`}>
+                    <div className={`item-name-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>{name}</div>
+                    <div className={`unit-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>{displayUnit}</div>
+                    <div className={`stock-cell ${whValue === 0 ? 'zero-stock' : ''} ${isRowLoading[name] ? 'loading-cell' : ''}`}>{formatValue(whValue)}</div>
+                    <div className={`arrow-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>
+                        <button className="transfer-arrow left" onClick={() => handleTransfer('stand', 'warehouse', name, step)} disabled={stValue <= 0}>&lt;</button>
+                    </div>
+                    <div className={`arrow-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>
+                        <button className="transfer-arrow right" onClick={() => handleTransfer('warehouse', 'stand', name, step)} disabled={whValue <= 0}>&gt;</button>
+                    </div>
+                    <div className={`stock-cell ${stValue === 0 ? 'zero-stock' : ''} ${isRowLoading[name] ? 'loading-cell' : ''}`}>{formatValue(stValue)}</div>
+                </div>
+            </React.Fragment>
+        );
+    };
+
+    const renderMachineRow = (item) => {
+        const { name, unit } = item;
+        const step = parseFloat(activeStep);
+        const stData = standStock[name];
+        const stValue = stData?.current || 0;
+        const mcData = machineData[name];
+        const mcValue = mcData?.current || 0;
+        
+        return (
+            <React.Fragment key={name}>
+                <div className={`inventory-row`}>
+                    <div className={`item-name-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>{name}</div>
+                    <div className={`stock-cell ${stValue === 0 ? 'zero-stock' : ''} ${isRowLoading[name] ? 'loading-cell' : ''}`}>
+                        {stValue.toLocaleString('ru-RU')} {unit}
+                    </div>
+                    <div className={`arrow-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>
+                        <button className="transfer-arrow left" onClick={() => handleTransfer('machine', 'stand', name, step)} disabled={mcValue <= 0}>&lt;</button>
+                    </div>
+                    <div className={`arrow-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>
+                        <button className="transfer-arrow right" onClick={() => handleTransfer('stand', 'machine', name, step)} disabled={stValue <= 0}>&gt;</button>
+                    </div>
+                    <div className={`machine-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>
+                        <MachineProgressDisplay data={mcData} unit={unit} onConfigureClick={handleOpenConfigure} />
                     </div>
                 </div>
-
-                {type === 'ingredient' && (
-                    <div className="inventory-row-machine">
-                        <button className="adjust-btn-machine minus" onClick={() => handleTransfer('machine', 'stand', name, step)} disabled={!machineHasStock}>-</button>
-                        <div className="progress-cell-machine">
-                        {mcData && mcData.max > 0 ? (
-                           <ProgressBar current={mcData.current} max={mcData.max} critical={mcData.critical} />
-                        ) : (
-                           <span className="placeholder-machine" onClick={() => setIsStandDetailModalOpen(true)}>Настройте остатки в машине →</span>
-                        )}
-                        </div>
-                        <button className="adjust-btn-machine plus" onClick={() => handleTransfer('stand', 'machine', name, step)} disabled={!canFillMachine}>+</button>
-                    </div>
-                )}
-            </div>
+            </React.Fragment>
         );
+    };
+
+    const handleOpenConfigure = () => {
+        if (selectedTerminal) {
+            navigate('#settings');
+            setIsStandDetailModalOpen(true);
+        }
+    };
+
+    const renderWarehouseMode = () => (
+        <div className="warehouse-mode-table">
+            {/* Шапка удалена */}
+            {ALL_ITEMS.map(item => {
+                const whValue = warehouseStock[item.name] || 0;
+                const isKgOrL = ['г', 'мл'].includes(item.unit);
+                const displayValue = isKgOrL ? whValue / 1000 : whValue;
+                const displayUnit = isKgOrL ? (item.unit === 'г' ? 'кг' : 'л') : item.unit;
+
+                return (
+                    <div className={`inventory-row ${isRowLoading[item.name] ? 'loading-cell-row' : ''}`} key={item.name}>
+                        <div className="item-name-cell">{item.name}</div>
+                        <div className="adjust-cell">
+                            <button className="adjust-btn minus" onClick={() => handleWarehouseAdjust(item.name, -1)} disabled={whValue <= 0}>-</button>
+                        </div>
+                        <div className="stock-cell">
+                            {displayValue.toLocaleString('ru-RU', { maximumFractionDigits: 3 })} <span className="unit-label">{displayUnit}</span>
+                        </div>
+                        <div className="adjust-cell">
+                            <button className="adjust-btn plus" onClick={() => handleWarehouseAdjust(item.name, 1)}>+</button>
+                        </div>
+                    </div>
+                )
+            })}
+        </div>
+    );
+    
+    const renderActiveModeView = () => {
+        if (transferMode === 'warehouse') return renderWarehouseMode();
+        return renderTable();
     };
 
     if (isLoading) return <div className="page-loading-container"><span>Загрузка склада...</span></div>;
 
     return (
         <>
+            {/* ConfirmModal больше не нужен */}
             <div className="page-container warehouse-page">
                 {error && <div className="error-message">{error}</div>}
-                {notification.message && <div className={`info-notification ${notification.isError ? 'error' : ''}`}>{notification.message}</div>}
                 
-                <div className="warehouse-top-panel">
-                    <button className="action-btn stock-up-btn" onClick={() => setIsStockUpModalOpen(true)}>Приходовать товар</button>
-                    <span className="stock-up-label">Пополнить склад</span>
-                </div>
-                <div className="warehouse-top-panel stand-selector-panel">
-                    <span className="stand-selector-label">Выберите стойку для пополнения:</span>
-                    <button className="terminal-selector-btn" onClick={() => setIsTerminalModalOpen(true)}>
-                        {selectedTerminal ? selectedTerminal.comment || `Стойка #${selectedTerminal.id}` : 'Не выбрана'}
-                    </button>
-                </div>
-                
-                <div className="inventory-block">
-                    <h3 className="inventory-block-title">Переместить остатки</h3>
-                    {renderStepSelector()}
-                    <div className="inventory-grid">
-                        <div className="inventory-grid-header">
-                            <div>Название</div>
-                            <div>Склад</div>
-                            <div/>
-                            <div>Стойка</div>
-                        </div>
-                         {ALL_ITEMS.map(renderInventoryRow)}
+                {/* 1. Возвращаем переключатель режимов */}
+                <div className="mode-selector-container">
+                    <div className="panel-header">
+                         {/* ИЗМЕНЕНИЕ: h4 заменен на div, удален специфичный класс */}
+                         <div>1. Выберите, какой инвентарь пополнить</div>
+                    </div>
+                    <div className="mode-selector-buttons">
+                        <button className={`control-btn ${transferMode === 'warehouse' ? 'active' : ''}`} onClick={() => setTransferMode('warehouse')}>Склад</button>
+                        <button className={`control-btn ${transferMode === 'stand' ? 'active' : ''}`} onClick={() => setTransferMode('stand')}>Стойка</button>
+                        <button className={`control-btn ${transferMode === 'machine' ? 'active' : ''}`} onClick={() => setTransferMode('machine')}>Кофемашина</button>
                     </div>
                 </div>
-            </div>
 
-            {isStockUpModalOpen && <StockUpModal onClose={() => setIsStockUpModalOpen(false)} onSuccess={() => fetchInitialData(selectedTerminal)} />}
-            {isTerminalModalOpen && <TerminalListModal terminals={terminals} onClose={() => setIsTerminalModalOpen(false)} onSelect={handleTerminalSelect} currentSelection={selectedTerminal?.id} />}
-            {isStandDetailModalOpen && selectedTerminal && <StandDetailModal terminal={selectedTerminal} allTerminals={terminals} onTerminalChange={handleTerminalSelect} onClose={() => { setIsStandDetailModalOpen(false); fetchDataForTerminal(selectedTerminal); }} />}
+                {/* 2. Блок выбора шага теперь здесь, под переключателем и для всех режимов */}
+                {renderStepSelector()}
+
+                {transferMode !== 'warehouse' && (
+                    <div className="warehouse-top-panel stand-selector-panel">
+                        {selectedTerminal && terminals.length > 0 ? (
+                            <StandNavigator
+                                terminal={selectedTerminal}
+                                allTerminals={terminals}
+                                onTerminalChange={handleTerminalSelect}
+                                onNameClick={() => setIsStandDetailModalOpen(true)}
+                            />
+                        ) : (
+                            <div className="stand-navigator-placeholder" onClick={() => setIsStandDetailModalOpen(true)}>
+                                <span>{terminals.length === 0 ? 'Нет доступных стоек' : 'Нажмите, чтобы выбрать'}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+                
+                <div className="inventory-block">
+                    {renderActiveModeView()}
+                </div>
+            </div>
+            {isStandDetailModalOpen && selectedTerminal && <StandDetailModal terminal={selectedTerminal} allTerminals={terminals} onTerminalChange={handleTerminalSelect} onClose={() => { setIsStandDetailModalOpen(false); navigate('#'); fetchDataForTerminal(selectedTerminal); }} />}
         </>
     );
 }

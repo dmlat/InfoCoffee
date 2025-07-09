@@ -1,104 +1,495 @@
 /* frontend/src/pages/WarehousePage.css */
-.warehouse-page { display: flex; flex-direction: column; gap: 15px; }
 
+/* --- Общие контейнеры --- */
+.warehouse-page {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Уменьшаем основной гэп */
+}
+.inventory-block { padding: 8px; border-radius: 12px; background: #22262e; }
+
+/* --- Верхняя панель и селектор шага --- */
 .warehouse-top-panel {
-    background: #282c34; padding: 12px 16px; border-radius: 12px;
-    display: flex; justify-content: space-between; align-items: center; gap: 15px;
+    display: flex; align-items: center; gap: 12px;
+    background: #282c34; padding: 10px; border-radius: 12px;
 }
-.stock-up-btn { flex-shrink: 0; }
-.stock-up-label, .stand-selector-label { font-size: 0.9em; color: #a0b0c8; text-align: right; }
-.terminal-selector-btn {
-    background: #23272f; border: 1px solid #303548; color: #e0e0e0;
-    border-radius: 8px; padding: 8px 16px; font-size: 0.95em;
-    font-weight: 500; cursor: pointer; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis; flex-grow: 1; text-align: center;
+.stand-selector-panel {
+    flex-direction: column;
+    align-items: stretch; /* Растягиваем дочерние элементы */
+    gap: 0px; /* Уменьшаем гэп */
+    padding: 0; /* Убираем внутренние отступы */
+}
+.stand-selector-panel .stand-navigator {
+    border-bottom: none;
+    border-radius: 12px; /* Скругляем углы как у панели выше */
+    padding-top: 4px;    /* Уменьшаем паддинг для высоты */
+    padding-bottom: 4px;
+}
+.stand-selector-title {
+    color: #a0b0c8;
+    font-size: 0.9em;
+    font-weight: 500;
+    margin: 0;
+    text-align: center; /* Центрируем заголовок */
 }
 
-.inventory-block { background: #282c34; padding: 16px; border-radius: 12px; width: 100%; box-sizing: border-box; }
-.inventory-block-title { color: #e0e0e0; font-size: 1.2em; font-weight: 600; margin: 0 0 16px 0; }
+/* Стиль для плейсхолдера, когда стойка не выбрана */
+.stand-navigator-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #23272f;
+    border: 1px solid #3a3e47;
+    border-radius: 12px; /* Тоже скругляем */
+    color: #e0e0e0;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.2s;
+    font-size: 0.9em;
+    padding: 6px 16px; /* Такой же паддинг для одинаковой высоты */
+}
+.stand-navigator-placeholder:hover {
+    background-color: #3e67e0;
+}
 
-.step-selector-container { margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px; }
-.step-group { display: flex; align-items: center; gap: 10px; }
-.step-label { font-size: 0.85em; color: #a0b0c8; white-space: nowrap; flex-shrink: 0; min-width: 75px; }
-.step-buttons { display: grid; grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); gap: 6px; width: 100%; }
+.stock-up-btn {
+    flex-grow: 1; /* Растягиваем кнопку */
+    width: 100%;
+}
+
+/* Контейнер для селектора выносим наверх */
+.step-selectors-container {
+    padding: 10px;
+    margin-bottom: 0; /* Убираем нижние отступы, чтобы гэп контейнера был единственным */
+    border-radius: 12px;
+    background: #282c34;
+}
+
+/* УДАЛЕНО: Старый, специфичный класс для заголовка шагов, т.к. используется унифицированный .panel-header */
+/* .steps-header { ... } */
+
+.steps-header-note { /* Новый класс */
+    margin: 0;
+    font-size: 0.8em; /* Такой же кегль */
+    color: #a0b0c8;
+}
+.step-selector-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-top: 8px;
+    padding: 0 8px; /* И здесь */
+}
+
+/* Стили кнопок шага (как в модалке) */
 .step-btn {
-    padding: 6px 5px; background: #2e3340; border: 1px solid #3a3e47; color: #a0b0c8;
-    border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 500; transition: all 0.2s;
+    padding: 2px 5px; background: #2e3340; border: 1px solid #3a3e47; color: #a0b0c8;
+    border-radius: 6px; cursor: pointer; font-size: 0.8em;
+    font-weight: 500; transition: all 0.2s;
 }
 .step-btn.active { background: #3e67e0; color: white; border-color: #3e67e0; }
-@media (max-width: 400px) { .step-buttons { grid-template-columns: repeat(3, 1fr); } }
 
+/* Блок переключения режимов */
+.mode-selector-container {
+    background: #282c34;
+    padding: 10px;
+    border-radius: 12px;
+    margin-bottom: 0; /* Убираем нижние отступы, чтобы гэп контейнера был единственным */
+}
 
-.inventory-grid { display: flex; flex-direction: column; gap: 4px; }
-.inventory-grid-header {
-    display: grid; grid-template-columns: 1.5fr 1fr 48px 1fr; gap: 8px;
-    font-weight: 600; color: #8ae6ff; font-size: 0.8em; padding: 0 5px 5px 5px;
+.mode-selector-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+.mode-btn {
+    padding: 4px 12px;
+    background: #22262e;
+    border: 1px solid #3a3e47;
+    color: #a0b0c8;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-weight: 400;
+    transition: all 0.2s;
+}
+.mode-btn:hover {
+    border-color: #8ae6ff;
+}
+.mode-btn.active {
+    background: #3e67e0;
+    color: white;
+    border-color: #3e67e0;
+}
+
+/* --- Стили таблицы --- */
+.inventory-table {
+    display: grid;
+    gap: 4px 0;
+    align-items: stretch; 
+}
+/* Режим "Стойка": Название | Ед. | Склад | < | > | Стойка */
+.inventory-table.mode-stand {
+    grid-template-columns: minmax(0, 1.5fr) auto minmax(0, 1fr) 32px 32px minmax(0, 1fr);
+}
+/* Режим "Кофемашина": Название | Стойка | < | > | Кофемашина */
+.inventory-table.mode-machine {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) 28px 28px minmax(0, 1.5fr);
+}
+
+/* --- Заголовок таблицы --- */
+.inventory-header { display: contents; }
+.inventory-header > div {
+    font-weight: 600; color: #8ae6ff; font-size: 0.8em;
+    padding-top: 8px;
+    padding-bottom: 8px; 
     border-bottom: 1px solid #3a3e47;
+    display: flex; /* Добавляем для выравнивания */
+    align-items: center;
+    justify-content: center;
 }
-.inventory-grid-header div:not(:first-child) { text-align: center; }
+.inventory-header .header-merged-stock {
+    grid-column: 1 / 3;
+}
+.inventory-header .header-merged-container {
+    grid-column: 3 / 6;
+}
 
-.inventory-item-wrapper {
-    background-color: #23272f; border-radius: 8px;
-    transition: background-color 0.3s;
+/* --- Общий стиль для строк таблицы во всех режимах --- */
+.inventory-row, .warehouse-mode-table .inventory-row {
+    display: contents; /* Для грид-контейнера */
 }
-.inventory-item-wrapper.loading { background-color: rgba(62, 103, 224, 0.15); }
-.inventory-row-main {
-    display: grid; grid-template-columns: 1.5fr 1fr 48px 1fr;
-    gap: 8px; align-items: center; padding: 6px 5px;
+.inventory-row > div {
+    font-weight: 500;
+    font-size: 0.85em; /* Единый кегль */
 }
-.inventory-row-machine {
-    display: grid; grid-template-columns: 30px 1fr 30px;
-    gap: 8px; align-items: center;
-    padding: 0 5px 6px 5px;
+
+/* --- Стили таблицы (режимы Стойка и Кофемашина) --- */
+/* Режим "Стойка": Название | Ед. | Склад | < | > | Стойка */
+.inventory-table.mode-stand {
+    grid-template-columns: minmax(0, 1.5fr) auto minmax(0, 1fr) 32px 32px minmax(0, 1fr);
 }
-.item-name-cell { font-weight: 500; color: #e0e0e0; font-size: 0.95em; }
-.stock-cell { text-align: center; font-weight: 500; font-size: 1em; }
-.transfer-cell { display: flex; justify-content: center; align-items: center; gap: 4px; }
+/* Режим "Кофемашина": Название | Стойка | < | > | Кофемашина */
+.inventory-table.mode-machine {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) 28px 28px minmax(0, 1.5fr);
+}
+
+/* --- Заголовок таблицы --- */
+.inventory-header { display: contents; }
+.inventory-header > div {
+    font-weight: 600; color: #8ae6ff; font-size: 0.8em;
+    padding-top: 8px;
+    padding-bottom: 8px; 
+    border-bottom: 1px solid #3a3e47;
+    display: flex; /* Добавляем для выравнивания */
+    align-items: center;
+    justify-content: center;
+}
+.inventory-header .header-merged-stock {
+    grid-column: 1 / 3;
+}
+.inventory-header .header-merged-container {
+    grid-column: 3 / 6;
+}
+
+/* --- Строки таблицы --- */
+.inventory-row {
+    display: contents;
+}
+.inventory-table .inventory-row:nth-of-type(odd) > div {
+    background-color: rgba(40, 44, 52, 0.6);
+}
+.inventory-row > div:first-child { border-radius: 6px 0 0 6px; }
+.inventory-row > div:last-child { border-radius: 0 6px 6px 0; }
+
+/* --- Общие стили для ячеек (и в шапке, и в строках) --- */
+.inventory-header > div,
+.inventory-row > div {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Выравниваем всё по центру по умолчанию */
+    padding: 10px 0; /* Уменьшаем боковые отступы до нуля */
+    font-size: 0.8em;
+}
+
+/* Применяем толщину только к строкам, не к шапке */
+.inventory-row > div {
+    font-weight: 500;
+}
+
+/* Переопределяем выравнивание для Названия и Ячейки машины */
+.inventory-header .item-name-cell, .inventory-row .item-name-cell,
+.inventory-header .machine-cell, .inventory-row .machine-cell,
+.inventory-header .header-merged-stock { /* Добавляем сюда для выравнивания влево */
+    justify-content: flex-start;
+    padding-left: 8px;
+}
+
+.inventory-header .header-merged-container {
+    justify-content: flex-end; /* Выравниваем по правому краю */
+    padding-left: 0;
+    padding-right: 8px; /* Добавляем отступ справа */
+}
+
+/* Стилизуем текст в колонке "Ед." */
+.inventory-row .unit-cell {
+    color: #6a737c; /* Такой же цвет, как у zero-stock */
+    font-weight: 500;
+}
+
+/* --- Стрелки --- */
 .transfer-arrow {
-    background: none; border: 1px solid #4a4f58; border-radius: 50%;
-    width: 24px; height: 24px; line-height: 1; display: flex;
-    align-items: center; justify-content: center; cursor: pointer; font-size: 1.2em;
+    background: none; border: none; cursor: pointer;
+    font-size: 1.5em; font-weight: 600;
+    line-height: 1; transition: opacity 0.2s, transform 0.1s;
 }
-.transfer-arrow:disabled { cursor: not-allowed; opacity: 0.2; border-color: #4a4f58 !important; color: #a0b0c8 !important; }
-.transfer-arrow.right:not(:disabled) { border-color: #4caf50; color: #4caf50; }
-.transfer-arrow.left:not(:disabled) { border-color: #e06b6b; color: #e06b6b; }
+.transfer-arrow.left { color: #e53935; }
+.transfer-arrow.right { color: #43a047; }
+.transfer-arrow:disabled { opacity: 0.2; cursor: not-allowed; }
+.transfer-arrow:active:not(:disabled) { transform: scale(0.85); }
 
-.progress-cell-machine { padding: 0 5px; }
-.progress-bar-container { height: 22px; min-width: 60px; background-color: #2a2e37; border-radius: 5px; overflow: hidden; position: relative;}
-.progress-bar-fill { height: 100%; transition: width 0.3s; }
-.progress-bar-fill.normal { background-color: #3e67e0; }
-.progress-bar-fill.low { background-color: #ffc107; }
-.progress-bar-fill.critical { background-color: #f44336; }
-.progress-bar-critical-marker { position: absolute; top: 0; bottom: 0; width: 2px; background-color: #e06b6b; }
-.progress-bar-text {
+/* --- Строка с прогресс-баром машины --- */
+.inventory-row-machine {
+    grid-column: 1 / -1; display: grid;
+    grid-template-columns: 30px 1fr 30px;
+    gap: 8px; align-items: center; padding: 4px 0;
+}
+
+/* --- Прочие стили --- */
+.zero-stock { color: #6a737c; }
+.loading-cell { background-color: rgba(62, 103, 224, 0.15) !important; }
+
+/* --- Стили для режима "Кофемашина" --- */
+.configure-machine-notice {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #f44336;
+    font-size: 0.9em;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px;
+    transition: color 0.2s;
+}
+.configure-machine-notice:hover { color: #ff7975; }
+.configure-machine-notice .arrow-icon { 
+    font-size: 1.2em; 
+    font-weight: 700; /* Делаем стрелку жирнее */
+    line-height: 1; 
+}
+
+/* ДОБАВЛЯЕМ стили для нового прогресс-бара из StandStockTab.css */
+.machine-progress-bar-container {
+    position: relative;
+    height: 24px;
+    background-color: #2a2e37;
+    border-radius: 5px;
+    margin: 0; /* Убираем центрирование */
+    width: 100%; /* Растягиваем на всю ширину ячейки */
+    overflow: hidden;
+    min-width: 100px; /* Уменьшаем минимальную ширину */
+}
+.machine-progress-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background-color: #4caf50;
+    border-radius: 5px;
+    transition: width 0.3s, background-color 0.3s;
+}
+
+.machine-progress-fill.high {
+    background-color: #ffd600; /* Желтый */
+}
+
+.machine-progress-fill.critical {
+    background-color: #f44336; /* Красный */
+}
+
+.machine-progress-critical-marker {
+    position: absolute; top: 0; bottom: 0;
+    width: 2px;
+    background-color: #f44336;
+    z-index: 1;
+}
+.machine-progress-text {
     position: absolute; top: 0; left: 0; right: 0; bottom: 0;
     display: flex; justify-content: center; align-items: center;
-    font-size: 0.75em; color: white; text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
-}
-.placeholder-machine { font-size: 0.8em; color: #ff8a8a; cursor: pointer; text-decoration: underline; text-align: center; }
-
-.adjust-btn-machine {
-    width: 26px; height: 26px; font-size: 1.6em; font-weight: bold;
-    border-radius: 50%; border: none; line-height: 1; cursor: pointer;
-    color: white; display: flex; align-items: center; justify-content: center;
-}
-.adjust-btn-machine.plus { background-color: #4caf50; }
-.adjust-btn-machine.minus { background-color: #e06b6b; }
-.adjust-btn-machine:disabled { background-color: #4a4f58; opacity: 0.5; cursor: not-allowed; }
-
-.info-notification {
-    position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); background-color: #3e67e0;
-    color: white; padding: 12px 20px; border-radius: 8px; z-index: 2000; font-size: 0.95em;
-    font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.4); animation: fade-in-out 3.5s ease-in-out;
-}
-.info-notification.error { background-color: #e06b6b; }
-@keyframes fade-in-out {
-    0% { opacity: 0; transform: translate(-50%, 20px); } 10% { opacity: 1; transform: translate(-50%, 0); }
-    90% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, 20px); }
+    font-size: 0.8em; color: white; text-shadow: 1px 1px 1px rgba(0,0,0,0.6);
+    font-weight: 600;
 }
 
-@media (max-width: 767px) {
-    .inventory-grid-header { grid-template-columns: 1fr 1fr 42px 1fr; gap: 4px; font-size: 0.75em; }
-    .inventory-row-main { grid-template-columns: 1fr 1fr 42px 1fr; gap: 4px; }
-    .item-name-cell { font-size: 0.9em; } .stock-cell { font-size: 0.95em; }
+/* --- Адаптивность (Mobile First) --- */
+@media (min-width: 768px) {
+    .inventory-block { padding: 16px; }
+    .step-selector-buttons { grid-template-columns: repeat(6, 1fr); }
+    .inventory-table.mode-stand {
+        grid-template-columns: minmax(0, 1.5fr) auto minmax(0, 1fr) 40px 40px minmax(0, 1fr);
+        gap: 4px 0;
+    }
+    .inventory-table.mode-machine {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) 32px 32px minmax(0, 1.5fr);
+        gap: 4px 0;
+    }
+    .inventory-header > div, .inventory-row > div { 
+        font-size: 0.85em;
+    }
+    .transfer-arrow {
+        width: 32px;
+        height: 32px;
+        font-size: 1.2em;
+    }
+    .inventory-row > div {
+        padding: 10px 0; /* Убираем боковые отступы и здесь */
+    }
+    .inventory-row > div.item-name-cell { padding-left: 8px; }
+    .inventory-row > div.arrow-cell { padding: 10px 0; }
+    .inventory-row > div.machine-cell { padding-right: 8px; }
 }
+
+.inventory-row > div.arrow-cell {
+    padding: 10px 0; /* Убираем все паддинги */
+}
+
+.inventory-row > div.machine-cell {
+    padding-right: 8px;
+}
+
+/* УНИФИЦИРОВАННЫЙ БЛОК ДЛЯ ВЕРХНИХ ПАНЕЛЕЙ */
+.mode-selector-container,
+.step-selectors-container {
+    background: #282c34;
+    padding: 10px;
+    border-radius: 12px;
+    margin-bottom: 0; 
+}
+
+/* УНИФИЦИРОВАННЫЙ ЗАГОЛОВОК ДЛЯ ПАНЕЛЕЙ */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+    color: #8ae6ff;
+    font-weight: 600;
+    font-size: 0.8em;
+    padding: 0 8px; /* Добавляем боковые отступы */
+}
+.panel-header > div:first-child {
+    margin: 0; /* Убираем любые отступы у заголовка, чтобы он полностью контролировался padding'ом родителя */
+}
+
+/* УДАЛЯЕМ старые, специфичные классы, которые больше не нужны */
+/* .mode-selector-title { ... } */
+/* .steps-header { ... } */
+/* .steps-header-title { ... } */
+
+
+/* УНИФИЦИРОВАННЫЕ КНОПКИ УПРАВЛЕНИЯ (Режимы и Шаги) */
+.control-btn {
+    padding: 6px 12px; /* Единый вертикальный паддинг для высоты */
+    background: #22262e;
+    border: 1px solid #3a3e47;
+    color: #a0b0c8;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8em; /* Единый кегль */
+    font-weight: 500;
+    transition: all 0.2s;
+    text-align: center;
+}
+.control-btn:hover { border-color: #8ae6ff; }
+.control-btn.active {
+    background: #3e67e0;
+    color: white;
+    border-color: #3e67e0;
+}
+
+/* ДОБАВЛЕНО: Специфичный стиль для кнопок шага, чтобы сделать их меньше */
+.control-btn.step-btn {
+    padding: 2px 8px;
+    font-size: 0.75em;
+}
+
+/* Специфичные стили для контейнеров кнопок */
+.mode-selector-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+.step-selector-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-top: 8px;
+    padding: 0 8px;
+}
+@media (min-width: 768px) {
+    .step-selector-buttons { grid-template-columns: repeat(6, 1fr); }
+}
+
+/* УДАЛЯЕМ старые, специфичные классы кнопок */
+/* .mode-btn { ... } */
+/* .step-btn { ... } */
+
+/* --- Стили для режима "Пополнить склад" --- */
+.warehouse-mode-table {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    gap: 4px 0; /* ИСПРАВЛЕНИЕ: Убираем горизонтальный гэп */
+    align-items: stretch;
+}
+
+.warehouse-mode-table .inventory-row > div {
+    padding: 10px 8px; /* ИСПРАВЛЕНИЕ: Добавляем вертикальный паддинг */
+}
+
+/* ИСПРАВЛЕНИЕ: Добавляем скругление краев для сплошных строк */
+.warehouse-mode-table .inventory-row > div:first-child {
+    border-radius: 6px 0 0 6px;
+}
+.warehouse-mode-table .inventory-row > div:last-child {
+    border-radius: 0 6px 6px 0;
+}
+
+.warehouse-mode-table .inventory-row:nth-of-type(odd) > div {
+    background-color: rgba(40, 44, 52, 0.6);
+}
+.warehouse-mode-table .item-name-cell {
+    justify-content: flex-start;
+}
+.warehouse-mode-table .stock-cell {
+    justify-content: center;
+    font-weight: 600; /* Делаем цифры жирнее */
+}
+.unit-label {
+    color: #8a9db8;
+    font-size: 0.9em;
+    margin-left: 4px;
+}
+.adjust-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.adjust-btn {
+    background: none;
+    border: none;
+    color: #8ae6ff;
+    font-size: 1.8em;
+    font-weight: 300;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+    transition: all 0.2s;
+}
+.adjust-btn:disabled {
+    opacity: 0.2;
+    cursor: not-allowed;
+}
+.adjust-btn:active:not(:disabled) {
+    transform: scale(0.85);
+}
+.loading-cell-row > div {
+    background-color: rgba(62, 103, 224, 0.15) !important;
+}
+.adjust-btn.plus { color: #43a047; }
+.adjust-btn.minus { color: #e53935; }

@@ -1,13 +1,31 @@
 /* frontend/src/styles/tables.css */
 
-.data-table-container {
-  overflow-x: auto;
+.table-block {
   background: #282c34;
-  padding: 1px 15px 15px 15px;
   border-radius: 12px;
+  overflow: hidden; /* Important for containing table borders */
   margin-top: 20px;
-  width: 100%;
-  box-sizing: border-box;
+  overflow-x: auto; /* Handle horizontal scroll */
+}
+
+.table-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 12px;
+  border-bottom: 1px solid #3a3e47;
+}
+
+.table-block-title {
+  color: #a0b0c8;
+  font-size: 0.9em;
+  font-weight: 500;
+  margin: 0;
+}
+
+.data-table-container {
+  /* This class is now effectively deprecated by .table-block */
+  /* Keeping it for legacy or specific cases if needed, but it should be empty */
 }
 
 .data-table {
@@ -69,7 +87,7 @@
   background-color: #2c303a;
 }
 .data-table tbody tr:nth-child(even) td {
-  background-color: #282c34;
+  background-color: transparent;
 }
 
 .data-table tbody tr:last-child td {

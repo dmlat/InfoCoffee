@@ -4,6 +4,14 @@
     flex-direction: column;
 }
 
+.settings-header-container .action-btn.secondary,
+.settings-header-container .header-save-btn {
+    padding: 0 12px;
+    font-size: 0.8em;
+    height: 28px;
+    line-height: 28px;
+}
+
 .save-status-recipes {
     font-size: 0.9em;
     font-weight: 500;
@@ -59,6 +67,12 @@
     background-color: #2e3340;
 }
 
+.recipes-table th:not(.sticky-col),
+.recipes-table td:not(.sticky-col) {
+    width: 45px;
+    min-width: 45px;
+}
+
 .recipes-table .id-col {
     width: 35px;
     min-width: 35px;
@@ -68,8 +82,8 @@
 }
 
 .recipes-table .name-col {
-    width: 90px;
-    min-width: 90px;
+    width: 70px;
+    min-width: 70px;
     left: 35px; /* Сдвигаем на ширину ID колонки */
     border-right-width: 2px;
 }
@@ -80,7 +94,7 @@
     color: #e0e0e0; 
     text-align: center;
     width: 100%; 
-    min-width: 45px; 
+    min-width: 0; /* Позволяем колонке сжиматься */
     padding: 8px 4px; 
     border-radius: 0; 
     transition: background-color 0.2s;

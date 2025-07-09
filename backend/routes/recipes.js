@@ -7,10 +7,10 @@ const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 
 // GET-запрос остается без изменений
 router.get('/terminal/:terminalId', authMiddleware, async (req, res) => {
-    const userId = req.user.userId;
+    const ownerUserId = req.user.ownerUserId;
     const { terminalId } = req.params;
     try {
-        const ownerCheck = await pool.query('SELECT id FROM terminals WHERE id = $1 AND user_id = $2', [terminalId, userId]);
+        const ownerCheck = await pool.query('SELECT id FROM terminals WHERE id = $1 AND user_id = $2', [terminalId, ownerUserId]);
         if (ownerCheck.rowCount === 0) {
             return res.status(403).json({ success: false, error: 'Доступ запрещен' });
         }
@@ -23,14 +23,14 @@ router.get('/terminal/:terminalId', authMiddleware, async (req, res) => {
         );
         res.json({ success: true, recipes: recipesRes.rows });
     } catch (err) {
-        sendErrorToAdmin({ userId, errorContext: `GET /api/recipes/terminal/${terminalId}`, errorMessage: err.message, errorStack: err.stack }).catch(console.error);
+        sendErrorToAdmin({ userId: ownerUserId, errorContext: `GET /api/recipes/terminal/${terminalId}`, errorMessage: err.message, errorStack: err.stack }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при получении рецептов' });
     }
 });
 
 // Сохранить/обновить один рецепт
 router.post('/', authMiddleware, async (req, res) => {
-    const { userId } = req.user;
+    const { ownerUserId } = req.user;
     const { terminalId, machine_item_id, name, items } = req.body;
     if (!terminalId || !machine_item_id || !Array.isArray(items)) {
         return res.status(400).json({ success: false, error: 'Неверный формат данных' });
@@ -39,7 +39,7 @@ router.post('/', authMiddleware, async (req, res) => {
     const client = await pool.pool.connect();
     try {
         await client.query('BEGIN');
-        const ownerCheck = await client.query('SELECT id FROM terminals WHERE id = $1 AND user_id = $2', [terminalId, userId]);
+        const ownerCheck = await client.query('SELECT id FROM terminals WHERE id = $1 AND user_id = $2', [terminalId, ownerUserId]);
         if (ownerCheck.rowCount === 0) {
             throw new Error('Доступ к терминалу запрещен');
         }
@@ -68,8 +68,8 @@ router.post('/', authMiddleware, async (req, res) => {
         res.status(201).json({ success: true, message: 'Рецепт успешно сохранен!' });
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error(`[POST /api/recipes] UserID: ${userId} - Error:`, err);
-        sendErrorToAdmin({ userId, errorContext: `POST /api/recipes`, errorMessage: err.message, errorStack: err.stack, additionalInfo: { body: req.body } }).catch(console.error);
+        console.error(`[POST /api/recipes] UserID: ${ownerUserId} - Error:`, err);
+        sendErrorToAdmin({ userId: ownerUserId, errorContext: `POST /api/recipes`, errorMessage: err.message, errorStack: err.stack, additionalInfo: { body: req.body } }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при сохранении рецепта' });
     } finally {
         client.release();
@@ -79,7 +79,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
 // Копировать рецепты
 router.post('/copy', authMiddleware, async (req, res) => {
-    const { userId } = req.user;
+    const { ownerUserId } = req.user;
     const { sourceTerminalId, destinationTerminalIds } = req.body;
 
     if (!sourceTerminalId || !Array.isArray(destinationTerminalIds) || destinationTerminalIds.length === 0) {
@@ -90,7 +90,7 @@ router.post('/copy', authMiddleware, async (req, res) => {
     try {
         await client.query('BEGIN');
         const allIdsToCheck = [sourceTerminalId, ...destinationTerminalIds];
-        const ownerCheck = await client.query('SELECT id FROM terminals WHERE id = ANY($1::int[]) AND user_id = $2', [allIdsToCheck, userId]);
+        const ownerCheck = await client.query('SELECT id FROM terminals WHERE id = ANY($1::int[]) AND user_id = $2', [allIdsToCheck, ownerUserId]);
         if (ownerCheck.rowCount !== allIdsToCheck.length) {
             throw new Error('Доступ к одному или нескольким терминалам запрещен');
         }
@@ -135,8 +135,8 @@ router.post('/copy', authMiddleware, async (req, res) => {
     } catch (err) {
         await client.query('ROLLBACK');
         const errorMessage = err.message || 'Ошибка сервера при копировании рецептов.';
-        console.error(`[POST /api/recipes/copy] UserID: ${userId} - Error:`, errorMessage);
-        sendErrorToAdmin({ userId, errorContext: `POST /api/recipes/copy`, errorMessage: err.message, errorStack: err.stack, additionalInfo: { body: req.body } }).catch(console.error);
+        console.error(`[POST /api/recipes/copy] UserID: ${ownerUserId} - Error:`, err);
+        sendErrorToAdmin({ userId: ownerUserId, errorContext: `POST /api/recipes/copy`, errorMessage: err.message, errorStack: err.stack, additionalInfo: { body: req.body } }).catch(console.error);
         res.status(500).json({ success: false, error: errorMessage });
     } finally {
         client.release();

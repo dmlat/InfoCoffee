@@ -116,7 +116,7 @@ export default function RegisterPage({ setIsAuth }) {
             localStorage.setItem('user_tax_system', response.data.user.tax_system || '');
             localStorage.setItem('user_acquiring_rate', String(response.data.user.acquiring || '0'));
         }
-        setIsAuth(true);
+        setIsAuth('authenticated');
         setFinalRegStatus({ status: 'success', message: 'Регистрация успешно завершена! Перенаправление...' });
         setTimeout(() => navigate('/dashboard', { replace: true }), 1500);
       } else {

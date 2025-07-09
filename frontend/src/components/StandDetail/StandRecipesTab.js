@@ -7,7 +7,7 @@ import './StandRecipesTab.css';
 
 // Вспомогательная функция для форматирования заголовков
 const formatHeader = (name) => {
-    if (name.length <= 4) return name;
+    // Сокращаем все названия до 3 символов
     return name.substring(0, 3);
 };
 
@@ -151,7 +151,7 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
             )}
             <div className="modal-tab-content recipes-form">
                 <div className="settings-header-container">
-                    <h4>Укажите граммы/шт.</h4>
+                    <h4>Укажите в гр / мл / шт</h4>
                     <div className="header-buttons">
                          <button type="button" className="action-btn secondary" onClick={() => setIsCopyModalOpen(true)} disabled={isSaving}>Копировать</button>
                         <button type="button" className="action-btn header-save-btn" onClick={handleSave} disabled={isSaving || changedRecipeIds.size === 0}>

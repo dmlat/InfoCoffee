@@ -186,7 +186,7 @@ export default function ExpensesPage() {
           {error && <p className="error-message" style={{textAlign: 'center'}}>{error}</p>}
           
           {!isLoading && !error && (
-            <div className="data-table-container expenses-table-container">
+            <div className="table-block expenses-table-container">
               <table className="data-table expenses-table"> 
                 <thead>
                   <tr>
@@ -204,7 +204,7 @@ export default function ExpensesPage() {
                     expenses.map((row) => (
                       <tr key={row.id}>
                         {/* ИЗМЕНЕНО: Добавлены классы для выравнивания */ }
-                        <td className="td-amount text-right">{Number(row.amount).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td>
+                        <td className="td-amount text-right">{Number(row.amount).toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{` `}₽</td>
                         <td className="td-date text-right">{formatDateForTableDisplay(row.expense_time)}</td>
                         <td className="td-comment text-right">{row.comment}</td>
                         <td className="td-action text-right">
