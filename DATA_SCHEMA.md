@@ -29,12 +29,8 @@ CREATE TABLE IF NOT EXISTS public.users
     id integer NOT NULL DEFAULT nextval('users_id_seq'::regclass),
     telegram_id bigint,
     vendista_api_token text COLLATE pg_catalog."default",
-    name character varying(255) COLLATE pg_catalog."default",
     first_name character varying(255) COLLATE pg_catalog."default",
-    last_name character varying(255) COLLATE pg_catalog."default",
     user_name character varying(255) COLLATE pg_catalog."default",
-    language_code character varying(10) COLLATE pg_catalog."default",
-    photo_url text COLLATE pg_catalog."default",
     setup_date date,
     tax_system character varying(32) COLLATE pg_catalog."default",
     acquiring numeric,
@@ -377,7 +373,5 @@ CREATE TABLE IF NOT EXISTS public.worker_logs
 CREATE INDEX IF NOT EXISTS idx_worker_logs_job_name ON public.worker_logs(job_name);
 CREATE INDEX IF NOT EXISTS idx_worker_logs_last_run_at ON public.worker_logs(last_run_at);
 CREATE INDEX IF NOT EXISTS idx_worker_logs_user_id ON public.worker_logs(user_id);
-```
-
 ```
 ```

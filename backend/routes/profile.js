@@ -15,7 +15,6 @@ router.get('/settings', authMiddleware, async (req, res) => {
     console.log(`[GET /api/profile/settings] User ID: ${userId}`);
     try {
         const result = await pool.query(
-            // Добавил first_name, user_name, telegram_id для полноты данных пользователя, если они понадобятся для уведомлений отсюда
             'SELECT id, setup_date, tax_system, acquiring, telegram_id, first_name, user_name FROM users WHERE id = $1',
             [userId]
         );
