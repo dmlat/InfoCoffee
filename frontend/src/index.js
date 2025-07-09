@@ -2,9 +2,11 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css'; // Главный файл стилей
 import App from './App';
-import { initDevTelegram } from './utils/dev'; // <-- 1. ИМПОРТИРУЕМ
 
-initDevTelegram();
+if (process.env.NODE_ENV === 'development') {
+  const { initDevTelegram } = require('./utils/dev');
+  initDevTelegram();
+}
 
 // Код для отмены регистрации Service Worker остаётся без изменений
 if ('serviceWorker' in navigator) {
