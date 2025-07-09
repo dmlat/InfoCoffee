@@ -197,7 +197,7 @@ export default function RightsPage() {
                                                 <td>{item.shared_with_name}</td>
                                                 <td>{String(item.shared_with_telegram_id)}</td>
                                                 <td>
-                                                  {String(item.shared_with_telegram_id) === currentUserTelegramId ? (
+                                                  {item.is_self ? (
                                                       <span className="your-access-label">{item.access_level === 'admin' ? 'Админ (это вы)' : 'Обслуживание (это вы)'}</span>
                                                   ) : (
                                                     <div className="access-buttons">
@@ -215,7 +215,7 @@ export default function RightsPage() {
                                                   )}
                                                 </td>
                                                 <td className="td-action">
-                                                    {String(item.shared_with_telegram_id) !== currentUserTelegramId && (
+                                                    {!item.is_self && (
                                                         <button onClick={() => openConfirmationModal('delete', item.id)} className="delete-btn" title="Отозвать доступ">
                                                             &times;
                                                         </button>

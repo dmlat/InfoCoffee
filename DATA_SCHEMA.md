@@ -1,373 +1,260 @@
-### **Файл: `DATABASE_SCHEMA.md`**
+# Database Schema for "coffee_dashboard"
 
-# Структура базы данных "coffee_dashboard"
+This document describes the current PostgreSQL database schema used in the InfoCoffee Analytics project. The schema consists of 12 tables responsible for storing data about users, transactions, expenses, inventory, and system logs.
 
-Этот документ описывает актуальную схему базы данных PostgreSQL, используемую в проекте InfoCoffee Analytics. Схема включает 12 таблиц, отвечающих за хранение данных о пользователях, транзакциях, расходах, инвентаре и системных логах.
-
-### Содержание
-1.  [Таблица `users`](#таблица-users)
-2.  [Таблица `user_access_rights`](#таблица-user_access_rights)
-3.  [Таблица `terminals`](#таблица-terminals)
-4.  [Таблица `transactions`](#таблица-transactions)
-5.  [Таблица `expenses`](#таблица-expenses)
-6.  [Таблица `inventories`](#таблица-inventories)
-7.  [Таблица `recipes`](#таблица-recipes)
-8.  [Таблица `recipe_items`](#таблица-recipe_items)
-9.  [Таблица `stand_service_settings`](#таблица-stand_service_settings)
-10. [Таблица `maintenance_tasks`](#таблица-maintenance_tasks)
-11. [Таблица `service_tasks`](#таблица-service_tasks)
-12. [Таблица `worker_logs`](#таблица-worker_logs)
+### Table of Contents
+1.  [`users`](#users-table)
+2.  [`user_access_rights`](#user_access_rights-table)
+3.  [`terminals`](#terminals-table)
+4.  [`transactions`](#transactions-table)
+5.  [`expenses`](#expenses-table)
+6.  [`inventories`](#inventories-table)
+7.  [`recipes`](#recipes-table)
+8.  [`recipe_items`](#recipe_items-table)
+9.  [`stand_service_settings`](#stand_service_settings-table)
+10. [`maintenance_tasks`](#maintenance_tasks-table)
+11. [`service_tasks`](#service_tasks-table)
+12. [`worker_logs`](#worker_logs-table)
 
 ---
 
-## Таблица `users`
-Хранит основную информацию о пользователях приложения.
+## `users` Table
+Stores basic information about application users. The primary user record is created upon registration and linked to a Telegram account.
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.users
-(
-    id integer NOT NULL DEFAULT nextval('users_id_seq'::regclass),
-    telegram_id bigint,
-    vendista_api_token text COLLATE pg_catalog."default",
-    first_name character varying(255) COLLATE pg_catalog."default",
-    user_name character varying(255) COLLATE pg_catalog."default",
-    setup_date date,
-    tax_system character varying(32) COLLATE pg_catalog."default",
-    acquiring numeric,
-    registration_date timestamp with time zone,
-    created_at timestamp with time zone NOT NULL DEFAULT now(),
-    updated_at timestamp with time zone NOT NULL DEFAULT now(),
-    CONSTRAINT users_pkey PRIMARY KEY (id),
-    CONSTRAINT users_telegram_id_key UNIQUE (telegram_id)
+CREATE TABLE IF NOT EXISTS public.users (
+    id SERIAL PRIMARY KEY,
+    telegram_id BIGINT UNIQUE NOT NULL,
+    vendista_api_token TEXT,
+    first_name VARCHAR(255),
+    user_name VARCHAR(255),
+    setup_date DATE,
+    tax_system VARCHAR(32),
+    acquiring NUMERIC,
+    registration_date TIMESTAMPTZ DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_telegram_id
-    ON public.users USING btree
-    (telegram_id ASC NULLS LAST);
-````
+CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON public.users(telegram_id);
+```
 
------
+---
 
-## Таблица `user_access_rights`
-
-Определяет права доступа одних пользователей к данным других.
+## `user_access_rights` Table
+Defines the access rights of one user to another's data, enabling delegated access for admins or service personnel.
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.user_access_rights
-(
-    id integer NOT NULL DEFAULT nextval('user_access_rights_id_seq'::regclass),
-    owner_user_id integer NOT NULL,
-    shared_with_telegram_id bigint NOT NULL,
-    shared_with_name character varying(255) COLLATE pg_catalog."default" NOT NULL,
-    access_level character varying(50) COLLATE pg_catalog."default" NOT NULL DEFAULT 'admin'::character varying,
-    can_receive_stock_notifications boolean DEFAULT false,
-    can_receive_service_notifications boolean DEFAULT false,
-    assigned_terminals_stock integer[],
-    assigned_terminals_service integer[],
-    timezone character varying(100) COLLATE pg_catalog."default",
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT user_access_rights_pkey PRIMARY KEY (id),
-    CONSTRAINT user_access_rights_owner_user_id_shared_with_telegram_id_key UNIQUE (owner_user_id, shared_with_telegram_id),
-    CONSTRAINT user_access_rights_owner_user_id_fkey FOREIGN KEY (owner_user_id)
-        REFERENCES public.users (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS public.user_access_rights (
+    id SERIAL PRIMARY KEY,
+    owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    shared_with_telegram_id BIGINT NOT NULL,
+    shared_with_name VARCHAR(255) NOT NULL,
+    access_level VARCHAR(50) NOT NULL DEFAULT 'admin',
+    can_receive_stock_notifications BOOLEAN DEFAULT FALSE,
+    can_receive_service_notifications BOOLEAN DEFAULT FALSE,
+    assigned_terminals_stock INTEGER[],
+    assigned_terminals_service INTEGER[],
+    timezone VARCHAR(100),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (owner_user_id, shared_with_telegram_id)
 );
 ```
 
------
+---
 
-## Таблица `terminals`
-
-Список кофейных стоек (терминалов), привязанных к пользователю.
+## `terminals` Table
+A list of coffee stands (terminals) linked to a user.
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.terminals
-(
-    id integer NOT NULL DEFAULT nextval('terminals_id_seq'::regclass),
-    user_id integer NOT NULL,
-    vendista_terminal_id integer NOT NULL,
-    name character varying(255) COLLATE pg_catalog."default",
-    serial_number character varying(100) COLLATE pg_catalog."default",
-    last_online_time timestamp with time zone,
-    is_online boolean DEFAULT false,
-    service_interval_sales integer,
-    sales_since_last_service integer DEFAULT 0,
-    created_at timestamp with time zone NOT NULL DEFAULT now(),
-    updated_at timestamp with time zone NOT NULL DEFAULT now(),
-    CONSTRAINT terminals_pkey PRIMARY KEY (id),
-    CONSTRAINT terminals_user_id_vendista_terminal_id_key UNIQUE (user_id, vendista_terminal_id),
-    CONSTRAINT terminals_user_id_fkey FOREIGN KEY (user_id)
-        REFERENCES public.users (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS public.terminals (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vendista_terminal_id INTEGER NOT NULL,
+    name VARCHAR(255),
+    serial_number VARCHAR(100),
+    last_online_time TIMESTAMPTZ,
+    is_online BOOLEAN DEFAULT FALSE,
+    service_interval_sales INTEGER,
+    sales_since_last_service INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, vendista_terminal_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_terminals_user_id
-    ON public.terminals USING btree
-    (user_id ASC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_terminals_user_id ON public.terminals(user_id);
 ```
 
------
+---
 
-## Таблица `transactions`
-
-Хранит все транзакции, полученные из Vendista.
+## `transactions` Table
+Stores all transactions retrieved from Vendista.
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.transactions
-(
-    id integer NOT NULL,
-    user_id integer NOT NULL,
-    coffee_shop_id integer,
-    amount numeric,
-    transaction_time timestamp with time zone,
-    result character varying(255) COLLATE pg_catalog."default",
-    reverse_id integer,
-    terminal_comment character varying(255) COLLATE pg_catalog."default",
-    card_number character varying(32) COLLATE pg_catalog."default",
-    status character varying(64) COLLATE pg_catalog."default",
-    bonus numeric,
-    left_sum numeric,
-    left_bonus numeric,
-    machine_item_id integer,
-    last_updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT transactions_pkey PRIMARY KEY (id),
-    CONSTRAINT transactions_user_id_fkey FOREIGN KEY (user_id)
-        REFERENCES public.users (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS public.transactions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    coffee_shop_id INTEGER,
+    amount NUMERIC,
+    transaction_time TIMESTAMPTZ,
+    result VARCHAR(255),
+    reverse_id INTEGER,
+    terminal_comment VARCHAR(255),
+    card_number VARCHAR(32),
+    status VARCHAR(64),
+    bonus NUMERIC,
+    left_sum NUMERIC,
+    left_bonus NUMERIC,
+    machine_item_id INTEGER,
+    last_updated_at TIMESTAMPTZ DEFAULT now()
 );
 ```
+*Note: The `id` column in this table was changed from a plain integer to `SERIAL PRIMARY KEY` to ensure uniqueness and auto-incrementing behavior.*
 
------
+---
 
-## Таблица `expenses`
-
-Расходы, введенные пользователем вручную.
+## `expenses` Table
+Stores expenses manually entered by the user.
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.expenses
-(
-    id integer NOT NULL DEFAULT nextval('expenses_id_seq'::regclass),
-    user_id integer NOT NULL,
-    amount numeric NOT NULL,
-    comment text COLLATE pg_catalog."default",
-    expense_time timestamp with time zone NOT NULL,
-    CONSTRAINT expenses_pkey PRIMARY KEY (id),
-    CONSTRAINT expenses_user_id_fkey FOREIGN KEY (user_id)
-        REFERENCES public.users (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS public.expenses (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount NUMERIC NOT NULL,
+    comment TEXT,
+    expense_time TIMESTAMPTZ NOT NULL
 );
 ```
 
------
+---
 
-## Таблица `inventories`
-
-Остатки ингредиентов и расходников на центральном складе (`location` = 'warehouse') и в стойках (`location` = 'stand' / 'machine').
+## `inventories` Table
+Tracks ingredient and consumable stock levels at the central warehouse and in individual stands.
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.inventories
-(
-    id integer NOT NULL DEFAULT nextval('inventories_id_seq'::regclass),
-    user_id integer NOT NULL,
-    terminal_id integer,
-    item_name character varying(100) COLLATE pg_catalog."default" NOT NULL,
-    location character varying(50) COLLATE pg_catalog."default" NOT NULL,
-    current_stock numeric(12,3) NOT NULL DEFAULT 0,
-    max_stock numeric(12,3),
-    critical_stock numeric(12,3),
-    updated_at timestamp with time zone NOT NULL DEFAULT now(),
-    CONSTRAINT inventories_pkey PRIMARY KEY (id),
-    CONSTRAINT inventories_user_id_terminal_id_item_name_location_key UNIQUE (user_id, terminal_id, item_name, location),
-    CONSTRAINT inventories_terminal_id_fkey FOREIGN KEY (terminal_id)
-        REFERENCES public.terminals (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE CASCADE,
-    CONSTRAINT inventories_user_id_fkey FOREIGN KEY (user_id)
-        REFERENCES public.users (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS public.inventories (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    terminal_id INTEGER REFERENCES terminals(id) ON DELETE CASCADE,
+    item_name VARCHAR(100) NOT NULL,
+    location VARCHAR(50) NOT NULL,
+    current_stock NUMERIC(12,3) NOT NULL DEFAULT 0,
+    max_stock NUMERIC(12,3),
+    critical_stock NUMERIC(12,3),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, terminal_id, item_name, location)
 );
 
-CREATE INDEX IF NOT EXISTS idx_inventories_user_location
-    ON public.inventories USING btree
-    (user_id ASC NULLS LAST, location COLLATE pg_catalog."default" ASC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_inventories_user_location ON public.inventories(user_id, location);
 ```
 
------
+---
 
-## Таблица `recipes`
-
-Рецепты напитков, привязанные к конкретным кнопкам (`machine_item_id`) на терминале.
+## `recipes` Table
+Defines drink recipes linked to specific buttons (`machine_item_id`) on a terminal.
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.recipes
-(
-    id integer NOT NULL DEFAULT nextval('recipes_id_seq'::regclass),
-    terminal_id integer NOT NULL,
-    machine_item_id integer NOT NULL,
-    name character varying(255) COLLATE pg_catalog."default",
-    updated_at timestamp with time zone NOT NULL DEFAULT now(),
-    CONSTRAINT recipes_pkey PRIMARY KEY (id),
-    CONSTRAINT recipes_terminal_id_machine_item_id_key UNIQUE (terminal_id, machine_item_id),
-    CONSTRAINT recipes_terminal_id_fkey FOREIGN KEY (terminal_id)
-        REFERENCES public.terminals (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS public.recipes (
+    id SERIAL PRIMARY KEY,
+    terminal_id INTEGER NOT NULL REFERENCES terminals(id) ON DELETE CASCADE,
+    machine_item_id INTEGER NOT NULL,
+    name VARCHAR(255),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (terminal_id, machine_item_id)
 );
 ```
 
------
+---
 
-## Таблица `recipe_items`
-
-Состав каждого рецепта: список ингредиентов и их количество для списания.
+## `recipe_items` Table
+Specifies the ingredients and quantities required for each recipe.
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.recipe_items
-(
-    id integer NOT NULL DEFAULT nextval('recipe_items_id_seq'::regclass),
-    recipe_id integer NOT NULL,
-    item_name character varying(100) COLLATE pg_catalog."default" NOT NULL,
-    quantity numeric(10,3) NOT NULL DEFAULT 0,
-    CONSTRAINT recipe_items_pkey PRIMARY KEY (id),
-    CONSTRAINT recipe_items_recipe_id_item_name_key UNIQUE (recipe_id, item_name),
-    CONSTRAINT recipe_items_recipe_id_fkey FOREIGN KEY (recipe_id)
-        REFERENCES public.recipes (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS public.recipe_items (
+    id SERIAL PRIMARY KEY,
+    recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+    item_name VARCHAR(100) NOT NULL,
+    quantity NUMERIC(10,3) NOT NULL DEFAULT 0,
+    UNIQUE (recipe_id, item_name)
 );
 ```
 
------
+---
 
-## Таблица `stand_service_settings`
-
-Настройки обслуживания для каждой торговой точки (стойки).
+## `stand_service_settings` Table
+Stores maintenance settings for each coffee stand.
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.stand_service_settings
-(
-    id integer NOT NULL DEFAULT nextval('stand_service_settings_id_seq'::regclass),
-    terminal_id integer NOT NULL,
-    cleaning_frequency integer,
-    restock_thresholds jsonb,
-    assignee_ids bigint[],
-    created_at timestamp with time zone NOT NULL DEFAULT now(),
-    updated_at timestamp with time zone NOT NULL DEFAULT now(),
-    CONSTRAINT stand_service_settings_pkey PRIMARY KEY (id),
-    CONSTRAINT stand_service_settings_terminal_id_key UNIQUE (terminal_id),
-    CONSTRAINT stand_service_settings_terminal_id_fkey FOREIGN KEY (terminal_id)
-        REFERENCES public.terminals (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE CASCADE,
-    CONSTRAINT stand_service_settings_cleaning_frequency_check CHECK (cleaning_frequency > 0)
+CREATE TABLE IF NOT EXISTS public.stand_service_settings (
+    id SERIAL PRIMARY KEY,
+    terminal_id INTEGER NOT NULL UNIQUE REFERENCES terminals(id) ON DELETE CASCADE,
+    cleaning_frequency INTEGER CHECK (cleaning_frequency > 0),
+    restock_thresholds JSONB,
+    assignee_ids BIGINT[],
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_stand_service_settings_terminal_id
-    ON public.stand_service_settings USING btree
-    (terminal_id ASC NULLS LAST);
-
-CREATE OR REPLACE TRIGGER set_stand_service_settings_updated_at
-    BEFORE UPDATE 
-    ON public.stand_service_settings
-    FOR EACH ROW
-    EXECUTE FUNCTION public.update_updated_at_column();
-
-COMMENT ON TABLE public.stand_service_settings
-    IS 'Настройки обслуживания для каждой торговой точки (стойки)';
+CREATE INDEX IF NOT EXISTS idx_stand_service_settings_terminal_id ON public.stand_service_settings(terminal_id);
 ```
 
------
+---
 
-## Таблица `maintenance_tasks`
-
-Журнал задач на обслуживание, созданных системой.
+## `maintenance_tasks` Table
+A log of system-generated maintenance tasks.
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.maintenance_tasks
-(
-    id integer NOT NULL DEFAULT nextval('maintenance_tasks_id_seq'::regclass),
-    terminal_id integer NOT NULL,
-    user_id integer,
-    task_type character varying(50) COLLATE pg_catalog."default" NOT NULL,
-    status character varying(50) COLLATE pg_catalog."default" NOT NULL DEFAULT 'new'::character varying,
-    description text COLLATE pg_catalog."default",
-    created_at timestamp with time zone NOT NULL DEFAULT now(),
-    completed_at timestamp with time zone,
-    CONSTRAINT maintenance_tasks_pkey PRIMARY KEY (id),
-    CONSTRAINT maintenance_tasks_terminal_id_fkey FOREIGN KEY (terminal_id)
-        REFERENCES public.terminals (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE CASCADE,
-    CONSTRAINT maintenance_tasks_user_id_fkey FOREIGN KEY (user_id)
-        REFERENCES public.users (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS public.maintenance_tasks (
+    id SERIAL PRIMARY KEY,
+    terminal_id INTEGER NOT NULL REFERENCES terminals(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    task_type VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'new',
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    completed_at TIMESTAMPTZ
 );
 ```
 
------
+---
 
-## Таблица `service_tasks`
-
-Журнал задач на обслуживание (чистка, пополнение).
+## `service_tasks` Table
+A log of service tasks (cleaning, restocking).
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.service_tasks
-(
-    id integer NOT NULL DEFAULT nextval('service_tasks_id_seq'::regclass),
-    terminal_id integer NOT NULL,
-    task_type character varying(20) COLLATE pg_catalog."default" NOT NULL,
-    status character varying(20) COLLATE pg_catalog."default" NOT NULL DEFAULT 'pending'::character varying,
-    details jsonb,
-    assignee_ids bigint[],
-    created_at timestamp with time zone NOT NULL DEFAULT now(),
-    completed_at timestamp with time zone,
-    CONSTRAINT service_tasks_pkey PRIMARY KEY (id),
-    CONSTRAINT service_tasks_terminal_id_fkey FOREIGN KEY (terminal_id)
-        REFERENCES public.terminals (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE CASCADE,
-    CONSTRAINT service_tasks_task_type_check CHECK (task_type::text = ANY (ARRAY['cleaning'::character varying, 'restock'::character varying]::text[])),
-    CONSTRAINT service_tasks_status_check CHECK (status::text = ANY (ARRAY['pending'::character varying, 'completed'::character varying]::text[]))
+CREATE TABLE IF NOT EXISTS public.service_tasks (
+    id SERIAL PRIMARY KEY,
+    terminal_id INTEGER NOT NULL REFERENCES terminals(id) ON DELETE CASCADE,
+    task_type VARCHAR(20) NOT NULL CHECK (task_type IN ('cleaning','restock')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','completed')),
+    details JSONB,
+    assignee_ids BIGINT[],
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    completed_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_service_tasks_status ON public.service_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_service_tasks_task_type ON public.service_tasks(task_type);
 CREATE INDEX IF NOT EXISTS idx_service_tasks_terminal_id ON public.service_tasks(terminal_id);
-
-COMMENT ON TABLE public.service_tasks
-    IS 'Журнал задач на обслуживание (чистка, пополнение)';
 ```
 
------
+---
 
-## Таблица `worker_logs`
-
-Логи фоновых процессов (например, импорт транзакций из Vendista).
+## `worker_logs` Table
+Logs background processes, such as data imports from Vendista.
 
 ```sql
-CREATE TABLE IF NOT EXISTS public.worker_logs
-(
-    id integer NOT NULL DEFAULT nextval('worker_logs_id_seq'::regclass),
-    user_id integer,
-    job_name character varying(100) COLLATE pg_catalog."default" NOT NULL,
-    last_run_at timestamp with time zone,
-    status character varying(50) COLLATE pg_catalog."default",
-    processed_items integer,
-    added_items integer,
-    updated_items integer,
-    error_message text COLLATE pg_catalog."default",
-    details text COLLATE pg_catalog."default",
-    CONSTRAINT worker_logs_pkey PRIMARY KEY (id),
-    CONSTRAINT worker_logs_user_id_fkey FOREIGN KEY (user_id)
-        REFERENCES public.users (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE CASCADE
+CREATE TABLE IF NOT EXISTS public.worker_logs (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    job_name VARCHAR(100) NOT NULL,
+    last_run_at TIMESTAMPTZ,
+    status VARCHAR(50),
+    processed_items INTEGER,
+    added_items INTEGER,
+    updated_items INTEGER,
+    error_message TEXT,
+    details TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_worker_logs_job_name ON public.worker_logs(job_name);

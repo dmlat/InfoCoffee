@@ -114,7 +114,12 @@ router.get('/', authMiddleware, async (req, res) => {
                 t.details,
                 t.created_at,
                 t.completed_at,
-                (SELECT array_agg(COALESCE(u.first_name, u.user_name, u.telegram_id::text)) FROM users u WHERE u.telegram_id = ANY(t.assignee_ids)) as assignees
+                (
+                    SELECT array_agg(COALESCE(rights.shared_with_name, u.first_name, u.user_name, ids.id::text))
+                    FROM unnest(t.assignee_ids) AS ids(id)
+                    LEFT JOIN user_access_rights rights ON rights.shared_with_telegram_id = ids.id AND rights.owner_user_id = term.user_id
+                    LEFT JOIN users u ON u.telegram_id = ids.id
+                ) as assignees
             FROM service_tasks t
             JOIN terminals term ON t.terminal_id = term.id
             WHERE term.user_id = $1

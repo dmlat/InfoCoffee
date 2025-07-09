@@ -171,12 +171,12 @@ router.get('/users/list', authMiddleware, async (req, res) => {
 
     try {
         // Получаем владельца
-        const ownerRes = await pool.query('SELECT id, telegram_id, name FROM users WHERE id = $1', [ownerUserId]);
+        const ownerRes = await pool.query('SELECT id, telegram_id, first_name, user_name FROM users WHERE id = $1', [ownerUserId]);
         const owner = ownerRes.rows[0] 
             ? { 
                 id: ownerRes.rows[0].id, 
                 telegram_id: ownerRes.rows[0].telegram_id, 
-                name: `${ownerRes.rows[0].name} (Владелец)` 
+                name: ownerRes.rows[0].first_name || ownerRes.rows[0].user_name || `Владелец ${ownerRes.rows[0].telegram_id}`
               } 
             : null;
 
@@ -197,6 +197,13 @@ router.get('/users/list', authMiddleware, async (req, res) => {
             if (!existingTelegramIds.has(user.telegram_id)) {
                 allUsers.push(user);
                 existingTelegramIds.add(user.telegram_id);
+            }
+        });
+
+        // Добавляем флаг для текущего пользователя
+        allUsers.forEach(user => {
+            if (String(user.telegram_id) === String(req.user.telegramId)) {
+                user.is_self = true;
             }
         });
         

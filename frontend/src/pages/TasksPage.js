@@ -199,7 +199,7 @@ export default function TasksPage() {
                                         <tr><td colSpan="3" className="page-loading-container">Загрузка...</td></tr>
                                     ) : settings.map(setting => {
                                         const assignedUsers = users.filter(u => (setting.assignee_ids || []).includes(u.telegram_id));
-                                        const assigneesText = assignedUsers.map(u => u.first_name || u.user_name).join(', ');
+                                        const assigneesText = assignedUsers.map(u => u.is_self ? 'Вы' : (u.name || '').split(' ')[0]).join(', ');
                                         
                                         return (
                                         <tr key={setting.id}>

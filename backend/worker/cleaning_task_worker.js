@@ -96,7 +96,14 @@ async function createCleaningTasks() {
 
                     // 2. Владельцу и админам
                     const adminIds = await getAdminsAndOwner(owner_user_id, client);
-                    const assigneesInfo = await client.query('SELECT name FROM users WHERE telegram_id = ANY($1::bigint[])', [assignee_ids]);
+                    
+                    const assigneesQuery = `
+                        SELECT COALESCE(r.shared_with_name, u.first_name, u.user_name, ids.id::text) as name
+                        FROM unnest($1::bigint[]) as ids(id)
+                        LEFT JOIN user_access_rights r ON r.shared_with_telegram_id = ids.id AND r.owner_user_id = $2
+                        LEFT JOIN users u ON u.telegram_id = ids.id
+                    `;
+                    const assigneesInfo = await client.query(assigneesQuery, [assignee_ids, owner_user_id]);
                     const assigneeNames = assigneesInfo.rows.map(r => r.name).join(', ');
 
                     const adminMessage = `ℹ️ Поставлена задача на чистку стойки "<b>${terminalName}</b>".\n\nНазначены: ${assigneeNames || 'не указаны'}`;
