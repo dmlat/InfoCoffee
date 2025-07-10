@@ -63,27 +63,30 @@ CREATE TABLE IF NOT EXISTS public.user_access_rights (
 
 ---
 
-## `terminals` Table
-A list of coffee stands (terminals) linked to a user.
+### Таблица: `terminals`
 
-```sql
-CREATE TABLE IF NOT EXISTS public.terminals (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    vendista_terminal_id INTEGER NOT NULL,
-    name VARCHAR(255),
-    serial_number VARCHAR(100),
-    last_online_time TIMESTAMPTZ,
-    is_online BOOLEAN DEFAULT FALSE,
-    service_interval_sales INTEGER,
-    sales_since_last_service INTEGER DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (user_id, vendista_terminal_id)
-);
+Хранит информацию о кофейных терминалах (стойках), привязанных к пользователю. Является локальным кэшем и единым источником правды для всего приложения, синхронизируется с API Vendista фоновым воркером.
 
-CREATE INDEX IF NOT EXISTS idx_terminals_user_id ON public.terminals(user_id);
-```
+| Поле                     | Тип                      | Nullable | Описание                                                                                             |
+| ------------------------ | ------------------------ | -------- | ---------------------------------------------------------------------------------------------------- |
+| `id` (PK)                | `INTEGER`                | NOT NULL | Уникальный внутренний идентификатор стойки.                                                          |
+| `user_id` (FK)           | `INTEGER`                | NOT NULL | Ссылка на `users.id`, владелец стойки.                                                               |
+| `vendista_terminal_id`   | `INTEGER`                | NOT NULL | ID терминала в системе Vendista.                                                                     |
+| `name`                   | `VARCHAR(255)`           | NULL     | Название стойки (поле `comment` из Vendista).                                                        |
+| `serial_number`          | `VARCHAR(100)`           | NULL     | Серийный номер аппарата.                                                                             |
+| `last_online_time`       | `TIMESTAMP WITH TIME ZONE` | NULL     | Время последнего выхода в онлайн по данным Vendista.                                                 |
+| `is_online`              | `BOOLEAN`                | NULL     | Флаг, находится ли терминал в сети (если `last_online_time` был в течение последнего часа).         |
+| `is_active`              | `BOOLEAN`                | NOT NULL | "Мягкое удаление". `false`, если терминал удален из Vendista, но сохранен в нашей БД для истории.     |
+| `last_synced_at`         | `TIMESTAMP WITH TIME ZONE` | NULL     | Время последней успешной синхронизации данных этого терминала воркером.                               |
+| `service_interval_sales` | `INTEGER`                | NULL     | **(Legacy)** Интервал обслуживания (в продажах).                                                     |
+| `sales_since_last_service` | `INTEGER`              | NULL     | **(Legacy)** Продаж с последнего обслуживания.                                                       |
+| `created_at`             | `TIMESTAMP WITH TIME ZONE` | NOT NULL | Время создания записи.                                                                               |
+| `updated_at`             | `TIMESTAMP WITH TIME ZONE` | NOT NULL | Время последнего обновления записи.                                                                  |
+
+**Индексы:**
+*   `terminals_pkey` (PRIMARY KEY) на `id`.
+*   `terminals_user_id_vendista_terminal_id_key` (UNIQUE) на (`user_id`, `vendista_terminal_id`) для предотвращения дубликатов.
+*   Индекс на `user_id` для быстрых выборок по пользователю.
 
 ---
 
@@ -260,5 +263,4 @@ CREATE TABLE IF NOT EXISTS public.worker_logs (
 CREATE INDEX IF NOT EXISTS idx_worker_logs_job_name ON public.worker_logs(job_name);
 CREATE INDEX IF NOT EXISTS idx_worker_logs_last_run_at ON public.worker_logs(last_run_at);
 CREATE INDEX IF NOT EXISTS idx_worker_logs_user_id ON public.worker_logs(user_id);
-```
 ```

@@ -259,11 +259,29 @@ function runImmediateJobs() {
     syncAllTerminals().catch(e => console.error('Initial terminal sync failed:', e));
 }
 
+async function manualSyncTerminals() {
+    console.log('[Manual Trigger] Starting terminal synchronization...');
+    try {
+        await syncAllTerminals();
+        console.log('[Manual Trigger] Terminal synchronization finished.');
+    } catch (e) {
+        console.error('[Manual Trigger] A critical error occurred during manual terminal sync:', e);
+        process.exit(1);
+    }
+}
+
 
 if (require.main === module) {
     const args = process.argv.slice(2);
     const manualArg = args.find(arg => arg.startsWith('manualImport:'));
-    if (manualArg) {
+    const manualTerminalSyncArg = args.includes('manualTerminalSync');
+
+    if (manualTerminalSyncArg) {
+        manualSyncTerminals().then(() => {
+            console.log('[Manual Trigger] Exiting manual process.');
+            process.exit(0);
+        });
+    } else if (manualArg) {
         const parts = manualArg.split(':');
         const daysToImport = parseInt(parts[1], 10);
         const userIdToImport = parts.length > 2 ? parseInt(parts[2], 10) : null;
