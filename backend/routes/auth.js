@@ -1,6 +1,6 @@
 // backend/routes/auth.js
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+// require('dotenv').config(...); <-- ЭТА ЛОГИКА УДАЛЕНА, Т.К. ЦЕНТРАЛИЗОВАНА
 
 const express = require('express');
 const jwt = require('jsonwebtoken');
@@ -72,27 +72,24 @@ function decrypt(text) {
 }
 
 const validateTelegramInitData = (initDataString) => {
-    // --- НОВЫЙ БЛОК: Явная проверка для локальной разработки ---
+    // В режиме разработки полностью доверяем данным и пропускаем проверку.
+    // Это позволяет удобно работать в браузере с фейковыми данными.
     if (process.env.NODE_ENV === 'development') {
         try {
             const params = new URLSearchParams(initDataString);
             const userStr = params.get('user');
             if (userStr) {
-                const user = JSON.parse(decodeURIComponent(userStr));
-                // Если это наш тестовый юзер, пропускаем валидацию хеша
-                if (user && user.id === 280186359) {
-                    console.log(`[Auth Validate] Development user ${user.id} detected. Skipping hash check.`);
-                    return { valid: true, data: user };
-                }
+                console.warn(`[Auth Validate] ВНИМАНИЕ: Проверка хеша отключена, т.к. NODE_ENV=development.`);
+                return { valid: true, data: JSON.parse(decodeURIComponent(userStr)) };
             }
         } catch (e) {
-            console.error('[Auth Validate] Error parsing user data in development mode:', e);
-            // Продолжаем, чтобы сработала основная логика валидации
+            console.error('[Auth Validate] Не удалось разобрать dev-данные:', e);
+            return { valid: false, data: null, error: "Invalid development data" };
         }
     }
-    // -----------------------------------------------------------
 
-    // В продакшене или если это не тестовый пользователь, всегда проверяем токен
+    // В продакшене (когда NODE_ENV='production' или не установлен)
+    // всегда проводим строгую проверку хеша.
     if (!TELEGRAM_BOT_TOKEN) {
         return { valid: false, data: null, error: "Application is not configured for Telegram authentication (token missing)." };
     }
@@ -120,10 +117,12 @@ const validateTelegramInitData = (initDataString) => {
             if (!user) return { valid: false, data: null, error: "No user data in initData" };
             return { valid: true, data: JSON.parse(decodeURIComponent(user)) };
         }
-        console.warn('[Auth Validate] Hash mismatch. Calculated:', calculatedHash, 'Received:', hash, 'DataString:', dataCheckString);
+        
+        console.warn('[Auth Validate] Hash mismatch. Possible unauthorized access attempt.');
         return { valid: false, data: null, error: "Hash mismatch" };
+
     } catch (e) {
-        console.error('[Auth Validate] Error during validation:', e);
+        console.error('[Auth Validate] Critical error during validation:', e);
         return { valid: false, data: null, error: e.message };
     }
 };

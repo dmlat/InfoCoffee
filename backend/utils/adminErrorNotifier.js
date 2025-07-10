@@ -15,20 +15,10 @@ if (ADMIN_BOT_TOKEN && ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS) {
     console.warn('[AdminErrorNotifier] ADMIN_TELEGRAM_BOT_TOKEN or ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS not set in .env. Admin error notifications disabled.');
 }
 
-// Функция для экранирования специальных символов Markdown (старый стиль)
-function escapeMarkdown(text) {
-    if (typeof text !== 'string') {
-        return text;
-    }
-    // Для parse_mode: 'Markdown' основные символы для экранирования: _, *, `, [
-    // Для блоков ```code``` экранирование обычно не требуется, но если текст вставляется вне их, то нужно.
-    // Telegram API может быть капризным, особенно с непарными символами.
-    // Этот список можно расширить при необходимости.
-    return text
-        .replace(/_/g, '\\_')
-        .replace(/\*/g, '\\*')
-        .replace(/`/g, '\\`')
-        .replace(/\[/g, '\\[');
+// Новая функция для экранирования HTML
+function escapeHTML(str) {
+    if (typeof str !== 'string') return str;
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
 
@@ -47,7 +37,7 @@ async function sendErrorToAdmin({
         return;
     }
 
-    let userInfoText = 'Пользователь: Не определен';
+    let userInfoText = '<b>Пользователь:</b> Не определен';
     let dbUserId = userId || 'N/A';
     let tgId = telegramId || 'N/A';
     let fName = userFirstName || 'N/A';
@@ -66,42 +56,32 @@ async function sendErrorToAdmin({
         }
     }
     
-    // Экранируем данные пользователя перед вставкой в сообщение
-    userInfoText = `User ID (DB): ${dbUserId}\nTelegram ID: <span class="math-inline">\{tgId\}\\nUsername\: @</span>{escapeMarkdown(uName === 'N/A' ? 'нет' : uName)}\nИмя: ${escapeMarkdown(fName)}`;
+    // Формируем текст с использованием HTML
+    const uNameDisplay = uName === 'N/A' ? 'нет' : `@${escapeHTML(uName)}`;
+    userInfoText = `<b>Пользователь:</b>\n- DB ID: ${dbUserId}\n- TG ID: ${tgId}\n- Username: ${uNameDisplay}\n- Имя: ${escapeHTML(fName)}`;
+
 
     const time = moment().tz('Europe/Moscow').format('YYYY-MM-DD HH:mm:ss');
     
-    // Экранируем контекст и сообщение об ошибке
-    let message = `🚨 **ОШИБКА В InfoCoffee** 🚨\n\n`;
-    message += `**Время:** ${time} (MSK)\n`;
-    message += `**Контекст:** ${escapeMarkdown(errorContext)}\n\n`; // Экранируем
-    message += `**Инфо о пользователе:**\n${userInfoText}\n\n`; // userInfoText уже содержит экранированные части
+    let message = `🚨 <b>ОШИБКА В InfoCoffee</b> 🚨\n\n`;
+    message += `<b>Время:</b> ${time} (MSK)\n`;
+    message += `<b>Контекст:</b> ${escapeHTML(errorContext)}\n\n`;
+    message += `${userInfoText}\n\n`;
     
-    // Для содержимого блоков ``` экранирование не нужно, но если сам errorMessage содержит ```, это проблема.
-    // Безопаснее всего будет не использовать Markdown внутри блоков кода, либо очень аккуратно его формировать.
-    // Простой вариант - убрать форматирование из самого errorMessage.
-    // Более сложный - парсить errorMessage и экранировать только вне потенциальных блоков.
-    // Пока просто обернем в ```, предполагая, что сам errorMessage не содержит ```.
-    message += `**Ошибка:**\n\`\`\`\n${errorMessage}\n\`\`\`\n`;
+    message += `<b>Ошибка:</b>\n<pre><code>${escapeHTML(errorMessage)}</code></pre>\n`;
 
     if (additionalInfo && Object.keys(additionalInfo).length > 0) {
-        // JSON.stringify обычно безопасен для ```, но если там будут строки с ```, тоже может быть проблема.
-        // Для большей безопасности можно также экранировать результат stringify или его части.
-        // Но чаще всего JSON не содержит конфликтующих с Markdown символов в такой степени.
-        message += `**Доп. инфо:**\n\`\`\`json\n${JSON.stringify(additionalInfo, null, 2)}\n\`\`\`\n`;
+        message += `<b>Доп. инфо:</b>\n<pre><code>${escapeHTML(JSON.stringify(additionalInfo, null, 2))}</code></pre>\n`;
     }
 
     if (errorStack) {
-        // Стек трейс также может содержать символы, конфликтующие с Markdown.
-        // Оборачивание в ``` должно помочь, но опять же, если сам стек содержит ```.
-        message += `\n**Стек (часть):**\n\`\`\`\n${errorStack.substring(0, 700)}\n\`\`\`\n`;
+        message += `\n<b>Стек (часть):</b>\n<pre><code>${escapeHTML(errorStack.substring(0, 700))}</code></pre>\n`;
     }
     message += `\nПроверьте логи сервера для полной информации.`;
 
     try {
         const MAX_MESSAGE_LENGTH = 4096;
         if (message.length > MAX_MESSAGE_LENGTH) {
-            // Логика разбивки остается
             const parts = [];
             let currentPart = "";
             const lines = message.split('\n');
@@ -115,25 +95,16 @@ async function sendErrorToAdmin({
             parts.push(currentPart);
 
             for (const part of parts) {
-                await botInstance.sendMessage(ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS, part, { parse_mode: 'Markdown' });
+                await botInstance.sendMessage(ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS, part, { parse_mode: 'HTML' });
             }
         } else {
-            await botInstance.sendMessage(ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS, message, { parse_mode: 'Markdown' });
+            await botInstance.sendMessage(ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS, message, { parse_mode: 'HTML' });
         }
         console.log(`[AdminErrorNotifier] Sent error notification to chat ID ${ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS}`);
     } catch (sendErr) {
         console.error('[AdminErrorNotifier] Failed to send error notification via Telegram:', sendErr.code, sendErr.message);
         if (sendErr.response && sendErr.response.body) {
             console.error('[AdminErrorNotifier] Telegram API Error Body:', sendErr.response.body);
-            // Если ошибка снова из-за parse_mode, можно попробовать отправить без него
-            console.log('[AdminErrorNotifier] Attempting to send without Markdown...');
-            try {
-                 const plainMessage = message.replace(/[*_`\[\]]/g, ''); // Грубо убираем основные Markdown символы
-                 await botInstance.sendMessage(ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS, plainMessage.substring(0, MAX_MESSAGE_LENGTH));
-                 console.log('[AdminErrorNotifier] Sent plain text notification fallback.');
-            } catch (fallbackErr) {
-                console.error('[AdminErrorNotifier] Failed to send plain text fallback notification:', fallbackErr.message);
-            }
         }
     }
 }

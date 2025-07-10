@@ -1,8 +1,8 @@
 // backend/utils/test_notifier.js
 const path = require('path');
-const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
-require('dotenv').config({ path: path.resolve(__dirname, `../../${envPath}`) });
-
+// require('dotenv').config(...); <-- ЭТА ЛОГИКА УДАЛЕНА
+// db.js импортируется через adminErrorNotifier и загружает переменные
+const { sendErrorToAdmin } = require('./adminErrorNotifier');
 const { sendNotification } = require('./botNotifier');
 const { sendNotificationWithKeyboard } = require('./botHelpers');
 

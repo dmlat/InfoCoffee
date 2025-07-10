@@ -1,8 +1,5 @@
 // backend/routes/profile.js
 const path = require('path');
-const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
-require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
-
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');

@@ -1,7 +1,5 @@
 // backend/worker/import_all.js
 const path = require('path');
-const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
-require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
 const pool = require('../db');
 const { startImport } = require('./vendista_import_worker'); // Используем startImport, который вызывает importTransactionsForPeriod с fetchAllPages: true
 const moment = require('moment-timezone');

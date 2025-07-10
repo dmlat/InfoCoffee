@@ -1,7 +1,6 @@
 // backend/middleware/auth.js
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); 
-
+// require('dotenv').config(...); <-- ЭТА ЛОГИКА УДАЛЕНА, Т.К. ЦЕНТРАЛИЗОВАНА В DB.JS
 const jwt = require('jsonwebtoken');
 const pool = require('../db'); // <-- НОВЫЙ ИМПОРТ
 

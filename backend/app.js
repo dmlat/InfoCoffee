@@ -3,7 +3,9 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') }); 
 const express = require('express');
 const cors = require('cors');
-const pool = require('./db'); // db.js
+// Загрузка переменных окружения и инстанцирование pool теперь происходит в db.js
+// Это гарантирует, что любой модуль, импортирующий db.js, будет работать с правильной конфигурацией
+const pool = require('./db'); 
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
 const transactionsRoutes = require('./routes/transactions');

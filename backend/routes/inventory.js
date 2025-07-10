@@ -1,6 +1,6 @@
 // backend/routes/inventory.js
 const express = require('express');
-const router = express.Router(); // <--- Вот недостающая строка
+const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const pool = require('../db');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');

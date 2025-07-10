@@ -1,8 +1,7 @@
 // backend/worker/cleaning_task_worker.js
 const path = require('path');
-const envPath = process.env.NODE_ENV === 'development' ? '.env.development' : '.env';
-require('dotenv').config({ path: path.resolve(__dirname, `../${envPath}`) });
-
+// require('dotenv').config(...); <-- УДАЛЕНО
+// Переменные окружения загружаются через импорт db.js
 const pool = require('../db');
 const moment = require('moment-timezone');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
