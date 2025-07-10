@@ -246,10 +246,6 @@ function scheduleAll() {
     cron.schedule('10 23 * * 0', () => runScheduledJob('Weekly Update (8d)', [8, 'days'], true), { scheduled: true, timezone: TIMEZONE });
     console.log('Еженедельный (8д, Вс) планировщик запущен на 23:10 МСК.');
 
-    // --- ЗАДАЧИ ОБСЛУЖИВАНИЯ ---
-    cron.schedule('*/15 * * * *', () => checkAndCreateTasks(), { scheduled: true, timezone: TIMEZONE });
-    console.log('Планировщик создания задач по очистке запущен (каждые 15 минут).');
-
     // ИЗМЕНЕНИЕ: Запускаем синхронизацию терминалов каждые 15 минут, как и импорт транзакций
     cron.schedule('*/15 * * * *', () => syncAllTerminals(), { scheduled: true, timezone: TIMEZONE });
     console.log('Планировщик синхронизации терминалов запущен (каждые 15 минут).');
