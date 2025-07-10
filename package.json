@@ -1,15 +1,13 @@
 {
-  "name": "app",
+  "name": "app-monorepo",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "install:backend": "cd backend && npm install",
-    "install:frontend": "cd frontend && npm install",
-    "start:backend": "node backend/app.js",
+    "install:all": "npm install && (cd backend && npm install) && (cd frontend && npm install)",
+    "start:backend": "cd backend && npm start",
     "start:frontend": "cd frontend && npm start",
     "start": "npm-run-all -p start:backend start:frontend",
-    "dev:backend": "cross-env NODE_ENV=development nodemon backend/app.js",
+    "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm start",
     "dev": "npm-run-all -p dev:backend dev:frontend",
     "build:frontend": "cd frontend && npm run build"
@@ -17,22 +15,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "axios": "^1.9.0",
-    "bcryptjs": "^3.0.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.5.0",
-    "express": "^5.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "moment-timezone": "^0.5.48",
-    "node-cron": "^4.0.6",
-    "node-telegram-bot-api": "^0.66.0",
-    "pg": "^8.16.0"
-  },
+  "description": "Root for InfoCoffee mono-repo setup",
   "devDependencies": {
     "cross-env": "^7.0.3",
-    "npm-run-all": "^4.1.5",
-    "nodemon": "^3.1.4"
+    "npm-run-all": "^4.1.5"
   }
 }

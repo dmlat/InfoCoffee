@@ -12,27 +12,30 @@ echo " "
 echo "--- [START] Deployment for InfoCoffee ---"
 echo " "
 
-# --- Умная установка зависимостей ---
-NEEDS_INSTALL=false
-if [ ! -d "backend/node_modules" ]; then
-    echo "[1/7] 'node_modules' not found in backend. Dependencies will be installed."
-    NEEDS_INSTALL=true
-elif [ "backend/package.json" -nt "backend/node_modules" ] || [ "backend/package-lock.json" -nt "backend/node_modules" ]; then
-    echo "[1/7] 'package.json' or 'package-lock.json' is newer. Dependencies will be re-installed."
-    NEEDS_INSTALL=true
-else
-    echo "[1/7] Backend dependencies are up-to-date. Skipping installation."
-fi
-
-if [ "$NEEDS_INSTALL" = true ]; then
+# --- Шаг 1: Установка зависимостей БЭКЕНДА ---
+echo "[1/7] Checking backend dependencies..."
+if [ ! -d "backend/node_modules" ] || [ "backend/package.json" -nt "backend/node_modules" ] || [ "backend/package-lock.json" -nt "backend/node_modules" ]; then
+    echo "      Backend dependencies are missing or outdated. Installing..."
     (cd backend && npm install --omit=dev)
+    echo "      Backend dependencies installed."
+else
+    echo "      Backend dependencies are up-to-date. Skipping."
 fi
-# --- Конец умной установки ---
 
-# Шаг 2: Сборка фронтенда
-echo "[2/7] Building frontend..."
-(cd frontend && REACT_APP_API_BASE_URL="https://infocoffee.ru/api" npm install && npm run build)
-echo "      Done."
+# --- Шаг 2: Установка зависимостей и сборка ФРОНТЕНДА ---
+echo "[2/7] Checking frontend dependencies and building..."
+if [ ! -d "frontend/node_modules" ] || [ "frontend/package.json" -nt "frontend/node_modules" ] || [ "frontend/package-lock.json" -nt "frontend/node_modules" ]; then
+    echo "      Frontend dependencies are missing or outdated. Installing..."
+    (cd frontend && npm install)
+    echo "      Frontend dependencies installed."
+else
+    echo "      Frontend dependencies are up-to-date. Skipping."
+fi
+
+echo "      Building frontend..."
+(cd frontend && REACT_APP_API_BASE_URL="https://infocoffee.ru/api" npm run build)
+echo "      Frontend built."
+
 
 # Шаг 3: Проверка директории сборки
 if [ ! -d "frontend/build" ]; then
