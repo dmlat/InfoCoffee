@@ -45,8 +45,8 @@ export default function CopySettingsModal({ terminals, sourceTerminalId, onClose
                 onClick={() => handleToggle(terminal.id)}
             >
                 <div className="status-and-name">
-                    <span className={`status-indicator ${ (terminal.last_hour_online || 0) > 0 ? 'online' : 'offline'}`}></span>
-                    <span className="terminal-name">{terminal.comment || `Терминал #${terminal.id}`}</span>
+                    <span className={`status-indicator ${ terminal.is_online ? 'online' : 'offline'}`}></span>
+                    <span className="terminal-name">{terminal.name || `Терминал #${terminal.id}`}</span>
                 </div>
                 <div className="selection-control">
                     <div className={`tick-box ${isSelected ? 'checked' : ''}`} />

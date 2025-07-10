@@ -10,8 +10,8 @@ const ITEM_UNITS = ALL_ITEMS.reduce((acc, item) => {
 
 export default function TerminalListModal({ terminals, onSelect, onClose, currentSelection, disabledId = null, title = "Выберите стойку" }) {
     
-    const onlineTerminals = terminals.filter(t => (t.last_hour_online || 0) > 0);
-    const offlineTerminals = terminals.filter(t => (t.last_hour_online || 0) === 0);
+    const onlineTerminals = terminals.filter(t => t.is_online);
+    const offlineTerminals = terminals.filter(t => !t.is_online);
 
     const isTerminalDisabled = (terminal) => {
         return terminal.id === disabledId;
@@ -25,17 +25,7 @@ export default function TerminalListModal({ terminals, onSelect, onClose, curren
 
     const renderTerminal = (terminal) => {
         const isDisabled = isTerminalDisabled(terminal);
-        const isOnline = (terminal.last_hour_online || 0) > 0;
-        const { min_stock_info } = terminal;
-        
-        let stockWarning = null;
-        if (min_stock_info) {
-            const unit = ITEM_UNITS[min_stock_info.item_name] || 'шт';
-            const isPiece = unit === 'шт';
-            const stockValue = parseFloat(min_stock_info.current_stock);
-            const displayValue = isPiece ? Math.round(stockValue) : stockValue.toLocaleString('ru-RU', { maximumFractionDigits: 1 });
-            stockWarning = `Осталось ${min_stock_info.item_name}: ${displayValue} ${unit}`;
-        }
+        const isOnline = terminal.is_online;
         
         return (
             <div
@@ -46,9 +36,8 @@ export default function TerminalListModal({ terminals, onSelect, onClose, curren
                 <div className="terminal-info">
                     <div className="terminal-info-main">
                         <span className={`status-indicator ${isOnline ? 'online' : 'offline'}`}></span>
-                        <span className="terminal-name">{terminal.comment || `Терминал #${terminal.id}`}</span>
+                        <span className="terminal-name">{terminal.name || `Терминал #${terminal.id}`}</span>
                     </div>
-                    {stockWarning && <p className="terminal-stock-warning">{stockWarning}</p>}
                 </div>
 
                 {isDisabled 

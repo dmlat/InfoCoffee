@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../db');
 const axios = require('axios');
 const crypto = require('crypto');
+const { encrypt, decrypt } = require('../utils/security'); // Импортируем из нового файла
 const { startImport } = require('../worker/vendista_import_worker');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 const { clearUserDataFromLocalStorage } = require('../../frontend/src/utils/user');
@@ -16,60 +17,28 @@ const router = express.Router();
 const VENDISTA_API_URL = process.env.VENDISTA_API_BASE_URL || 'https://api.vendista.ru:99';
 const JWT_SECRET = process.env.JWT_SECRET;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+// Удаляем ENCRYPTION_KEY, так как он теперь используется только в security.js
+// const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 
 // --- ФИНАЛЬНАЯ УМНАЯ ПРОВЕРКА ---
 // В продакшене требуем все ключи, включая токен бота.
-if (process.env.NODE_ENV === 'production' && (!JWT_SECRET || !ENCRYPTION_KEY || !TELEGRAM_BOT_TOKEN)) {
-    console.error("FATAL PRODUCTION ERROR: One of the critical environment variables (JWT_SECRET, ENCRYPTION_KEY, TELEGRAM_BOT_TOKEN) is not defined.");
+// Убираем проверку ENCRYPTION_KEY, так как она перенесена в security.js
+if (process.env.NODE_ENV === 'production' && (!JWT_SECRET || !TELEGRAM_BOT_TOKEN)) {
+    console.error("FATAL PRODUCTION ERROR: One of the critical environment variables (JWT_SECRET, TELEGRAM_BOT_TOKEN) is not defined.");
     process.exit(1);
 }
 // В разработке требуем только ключи, необходимые для работы приложения.
-if (process.env.NODE_ENV !== 'production' && (!JWT_SECRET || !ENCRYPTION_KEY)) {
-    console.error("FATAL DEVELOPMENT ERROR: JWT_SECRET or ENCRYPTION_KEY is not defined in .env.development file.");
+if (process.env.NODE_ENV !== 'production' && !JWT_SECRET) {
+    console.error("FATAL DEVELOPMENT ERROR: JWT_SECRET is not defined in .env.development file.");
     process.exit(1);
 }
 // ------------------------------------
 
-const ALGORITHM = 'aes-256-cbc';
-const IV_LENGTH = 16; 
-
-function encrypt(text) {
-    if (!ENCRYPTION_KEY) {
-        console.error('ENCRYPTION_KEY is not set. Cannot encrypt.');
-        throw new Error('Encryption key not set.');
-    }
-    const key = Buffer.from(ENCRYPTION_KEY, 'hex');
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    return iv.toString('hex') + ':' + encrypted;
-}
-
-function decrypt(text) { 
-    if (!ENCRYPTION_KEY) {
-        console.error('ENCRYPTION_KEY is not set. Cannot decrypt.');
-        throw new Error('Encryption key not set.');
-    }
-    if (!text || typeof text !== 'string' || !text.includes(':')) {
-        console.error('Invalid text format for decryption:', text);
-        return null; 
-    }
-    try {
-        const textParts = text.split(':');
-        const iv = Buffer.from(textParts.shift(), 'hex');
-        const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-        const key = Buffer.from(ENCRYPTION_KEY, 'hex');
-        const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-        let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-        return decrypted;
-    } catch (error) {
-        console.error('Decryption failed:', error);
-        return null;
-    }
-}
+// Удаляем дублирующиеся функции и константы
+// const ALGORITHM = 'aes-256-cbc';
+// const IV_LENGTH = 16; 
+// function encrypt(text) { ... }
+// function decrypt(text) { ... }
 
 const validateTelegramInitData = (initDataString) => {
     // В режиме разработки полностью доверяем данным и пропускаем проверку.

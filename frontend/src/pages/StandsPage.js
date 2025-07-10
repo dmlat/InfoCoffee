@@ -11,30 +11,30 @@ const ITEM_UNITS = ALL_ITEMS.reduce((acc, item) => {
     return acc;
 }, {});
 
-const formatStock = (stockInfo, category) => {
-    if (!stockInfo || !stockInfo[category]) return null;
-    
-    const { item_name, current_stock, critical_stock } = stockInfo[category];
-    const unit = ITEM_UNITS[item_name] || '';
-    const currentValue = parseFloat(current_stock);
-    const criticalValue = parseFloat(critical_stock);
-    
-    let valueClassName = '';
-    if (criticalValue > 0) {
-        if (currentValue <= criticalValue) {
-            valueClassName = 'stock-low';
-        } else if (currentValue >= criticalValue * 2) {
-            valueClassName = 'stock-high';
-        }
-    }
-    
-    const displayValue = Math.round(currentValue).toLocaleString('ru-RU');
+const formatStock = (stockSummary) => {
+    if (!stockSummary) return [];
 
-    return (
-        <React.Fragment>
-            {item_name}: <span className={valueClassName}>{displayValue}</span>{unit}
-        </React.Fragment>
-    );
+    const formatPart = (category, label) => {
+        const level = stockSummary[category]?.level;
+        if (level === null || level === undefined) return null;
+        
+        const percentage = level * 100;
+        let valueClassName = '';
+        if (percentage < 15) valueClassName = 'stock-low';
+        else if (percentage > 90) valueClassName = 'stock-high';
+        
+        return {
+            label,
+            value: `${Math.round(percentage)}%`,
+            className: valueClassName
+        };
+    };
+
+    return [
+        formatPart('water', 'Вода'),
+        formatPart('grams', 'Ингр.'),
+        formatPart('pieces', 'Расходн.')
+    ].filter(Boolean);
 };
 
 export default function StandsPage() {
@@ -98,18 +98,14 @@ export default function StandsPage() {
                         <div className="empty-data-message">Стойки не найдены.</div>
                     ) : (
                         terminals.map(terminal => {
-                            const isOnline = (terminal.last_hour_online || 0) > 0;
+                            const isOnline = terminal.is_online;
                             const { stock_summary, needs_containers_config, needs_recipes_config } = terminal;
                             
-                            const stockParts = [
-                                formatStock(stock_summary, 'water'),
-                                formatStock(stock_summary, 'grams'),
-                                formatStock(stock_summary, 'pieces')
-                            ].filter(Boolean);
+                            const stockParts = formatStock(stock_summary);
 
                             const stockWarning = stockParts.map((part, index) => (
                                 <React.Fragment key={index}>
-                                    {part}
+                                    {part.label}: <span className={part.className}>{part.value}</span>
                                     {index < stockParts.length - 1 && ' | '}
                                 </React.Fragment>
                             ));
@@ -129,7 +125,7 @@ export default function StandsPage() {
                                     <div className="stand-info">
                                         <div className="stand-info-main">
                                             <span className={`status-indicator ${isOnline ? 'online' : 'offline'}`}></span>
-                                            <h3 className="stand-name">{terminal.comment || `Терминал #${terminal.id}`}</h3>
+                                            <h3 className="stand-name">{terminal.name || `Терминал #${terminal.id}`}</h3>
                                         </div>
                                         {configWarning && <p className="stand-config-warning pending-red">{configWarning}</p>}
                                         {stockParts.length > 0 && <p className="stand-stock-warning">{stockWarning}</p>}

@@ -3,10 +3,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api';
 import './WarehousePage.css';
-import TerminalListModal from '../components/TerminalListModal';
 import StandDetailModal from '../components/StandDetail/StandDetailModal';
 import StandNavigator from '../components/StandDetail/StandNavigator';
-import ConfirmModal from '../components/ConfirmModal';
 import { ALL_ITEMS } from '../constants';
 import '../components/StandDetail/StandNavigator.css';
 
@@ -14,22 +12,14 @@ const UNIFIED_STEPS = ['38000', '19000', '5000', '1000', '100', '10'];
 const ITEMS_IN_PIECES = new Set(ALL_ITEMS.filter(i => i.unit === 'шт').map(i => i.name));
 const WAREHOUSE_STATE_KEY = 'warehouse_page_state_v5';
 
+const ITEM_UNITS = ALL_ITEMS.reduce((acc, item) => {
+    acc[item.name] = item.unit;
+    return acc;
+}, {});
+
+const getUnit = (itemName) => ITEM_UNITS[itemName] || (ITEMS_IN_PIECES.has(itemName) ? 'шт' : 'г');
+
 // --- Вспомогательные компоненты ---
-const ProgressBar = ({ current, max, critical }) => {
-    const percentage = max > 0 ? (current / max) * 100 : 0;
-    let barColorClass = 'normal';
-    if (percentage < 25) barColorClass = 'low';
-    if (percentage < 10) barColorClass = 'critical';
-
-    return (
-        <div className="progress-bar-container">
-            <div className={`progress-bar-fill ${barColorClass}`} style={{ width: `${Math.min(percentage, 100)}%` }}></div>
-            {critical > 0 && max > 0 && <div className="progress-bar-critical-marker" style={{ left: `${(critical / max) * 100}%` }}></div>}
-            <span className="progress-bar-text">{current.toLocaleString('ru-RU')} / {max.toLocaleString('ru-RU')}</span>
-        </div>
-    );
-};
-
 const MachineProgressDisplay = ({ data, unit, onConfigureClick }) => {
     if (!data || data.max === null || data.max === undefined || data.max === 0) {
         return (
@@ -101,9 +91,11 @@ export default function WarehousePage() {
         setSelectedTerminal(terminal); // Оптимистичное обновление
         
         try {
-            const res = await apiClient.get(`/terminals/vendista/${terminal.id}/details`);
+            // ИЗМЕНЕНИЕ: Используем новый эндпоинт, который принимает внутренний ID
+            const res = await apiClient.get(`/terminals/${terminal.id}/settings`);
             if (res.data.success) {
-                const inventory = res.data.details?.inventory || [];
+                // ИЗМЕНЕНИЕ: Адаптируемся к новому формату ответа { settings: [...] }
+                const inventory = res.data.settings || [];
                 const newStandStock = {};
                 const newMachineData = {};
                 
@@ -120,10 +112,11 @@ export default function WarehousePage() {
 
                 setStandStock(newStandStock);
                 setMachineData(newMachineData);
-                setSelectedTerminal(prev => ({...prev, ...terminal, internalId: res.data.internalId}));
+                // ИЗМЕНЕНИЕ: поле internalId больше не нужно, так как мы используем `terminal.id` напрямую
+                setSelectedTerminal(prev => ({...prev, ...terminal}));
             }
         } catch (err) {
-            setError(`Ошибка загрузки деталей для ${terminal.comment}`);
+            setError(`Ошибка загрузки деталей для ${terminal.name}`); // Используем `terminal.name`
         }
     }, []);
 
@@ -242,73 +235,50 @@ export default function WarehousePage() {
     };
 
     const handleTransfer = async (fromLoc, toLoc, itemName, step) => {
-        if (!selectedTerminal?.internalId) {
+        // ИЗМЕНЕНИЕ: Используем `selectedTerminal.id` вместо `selectedTerminal.internalId`
+        if (!selectedTerminal?.id) {
             showNotification("Стойка не выбрана.", true);
             return;
         }
 
         const stepQuantity = step; // Шаг уже в базовых единицах (г, мл, шт)
-
-        let sourceStock = 0;
-        if (fromLoc === 'warehouse') sourceStock = warehouseStock[itemName] || 0;
-        else if (fromLoc === 'stand') sourceStock = standStock[itemName]?.current || 0;
-        else if (fromLoc === 'machine') sourceStock = machineData[itemName]?.current || 0;
-        
-        if (sourceStock <= 0) return;
-
-        let quantityToTransfer = Math.min(stepQuantity, sourceStock);
-
-        if (toLoc === 'machine' || toLoc === 'stand') {
-            const targetData = toLoc === 'machine' ? machineData[itemName] : standStock[itemName];
-            const maxStock = targetData?.max || Infinity;
-            if (maxStock > 0) {
-                const currentStock = targetData?.current || 0;
-                const freeSpace = maxStock - currentStock;
-                quantityToTransfer = Math.min(quantityToTransfer, freeSpace);
-            }
-        }
-        
-        if (quantityToTransfer <= 0) {
-             const reason = sourceStock <= 0 ? "Нет в наличии." : "Нет свободного места.";
-             showNotification(reason, true);
-             return;
-        }
-
         setRowLoading(prev => ({ ...prev, [itemName]: true }));
 
         try {
-            const fromPayload = { location: fromLoc, terminal_id: fromLoc === 'warehouse' ? null : selectedTerminal.internalId };
-            const toPayload = { location: toLoc, terminal_id: toLoc === 'warehouse' ? null : selectedTerminal.internalId };
-            const response = await apiClient.post('/inventory/move', { from: fromPayload, to: toPayload, item_name: itemName, quantity: quantityToTransfer });
-            
-            if (response.data.success && response.data.updatedStock) {
-                const { from, to } = response.data.updatedStock;
+            const response = await apiClient.post('/inventory/transfer', {
+                from_location: fromLoc,
+                to_location: toLoc,
+                item_name: itemName,
+                quantity: stepQuantity,
+                terminal_id: selectedTerminal.id, // Используем `selectedTerminal.id`
+            });
 
-                // Округляем до целых, чтобы избежать ошибок с плавающей точкой
-                const newFromStock = Math.round(parseFloat(from.new_stock));
-                const newToStock = Math.round(parseFloat(to.new_stock));
-
-                if (from.location === 'warehouse') {
-                    setWarehouseStock(prev => ({ ...prev, [itemName]: newFromStock }));
-                } else if (from.location === 'stand') {
-                    setStandStock(prev => ({ ...prev, [itemName]: { ...(prev[itemName] || {}), current: newFromStock } }));
-                } else if (from.location === 'machine') {
-                    setMachineData(prev => ({ ...prev, [itemName]: { ...(prev[itemName] || {}), current: newFromStock } }));
-                }
-
-                if (to.location === 'warehouse') {
-                    setWarehouseStock(prev => ({ ...prev, [itemName]: newToStock }));
-                } else if (to.location === 'stand') {
-                    setStandStock(prev => ({ ...prev, [itemName]: { ...(prev[itemName] || {}), current: newToStock } }));
-                } else if (to.location === 'machine') {
-                    setMachineData(prev => ({ ...prev, [itemName]: { ...(prev[itemName] || {}), current: newToStock } }));
-                }
+            if (response.data.success) {
+                const { from_stock, to_stock } = response.data;
                 
+                const updateStock = (stockState, location, data) => {
+                    return {
+                        ...stockState,
+                        [itemName]: {
+                            ...stockState[itemName],
+                            current: Math.round(parseFloat(data.current_stock))
+                        }
+                    };
+                };
+
+                if (fromLoc === 'warehouse') setWarehouseStock(prev => ({ ...prev, [itemName]: Math.round(parseFloat(from_stock.current_stock)) }));
+                if (fromLoc === 'stand') setStandStock(prev => updateStock(prev, 'stand', from_stock));
+                if (fromLoc === 'machine') setMachineData(prev => updateStock(prev, 'machine', from_stock));
+
+                if (toLoc === 'stand') setStandStock(prev => updateStock(prev, 'stand', to_stock));
+                if (toLoc === 'machine') setMachineData(prev => updateStock(prev, 'machine', to_stock));
+                
+                showNotification(`Перемещено ${stepQuantity} ${getUnit(itemName)} '${itemName}'`);
             } else {
                 showNotification(response.data.error || 'Ошибка перемещения', true);
             }
-        } catch (err) {
-            showNotification(err.response?.data?.error || 'Сетевая ошибка', true);
+        } catch (error) {
+            showNotification(error.response?.data?.error || 'Сетевая ошибка', true);
         } finally {
             setRowLoading(prev => ({ ...prev, [itemName]: false }));
         }

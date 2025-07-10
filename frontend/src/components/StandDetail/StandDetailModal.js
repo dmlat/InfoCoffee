@@ -41,25 +41,29 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
     };
 
     const fetchDetailsAndRecipes = useCallback(async () => {
-        const vendistaId = terminal.id;
-        if (!vendistaId) return;
+        const internalId = terminal.id;
+        if (!internalId) return;
         
-        setIsLoading(true); setError('');
-        try {
-            const detailsResponse = await apiClient.get(`/terminals/vendista/${vendistaId}/details`, {
-                params: { name: terminal.comment, serial_number: terminal.serial_number }
-            });
-            if (!detailsResponse.data.success) throw new Error(detailsResponse.data.error);
+        setIsLoading(true);
+        setError('');
+        setInternalTerminalId(internalId); // Устанавливаем ID сразу
 
-            const { details: fetchedDetails, internalId: fetchedInternalId } = detailsResponse.data;
-            setDetails(fetchedDetails);
-            setInternalTerminalId(fetchedInternalId);
-            
+        try {
+            // Параллельно запрашиваем все необходимые данные
+            const [settingsResponse, itemsResponse, recipesResponse] = await Promise.all([
+                apiClient.get(`/terminals/${internalId}/settings`),
+                apiClient.get(`/terminals/${internalId}/machine-items`),
+                apiClient.get(`/recipes/terminal/${internalId}`)
+            ]);
+
+            // Обработка настроек
+            if (!settingsResponse.data.success) throw new Error('Не удалось загрузить настройки контейнеров');
+            const inventory = settingsResponse.data.settings || [];
+            setDetails({ inventory }); // Сохраняем для StandStockTab
+
             const newSettings = {};
             ALL_ITEMS.forEach(item => {
-                const existingItem = fetchedDetails.inventory.find(
-                    i => i.item_name === item.name && i.location === 'machine'
-                );
+                const existingItem = inventory.find(i => i.item_name === item.name && i.location === 'machine');
                 newSettings[item.name] = {
                     max_stock: formatNumericOutput(existingItem?.max_stock),
                     critical_stock: formatNumericOutput(existingItem?.critical_stock)
@@ -67,30 +71,31 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
             });
             setInitialSettings(newSettings);
 
-            const itemsResponse = await apiClient.get(`/terminals/vendista/${vendistaId}/machine-items`);
-            if (itemsResponse.data.success) setMachineItems(itemsResponse.data.machineItems || []);
-
-            if(fetchedInternalId) {
-                const recipesResponse = await apiClient.get(`/recipes/terminal/${fetchedInternalId}`);
-                if (recipesResponse.data.success) {
-                    const recipesMap = (recipesResponse.data.recipes || []).reduce((acc, recipe) => {
-                        acc[recipe.machine_item_id] = { ...recipe };
-                        Object.keys(recipe).forEach(key => {
-                            if (key.includes('_grams') || key.includes('_ml')) {
-                                acc[recipe.machine_item_id][key] = formatNumericOutput(recipe[key]);
-                            }
-                        });
-                        return acc;
-                    }, {});
-                    setInitialRecipes(recipesMap);
-                }
+            // Обработка кнопок машины
+            if (itemsResponse.data.success) {
+                setMachineItems(itemsResponse.data.machineItems || []);
             }
+
+            // Обработка рецептов
+            if (recipesResponse.data.success) {
+                const recipesMap = (recipesResponse.data.recipes || []).reduce((acc, recipe) => {
+                    acc[recipe.machine_item_id] = { ...recipe };
+                    Object.keys(recipe).forEach(key => {
+                        if (key.includes('_grams') || key.includes('_ml')) {
+                            acc[recipe.machine_item_id][key] = formatNumericOutput(recipe[key]);
+                        }
+                    });
+                    return acc;
+                }, {});
+                setInitialRecipes(recipesMap);
+            }
+
         } catch (err) {
-            setError(err.response?.data?.error || 'Ошибка сети при загрузке данных стойки.');
+            setError(err.response?.data?.error || err.message || 'Ошибка сети при загрузке данных стойки.');
         } finally {
             setIsLoading(false);
         }
-    }, [terminal.id, terminal.comment, terminal.serial_number]);
+    }, [terminal.id]);
 
     useEffect(() => {
         fetchDetailsAndRecipes();

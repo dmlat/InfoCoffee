@@ -1,55 +1,27 @@
 // backend/worker/schedule_imports.js
-const path = require('path');
 const cron = require('node-cron');
 const pool = require('../db');
-const { importTransactionsForPeriod } = require('./vendista_import_worker');
-const { createCleaningTasks } = require('./cleaning_task_worker'); // <-- НОВЫЙ ИМПОРТ
 const moment = require('moment-timezone');
-const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+
+const { importTransactionsForPeriod } = require('./vendista_import_worker');
+const { checkAndCreateTasks } = require('./cleaning_task_worker');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
+const { decrypt } = require('../utils/security');
+const { syncAllTerminals } = require('./terminal_sync_worker');
 
 const TIMEZONE = 'Europe/Moscow';
-// ИЗМЕНЕНО: Увеличиваем задержку между обработкой разных пользователей до 1.5 секунд
-const USER_PROCESSING_DELAY_MS = 1500; 
-// ИЗМЕНЕНО: Строго ограничиваем количество одновременных импортов до одного
-const MAX_CONCURRENT_IP_IMPORTS = 1; 
+const USER_PROCESSING_DELAY_MS = 1500;
+const MAX_CONCURRENT_IP_IMPORTS = 1;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-let activeIpImports = 0;
-const importQueue = [];
-
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
-const ALGORITHM = 'aes-256-cbc';
-
-if (!ENCRYPTION_KEY || !JWT_SECRET) {
-    console.error("[FATAL ERROR in schedule_imports.js] ENCRYPTION_KEY or JWT_SECRET is not defined. Worker cannot run.");
+if (!JWT_SECRET) {
+    console.error("[FATAL ERROR in schedule_imports.js] JWT_SECRET is not defined. Worker cannot run.");
     process.exit(1);
 }
 
-function decrypt(text) {
-    if (!ENCRYPTION_KEY) {
-        console.error('ENCRYPTION_KEY is not set. Cannot decrypt.');
-        throw new Error('Encryption key not set for decrypt function.');
-    }
-    if (!text || typeof text !== 'string' || !text.includes(':')) {
-        console.error('Invalid text format for decryption:', text);
-        return null;
-    }
-    try {
-        const key = Buffer.from(ENCRYPTION_KEY, 'hex');
-        const textParts = text.split(':');
-        const iv = Buffer.from(textParts.shift(), 'hex');
-        const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-        const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-        let decrypted = decipher.update(encryptedText);
-        decrypted = Buffer.concat([decrypted, decipher.final()]);
-        return decrypted.toString('utf8');
-    } catch (error) {
-        console.error('Decryption failed:', error);
-        return null;
-    }
-}
+let activeIpImports = 0;
+const importQueue = [];
 
 async function logJobStatus(userId, jobName, status, result, errorMessage = null) {
   try {
@@ -76,30 +48,30 @@ async function processImportQueue() {
     const { params, jobName } = importQueue.shift();
     const logTime = moment().tz(TIMEZONE).format();
     
-    console.log(`[Cron ${logTime}] [${jobName}] Извлечение из очереди для User ${params.user_id}. Активных импортов: ${activeIpImports}. В очереди: ${importQueue.length}`);
+    console.log(`[Cron ${logTime}] [${jobName}] Извлечение из очереди для User ${params.ownerUserId}. Активных импортов: ${activeIpImports}. В очереди: ${importQueue.length}`);
 
     try {
         const importResult = await importTransactionsForPeriod(params);
         if (importResult.success) {
-            await logJobStatus(params.user_id, jobName, 'success', importResult);
+            await logJobStatus(params.ownerUserId, jobName, 'success', importResult);
         } else {
-            await logJobStatus(params.user_id, jobName, 'failure', importResult, importResult.error);
+            await logJobStatus(params.ownerUserId, jobName, 'failure', importResult, importResult.error);
             if (importResult.error && importResult.error.toLowerCase().includes('token')) {
-                console.error(`[Cron ${logTime}] [${jobName}] User ${params.user_id} Vendista token might be invalid (after decryption).`);
+                console.error(`[Cron ${logTime}] [${jobName}] User ${params.ownerUserId} Vendista token might be invalid (after decryption).`);
             }
         }
     } catch (e) {
-        console.error(`[Cron ${logTime}] [${jobName}] КРИТИЧЕСКАЯ Ошибка для User ${params.user_id}: ${e.message}`);
-        await logJobStatus(params.user_id, jobName, 'critical_failure', null, e.message);
+        console.error(`[Cron ${logTime}] [${jobName}] КРИТИЧЕСКАЯ Ошибка для User ${params.ownerUserId}: ${e.message}`);
+        await logJobStatus(params.ownerUserId, jobName, 'critical_failure', null, e.message);
         await sendErrorToAdmin({
-            userId: params.user_id,
-            errorContext: `Critical scheduleSafeImport ${jobName} for User ${params.user_id}`,
+            userId: params.ownerUserId,
+            errorContext: `Critical scheduleSafeImport ${jobName} for User ${params.ownerUserId}`,
             errorMessage: e.message,
             errorStack: e.stack
         });
     } finally {
         activeIpImports--;
-        console.log(`[Cron ${logTime}] [${jobName}] Завершение для User ${params.user_id}. Активных импортов: ${activeIpImports}.`);
+        console.log(`[Cron ${logTime}] [${jobName}] Завершение для User ${params.ownerUserId}. Активных импортов: ${activeIpImports}.`);
         if (importQueue.length > 0) {
              setTimeout(processImportQueue, USER_PROCESSING_DELAY_MS);
         } else {
@@ -110,7 +82,7 @@ async function processImportQueue() {
 
 function addToImportQueue(params, jobName) {
     importQueue.push({ params, jobName });
-    console.log(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] User ${params.user_id} добавлен в очередь. Всего в очереди: ${importQueue.length}`);
+    console.log(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] User ${params.ownerUserId} добавлен в очередь. Всего в очереди: ${importQueue.length}`);
     processImportQueue();
 }
 
@@ -119,7 +91,7 @@ async function runScheduledJob(jobName, dateSubtractArgs, fetchAllPages) {
   const logTime = moment().tz(TIMEZONE).format();
   console.log(`[Cron ${logTime}] Запуск джоба: ${jobName}...`);
   try {
-    const usersRes = await pool.query('SELECT id, vendista_api_token, first_name, user_name, telegram_id FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL');
+    const usersRes = await pool.query('SELECT id, vendista_api_token, telegram_id FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL AND is_active = true');
     if (usersRes.rows.length === 0) {
       console.log(`[Cron ${logTime}] [${jobName}] Нет пользователей для импорта.`);
       return;
@@ -171,7 +143,7 @@ async function runScheduledJob(jobName, dateSubtractArgs, fetchAllPages) {
       );
 
       addToImportQueue({
-        ownerUserId: user.id, // <-- ИСПРАВЛЕНИЕ
+        ownerUserId: user.id,
         vendistaApiToken: plainVendistaToken,
         appToken: appToken,
         dateFrom, dateTo, fetchAllPages,
@@ -193,7 +165,7 @@ async function manualImportLastNDays(days, targetUserId) {
     console.log(`[Cron ${logTime}] Запуск ручного импорта: ${jobName}...`);
 
     try {
-        let query = 'SELECT id, vendista_api_token, first_name, user_name, telegram_id FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL';
+        let query = 'SELECT id, vendista_api_token, telegram_id FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL';
         const queryParams = [];
         if (targetUserId) {
             query += ' AND id = $1';
@@ -246,7 +218,7 @@ async function manualImportLastNDays(days, targetUserId) {
                 appToken: appToken,
                 dateFrom,
                 dateTo,
-                fetchAllPages: true, // Ручной импорт всегда загружает все страницы
+                fetchAllPages: true,
             }, jobName);
         }
     } catch (e) {
@@ -260,6 +232,34 @@ async function manualImportLastNDays(days, targetUserId) {
     }
 }
 
+function scheduleAll() {
+    console.log('Планировщик запущен. Настройка cron-задач...');
+    
+    // --- ЗАДАЧИ ИМПОРТА ТРАНЗАКЦИЙ ---
+    cron.schedule('*/15 * * * *', () => runScheduledJob('15-Min Import', [1, 'days'], false), { scheduled: true, timezone: TIMEZONE });
+    console.log('15-минутный планировщик импорта транзакций запущен.');
+
+    cron.schedule('5 23 * * 1-6', () => runScheduledJob('Daily Update (72h)', [3, 'days'], true), { scheduled: true, timezone: TIMEZONE });
+    console.log('Ежедневный (72ч, Пн-Сб) планировщик запущен на 23:05 МСК.');
+
+    cron.schedule('10 23 * * 0', () => runScheduledJob('Weekly Update (8d)', [8, 'days'], true), { scheduled: true, timezone: TIMEZONE });
+    console.log('Еженедельный (8д, Вс) планировщик запущен на 23:10 МСК.');
+
+    // --- ЗАДАЧИ ОБСЛУЖИВАНИЯ ---
+    cron.schedule('*/15 * * * *', () => checkAndCreateTasks(), { scheduled: true, timezone: TIMEZONE });
+    console.log('Планировщик создания задач по очистке запущен (каждые 15 минут).');
+
+    // ИЗМЕНЕНИЕ: Запускаем синхронизацию терминалов каждые 15 минут, как и импорт транзакций
+    cron.schedule('*/15 * * * *', () => syncAllTerminals(), { scheduled: true, timezone: TIMEZONE });
+    console.log('Планировщик синхронизации терминалов запущен (каждые 15 минут).');
+}
+
+function runImmediateJobs() {
+    console.log('Запуск немедленных задач при старте воркера...');
+    syncAllTerminals().catch(e => console.error('Initial terminal sync failed:', e));
+}
+
+
 if (require.main === module) {
     const args = process.argv.slice(2);
     const manualArg = args.find(arg => arg.startsWith('manualImport:'));
@@ -272,14 +272,13 @@ if (require.main === module) {
             manualImportLastNDays(daysToImport, userIdToImport)
                 .then(() => { 
                     console.log('Ручной импорт завершен (задачи добавлены в очередь). Ожидание обработки...');
-                    // Периодически проверяем, пуста ли очередь, и выходим, когда это так
                     const intervalId = setInterval(() => {
                         if (importQueue.length === 0 && activeIpImports === 0) {
                             console.log('Очередь обработки пуста. Завершение работы.');
                             clearInterval(intervalId);
                             process.exit(0);
                         }
-                    }, 3000); // Проверка каждые 3 секунды
+                    }, 3000);
                 })
                 .catch(e => { console.error('Критическая ошибка при ручном импорте:', e); process.exit(1); });
         } else {
@@ -287,20 +286,9 @@ if (require.main === module) {
             process.exit(1);
         }
     } else {
-        console.log('Файл schedule_imports.js запущен, cron-задачи настроены.');
-        // --- ЗАДАЧИ CRON ---
-        // Каждые 15 минут (вчерашний + сегодняшний день, только первая страница)
-        cron.schedule('*/15 * * * *', () => runScheduledJob('15-Min Import', [1, 'days'], false), { scheduled: true, timezone: TIMEZONE });
-        console.log('15-минутный планировщик импорта транзакций запущен.');
-
-        // Ежедневно (Пн-Сб) в 23:05 МСК (последние 3 дня, все страницы) - сдвинул на 5 минут и увеличил окно на 1 день
-        cron.schedule('5 23 * * 1-6', () => runScheduledJob('Daily Update (72h)', [3, 'days'], true), { scheduled: true, timezone: TIMEZONE });
-        console.log('Ежедневный (72ч, Пн-Сб) планировщик запущен на 23:05 МСК.');
-
-        // Еженедельно (Вс) в 23:10 МСК (последние 8 дней, все страницы) - сдвинул на 10 минут и увеличил окно на 1 день
-        cron.schedule('10 23 * * 0', () => runScheduledJob('Weekly Update (8d)', [8, 'days'], true), { scheduled: true, timezone: TIMEZONE });
-        console.log('Еженедельный (8д, Вс) планировщик запущен на 23:10 МСК.');
+        scheduleAll();
+        runImmediateJobs();
     }
 }
 
-module.exports = { manualImportLastNDays };
+module.exports = { scheduleAll, runImmediateJobs, manualImportLastNDays };

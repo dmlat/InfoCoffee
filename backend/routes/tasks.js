@@ -99,34 +99,34 @@ router.post('/settings', authMiddleware, async (req, res) => {
 
 // Получить журнал задач
 router.get('/', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.ownerUserId;
-    const moscowTime = moment().tz('Europe/Moscow');
-    // Получаем задачи, которые либо в работе, либо были выполнены сегодня
-    const todayStart = moscowTime.startOf('day').toISOString();
+    const { ownerUserId } = req.user;
+    const { dateFrom } = req.query;
 
+    const query = `
+        SELECT
+            t.id,
+            t.terminal_id,
+            term.name as terminal_name, -- Имя терминала
+            t.task_type,
+            t.status,
+            t.created_at,
+            t.completed_at,
+            -- Восстанавливаем корректную логику для получения имен исполнителей из массива
+            (
+                SELECT array_agg(COALESCE(u.first_name, u.user_name, 'Unknown'))
+                FROM unnest(t.assignee_ids) AS assignee_id
+                JOIN users u ON u.id = assignee_id
+            ) as assignee_names
+        FROM service_tasks t
+        JOIN terminals term ON t.terminal_id = term.id
+        WHERE term.user_id = $1
+          AND (t.status = 'pending' OR t.status = 'assigned' OR t.completed_at >= $2)
+        ORDER BY t.created_at DESC
+    `;
+    
     try {
-        const query = `
-            SELECT
-                t.id,
-                term.name as terminal_name,
-                t.task_type,
-                t.status,
-                t.details,
-                t.created_at,
-                t.completed_at,
-                (
-                    SELECT array_agg(COALESCE(rights.shared_with_name, u.first_name, u.user_name, ids.id::text))
-                    FROM unnest(t.assignee_ids) AS ids(id)
-                    LEFT JOIN user_access_rights rights ON rights.shared_with_telegram_id = ids.id AND rights.owner_user_id = term.user_id
-                    LEFT JOIN users u ON u.telegram_id = ids.id
-                ) as assignees
-            FROM service_tasks t
-            JOIN terminals term ON t.terminal_id = term.id
-            WHERE term.user_id = $1
-              AND (t.status = 'pending' OR t.completed_at >= $2)
-            ORDER BY t.created_at DESC
-        `;
-        const result = await pool.query(query, [ownerUserId, todayStart]);
+        const from = dateFrom || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString();
+        const result = await pool.query(query, [ownerUserId, from]);
         res.json({ success: true, tasks: result.rows });
     } catch (err) {
         console.error(`[GET /api/tasks] UserID: ${ownerUserId} - Error:`, err);
