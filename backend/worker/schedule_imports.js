@@ -277,11 +277,16 @@ if (require.main === module) {
     const manualTerminalSyncArg = args.includes('manualTerminalSync');
 
     if (manualTerminalSyncArg) {
+        console.log('[CLI] Manual terminal sync requested.');
         manualSyncTerminals().then(() => {
-            console.log('[Manual Trigger] Exiting manual process.');
+            console.log('[CLI] Manual terminal sync finished. Exiting.');
             process.exit(0);
         });
-    } else if (manualArg) {
+        return; // <-- ВАЖНО: Предотвращаем выполнение остального кода
+    } 
+    
+    if (manualArg) {
+        console.log('[CLI] Manual import requested.');
         const parts = manualArg.split(':');
         const daysToImport = parseInt(parts[1], 10);
         const userIdToImport = parts.length > 2 ? parseInt(parts[2], 10) : null;
@@ -303,10 +308,12 @@ if (require.main === module) {
             console.log("Для ручного импорта укажите количество дней, например: manualImport:7 или manualImport:7:123 (для userID 123)");
             process.exit(1);
         }
-    } else {
-        scheduleAll();
-        runImmediateJobs();
+        return; // <-- ВАЖНО: Предотвращаем выполнение остального кода
     }
+
+    // Этот блок выполнится, только если не был передан ни один из флагов ручного запуска
+    scheduleAll();
+    runImmediateJobs();
 }
 
 module.exports = { scheduleAll, runImmediateJobs, manualImportLastNDays };

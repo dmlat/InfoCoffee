@@ -12,7 +12,8 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function syncAllTerminals() {
     console.log('[Terminal Sync Worker] Starting synchronization job...');
-    const client = await pool.connect();
+    // ИСПРАВЛЕНИЕ: Используем pool.pool.connect() для получения клиента
+    const client = await pool.pool.connect();
     try {
         const usersRes = await client.query('SELECT id, vendista_api_token FROM users WHERE vendista_api_token IS NOT NULL AND is_active = true');
 
