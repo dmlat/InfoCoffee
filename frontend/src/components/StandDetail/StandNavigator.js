@@ -27,7 +27,7 @@ export default function StandNavigator({ terminal, allTerminals, onTerminalChang
             <div className="nav-separator"></div>
             <div className="nav-terminal-name" onClick={onNameClick}>
                 {onNameClick && <span className="nav-list-icon">☰</span>}
-                <span>{terminal.comment || `Терминал #${terminal.id}`}</span>
+                <span>{terminal.name || `Терминал #${terminal.id}`}</span>
             </div>
             <div className="nav-separator"></div>
             <button className="nav-arrow" onClick={() => handleTerminalSwitch(1)}>&gt;</button>

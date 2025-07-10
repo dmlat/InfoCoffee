@@ -103,7 +103,7 @@ router.post('/:internalId/settings', authMiddleware, async (req, res) => {
         return res.status(400).json({ success: false, error: 'Неверный формат данных' });
     }
 
-    const client = await pool.connect();
+    const client = await pool.pool.connect();
     try {
         await client.query('BEGIN');
 
@@ -163,7 +163,7 @@ router.post('/copy-settings', authMiddleware, async (req, res) => {
     
     const allTerminalIds = [sourceInternalId, ...destinationInternalIds];
 
-    const client = await pool.connect();
+    const client = await pool.pool.connect();
     try {
         await client.query('BEGIN');
         

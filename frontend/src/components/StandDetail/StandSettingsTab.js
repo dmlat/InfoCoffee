@@ -52,22 +52,11 @@ export default function StandSettingsTab({ terminal, allTerminals, internalTermi
     };
 
     // НОВЫЙ ОБРАБОТЧИК для копирования
-    const handleCopySettings = async (destinationIds) => {
-        if (destinationIds.length === 0) return;
-        
-        // Получаем внутренние ID для выбранных терминалов
-        const destinationInternalIdPromises = destinationIds.map(vendistaId => 
-            apiClient.get(`/terminals/vendista/${vendistaId}/details`)
-        );
+    const handleCopySettings = async (destinationInternalIds) => {
+        if (destinationInternalIds.length === 0) return;
         
         setIsSaving(true);
         try {
-            const responses = await Promise.all(destinationInternalIdPromises);
-            const destinationInternalIds = responses.map(res => {
-                if (!res.data.success) throw new Error(`Не удалось получить данные для терминала.`);
-                return res.data.internalId;
-            });
-
             const copyResponse = await apiClient.post('/terminals/copy-settings', {
                 sourceInternalId: internalTerminalId,
                 destinationInternalIds: destinationInternalIds

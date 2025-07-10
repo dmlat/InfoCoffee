@@ -108,23 +108,17 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
         }
     };
     
-    const handleCopyRecipes = async (destinationVendistaIds) => {
+    const handleCopyRecipes = async (destinationTerminalIds) => {
         setIsCopyModalOpen(false);
-        if (destinationVendistaIds.length === 0) return;
+        if (destinationTerminalIds.length === 0) return;
 
         setIsSaving(true);
-        showSaveStatus(`Копирование в ${destinationVendistaIds.length} терминал(а/ов)...`, 'info');
+        showSaveStatus(`Копирование в ${destinationTerminalIds.length} терминал(а/ов)...`, 'info');
         
         try {
-            const internalIdPromises = destinationVendistaIds.map(vendistaId => 
-                apiClient.get(`/terminals/vendista/${vendistaId}/details`).then(res => res.data.internalId)
-            );
-            
-            const destinationInternalIds = await Promise.all(internalIdPromises);
-
             const res = await apiClient.post('/recipes/copy', {
                 sourceTerminalId: internalTerminalId,
-                destinationTerminalIds: destinationInternalIds
+                destinationTerminalIds: destinationTerminalIds
             });
             showSaveStatus(res.data.message, res.data.success ? 'success' : 'error');
         } catch (err) {
