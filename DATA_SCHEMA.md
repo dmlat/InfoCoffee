@@ -31,9 +31,8 @@ CREATE TABLE IF NOT EXISTS public.users (
     setup_date DATE,
     tax_system VARCHAR(32),
     acquiring NUMERIC,
-    registration_date TIMESTAMPTZ DEFAULT now(),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON public.users(telegram_id);

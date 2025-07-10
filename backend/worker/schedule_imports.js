@@ -91,7 +91,8 @@ async function runScheduledJob(jobName, dateSubtractArgs, fetchAllPages) {
   const logTime = moment().tz(TIMEZONE).format();
   console.log(`[Cron ${logTime}] Запуск джоба: ${jobName}...`);
   try {
-    const usersRes = await pool.query('SELECT id, vendista_api_token, telegram_id FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL AND is_active = true');
+    // ИСПРАВЛЕНИЕ: Убираем is_active из запроса к таблице users
+    const usersRes = await pool.query('SELECT id, vendista_api_token, telegram_id FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL');
     if (usersRes.rows.length === 0) {
       console.log(`[Cron ${logTime}] [${jobName}] Нет пользователей для импорта.`);
       return;

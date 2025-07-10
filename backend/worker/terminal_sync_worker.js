@@ -15,7 +15,8 @@ async function syncAllTerminals() {
     // ИСПРАВЛЕНИЕ: Используем pool.pool.connect() для получения клиента
     const client = await pool.pool.connect();
     try {
-        const usersRes = await client.query('SELECT id, vendista_api_token FROM users WHERE vendista_api_token IS NOT NULL AND is_active = true');
+        // ИСПРАВЛЕНИЕ: Убираем условие "is_active", так как его нет в таблице users.
+        const usersRes = await client.query('SELECT id, vendista_api_token FROM users WHERE vendista_api_token IS NOT NULL');
 
         for (const user of usersRes.rows) {
             try {
@@ -62,7 +63,7 @@ async function syncAllTerminals() {
                     await client.query(
                         `UPDATE terminals 
                          SET is_active = false, updated_at = NOW() 
-                         WHERE user_id = $1 AND is_active = true AND NOT (vendista_terminal_id = ANY($2::int[]))`,
+                         WHERE user_id = $1 AND NOT (vendista_terminal_id = ANY($2::int[]))`,
                         [user.id, vendistaTerminalIds]
                     );
                 } else {
