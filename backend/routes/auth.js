@@ -266,7 +266,7 @@ router.post('/complete-registration', async (req, res) => {
     
     console.log(`[POST /api/auth/complete-registration] Attempting to register user, TG ID: ${telegram_id}`);
 
-    if (!telegram_id || !vendista_api_token_plain || !setup_date || !final_first_name) {
+    if (!telegram_id || !vendista_api_token_plain || !setup_date) {
         const errorMsg = 'Одно или несколько обязательных полей для регистрации отсутствовали.';
         console.error(`[POST /api/auth/complete-registration] Validation Failed for TG ID ${telegram_id}. Error: ${errorMsg}. Body:`, req.body);
         
@@ -278,12 +278,12 @@ router.post('/complete-registration', async (req, res) => {
             errorMessage: 'A user failed to complete registration due to missing required fields. This might indicate a frontend issue.',
             additionalInfo: { 
                 note: "This error occurs when the backend endpoint /api/auth/complete-registration does not receive all required data from the client.",
-                expected: ['telegram_id', 'vendista_api_token_plain', 'setup_date', 'first_name (or firstName)'],
+                expected: ['telegram_id', 'vendista_api_token_plain', 'setup_date'],
                 receivedBody: req.body 
             }
         }).catch(err => console.error("Failed to send admin notification for missing registration fields:", err));
 
-        return res.status(400).json({ success: false, error: 'Все поля являются обязательными: telegram_id, токен Vendista, дата установки, имя.' });
+        return res.status(400).json({ success: false, error: 'Все поля являются обязательными: telegram_id, токен Vendista, дата установки.' });
     }
 
     const client = await pool.connect();
