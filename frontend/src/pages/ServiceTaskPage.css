@@ -1,0 +1,73 @@
+.service-page-container {
+    padding: 20px;
+    background-color: #1a1d21;
+    min-height: 100vh;
+    color: #e0e0e0;
+    box-sizing: border-box;
+}
+
+.service-page-container h2 {
+    text-align: center;
+    color: #fff;
+}
+
+.task-card {
+    background-color: #282c34;
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 400px;
+    margin: 20px auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.task-header {
+    font-size: 1.4em;
+    font-weight: 600;
+    color: #8ae6ff;
+    border-bottom: 1px solid #3a3e47;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+.task-body p {
+    margin: 8px 0;
+    font-size: 1.1em;
+    line-height: 1.5;
+}
+
+.task-body strong {
+    color: #a0b0c8;
+    margin-right: 8px;
+}
+
+.task-footer {
+    margin-top: 25px;
+    text-align: center;
+}
+
+.complete-btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    width: 100%;
+}
+
+.complete-btn:hover {
+    background-color: #45a049;
+}
+
+.complete-btn:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}
+
+.error-message {
+    color: #e57373;
+    text-align: center;
+} 

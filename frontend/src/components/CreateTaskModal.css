@@ -1,0 +1,105 @@
+/* frontend/src/components/CreateTaskModal.css */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.create-task-modal-content {
+    background: #282c34;
+    padding: 16px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    border: 1px solid #4a4f58;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #3a3e47;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #e0e0e0;
+}
+
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-section label, .form-group label {
+    font-size: 0.9em;
+    color: #a0b0c8;
+    font-weight: 500;
+}
+
+/* Re-using StandNavigator which has its own styles */
+/* We just need to ensure it fits well */
+.form-section .stand-navigator-container {
+    margin-left: -8px;
+    margin-right: -8px;
+}
+
+.task-type-selector {
+    display: flex;
+    gap: 8px;
+}
+
+.task-type-btn {
+    flex: 1;
+    padding: 8px;
+    font-size: 0.95em;
+    background-color: #3a3e47;
+    border: 1px solid #4a4f58;
+    color: #a0b0c8;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.task-type-btn.active {
+    background-color: #4f81c7;
+    border-color: #4f81c7;
+    color: #fff;
+    font-weight: 500;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 8px;
+    border-top: 1px solid #3a3e47;
+}
+
+.modal-footer .action-btn,
+.modal-footer .secondary-btn {
+    text-transform: none;
+    font-size: 0.95em;
+    padding: 8px 16px;
+} 

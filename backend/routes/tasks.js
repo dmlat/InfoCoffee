@@ -4,8 +4,10 @@ const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const pool = require('../db');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
-const { sendNotification } = require('../utils/botNotifier');
+const { sendNotificationWithKeyboard } = require('../utils/botHelpers');
 const moment = require('moment-timezone'); // Added for date handling
+
+const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL || '';
 
 // Получить все терминалы и их текущие настройки обслуживания
 router.get('/settings', authMiddleware, async (req, res) => {
@@ -96,37 +98,101 @@ router.post('/settings', authMiddleware, async (req, res) => {
     }
 });
 
+// Создать задачу вручную
+router.post('/create-manual', authMiddleware, async (req, res) => {
+    const { ownerUserId, telegramId: creatorId } = req.user;
+    const { terminal_id, task_type, assignee_ids, comment } = req.body;
+
+    if (!terminal_id || !task_type || !assignee_ids || assignee_ids.length === 0) {
+        return res.status(400).json({ success: false, error: 'Не все поля для создания задачи заполнены.' });
+    }
+
+    try {
+        // 1. Проверка, что терминал принадлежит пользователю
+        const termRes = await pool.query(
+            'SELECT name FROM terminals WHERE id = $1 AND user_id = $2',
+            [terminal_id, ownerUserId]
+        );
+        if (termRes.rowCount === 0) {
+            return res.status(403).json({ success: false, error: 'Доступ к терминалу запрещен.' });
+        }
+        const terminalName = termRes.rows[0].name;
+
+        // 2. Создание задачи
+        const details = {
+            comment: comment || null,
+            created_by: creatorId
+        };
+        const insertRes = await pool.query(
+            `INSERT INTO service_tasks (terminal_id, task_type, status, details, assignee_ids)
+             VALUES ($1, $2, 'pending', $3, $4) RETURNING id`,
+            [terminal_id, task_type, JSON.stringify(details), assignee_ids]
+        );
+        const newTaskId = insertRes.rows[0].id;
+
+        // 3. Отправка уведомления
+        const taskTypeName = task_type === 'restock' ? 'Пополнение' : 'Уборка';
+        let message = `<b>Новая задача: ${taskTypeName}</b>\n\nСтойка: <b>${terminalName}</b>`;
+        if (comment) {
+            message += `\n\nКомментарий: <i>${comment}</i>`;
+        }
+
+        const keyboard = {
+            inline_keyboard: [[{ text: '🗃 Открыть задачу', url: `${WEB_APP_URL}/servicetask?taskId=${newTaskId}` }]]
+        };
+        
+        for (const assigneeId of assignee_ids) {
+            sendNotificationWithKeyboard(assigneeId, message, keyboard).catch(console.error);
+        }
+
+        res.status(201).json({ success: true, message: 'Задача успешно создана.' });
+
+    } catch (err) {
+        console.error(`[POST /api/tasks/create-manual] UserID: ${ownerUserId} - Error:`, err);
+        sendErrorToAdmin({
+            userId: ownerUserId,
+            errorContext: 'POST /api/tasks/create-manual',
+            errorMessage: err.message,
+            errorStack: err.stack,
+            additionalInfo: { body: req.body }
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при создании задачи.' });
+    }
+});
+
 
 // Получить журнал задач
 router.get('/', authMiddleware, async (req, res) => {
     const { ownerUserId } = req.user;
-    const { dateFrom } = req.query;
+    // Оставляем возможность фильтрации, но по умолчанию берем задачи за последние 30 дней
+    const dateFrom = req.query.dateFrom || moment().subtract(30, 'days').toISOString();
 
-    const query = `
-        SELECT
-            t.id,
-            t.terminal_id,
-            term.name as terminal_name, -- Имя терминала
-            t.task_type,
-            t.status,
-            t.created_at,
-            t.completed_at,
-            -- Восстанавливаем корректную логику для получения имен исполнителей из массива
-            (
-                SELECT array_agg(COALESCE(u.first_name, u.user_name, 'Unknown'))
-                FROM unnest(t.assignee_ids) AS assignee_id
-                JOIN users u ON u.id = assignee_id
-            ) as assignee_names
-        FROM service_tasks t
-        JOIN terminals term ON t.terminal_id = term.id
-        WHERE term.user_id = $1
-          AND (t.status = 'pending' OR t.status = 'assigned' OR t.completed_at >= $2)
-        ORDER BY t.created_at DESC
-    `;
-    
     try {
-        const from = dateFrom || new Date(new Date().setDate(new Date().getDate() - 30)).toISOString();
-        const result = await pool.query(query, [ownerUserId, from]);
+        const query = `
+            SELECT
+                t.id,
+                t.terminal_id,
+                term.name as terminal_name,
+                t.task_type,
+                t.status,
+                t.created_at,
+                t.completed_at,
+                t.details,
+                (
+                    SELECT array_agg(name)
+                    FROM (
+                        SELECT u.first_name AS name FROM users u WHERE u.id = term.user_id AND u.telegram_id = ANY(t.assignee_ids)
+                        UNION
+                        SELECT uar.shared_with_name AS name FROM user_access_rights uar WHERE uar.owner_user_id = term.user_id AND uar.shared_with_telegram_id = ANY(t.assignee_ids)
+                    ) AS names
+                ) as assignees
+            FROM service_tasks t
+            JOIN terminals term ON t.terminal_id = term.id
+            WHERE term.user_id = $1
+              AND (t.status = 'pending' OR t.completed_at >= $2)
+            ORDER BY t.created_at DESC
+        `;
+        const result = await pool.query(query, [ownerUserId, dateFrom]);
         res.json({ success: true, tasks: result.rows });
     } catch (err) {
         console.error(`[GET /api/tasks] UserID: ${ownerUserId} - Error:`, err);
@@ -139,6 +205,119 @@ router.get('/', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, error: 'Ошибка сервера при получении журнала задач.' });
     }
 });
+
+// Получить задачи, назначенные на ТЕКУЩЕГО пользователя
+router.get('/my', authMiddleware, async (req, res) => {
+    const { telegramId } = req.user;
+    try {
+        const query = `
+            SELECT
+                t.id,
+                t.terminal_id,
+                term.name as terminal_name,
+                t.task_type,
+                t.status,
+                t.created_at,
+                t.details
+            FROM service_tasks t
+            JOIN terminals term ON t.terminal_id = term.id
+            WHERE t.status = 'pending' AND $1::bigint = ANY(t.assignee_ids)
+            ORDER BY t.created_at DESC
+        `;
+        const result = await pool.query(query, [telegramId]);
+        res.json({ success: true, tasks: result.rows });
+    } catch (err) {
+        console.error(`[GET /api/tasks/my] UserID: ${req.user.userId} - Error:`, err);
+        sendErrorToAdmin({
+            userId: req.user.userId,
+            errorContext: 'GET /api/tasks/my',
+            errorMessage: err.message,
+            errorStack: err.stack,
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при получении назначенных задач.' });
+    }
+});
+
+
+// Получить информацию для блока "Пополнение"
+router.get('/restock-info', authMiddleware, async (req, res) => {
+    const { ownerUserId } = req.user;
+    try {
+        const query = `
+            SELECT
+                t.id,
+                t.name,
+                COALESCE(
+                    (SELECT json_agg(
+                        json_build_object(
+                            'name', i.item_name,
+                            'percentage', ROUND(i.current_stock / NULLIF(i.max_stock, 0) * 100),
+                            'critical', (i.current_stock <= i.critical_stock)
+                        ) ORDER BY i.item_name
+                    )
+                    FROM inventories i
+                    WHERE i.terminal_id = t.id AND i.location = 'machine' AND i.max_stock > 0),
+                    '[]'::json
+                ) as ingredients
+            FROM terminals t
+            WHERE t.user_id = $1 AND t.is_active = true
+            ORDER BY t.name ASC
+        `;
+        const result = await pool.query(query, [ownerUserId]);
+        res.json({ success: true, restockInfo: result.rows });
+    } catch (err) {
+        console.error(`[GET /api/tasks/restock-info] UserID: ${ownerUserId} - Error:`, err);
+        sendErrorToAdmin({
+            userId: ownerUserId,
+            errorContext: 'GET /api/tasks/restock-info',
+            errorMessage: err.message,
+            errorStack: err.stack,
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при получении данных для пополнения.' });
+    }
+});
+
+// Отметить задачу как выполненную
+router.post('/:taskId/complete', authMiddleware, async (req, res) => {
+    const { telegramId, ownerUserId } = req.user;
+    const { taskId } = req.params;
+
+    try {
+        const taskRes = await pool.query(
+            `UPDATE service_tasks
+             SET status = 'completed', completed_at = NOW()
+             WHERE id = $1 AND ($2::bigint = ANY(assignee_ids) OR EXISTS (SELECT 1 FROM terminals WHERE id = terminal_id AND user_id = $3)) AND status = 'pending'
+             RETURNING id, task_type, terminal_id`,
+            [taskId, telegramId, ownerUserId]
+        );
+
+        if (taskRes.rowCount === 0) {
+            return res.status(403).json({ success: false, error: 'Задача не найдена, уже выполнена, или у вас нет прав на её выполнение.' });
+        }
+        
+        // Если была выполнена задача на чистку, сбрасываем счетчик в терминале
+        const completedTask = taskRes.rows[0];
+        if (completedTask.task_type === 'cleaning') {
+            await pool.query(
+                'UPDATE terminals SET sales_since_cleaning = 0 WHERE id = $1',
+                [completedTask.terminal_id]
+            );
+             console.log(`[POST /:taskId/complete] Sales counter reset for terminal #${completedTask.terminal_id}`);
+        }
+
+        res.json({ success: true, message: 'Задача выполнена' });
+    } catch (err) {
+        console.error(`[POST /api/tasks/:id/complete] UserID: ${req.user.userId} - Error:`, err);
+        sendErrorToAdmin({
+            userId: req.user.userId,
+            errorContext: `POST /api/tasks/${taskId}/complete`,
+            errorMessage: err.message,
+            errorStack: err.stack,
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при выполнении задачи.' });
+    }
+});
+
 
 // Удалить задачу
 router.delete('/:taskId', authMiddleware, async (req, res) => {

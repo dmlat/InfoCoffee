@@ -8,6 +8,7 @@ const { sendNotification } = require('../utils/botNotifier'); // <-- НОВЫЙ 
 const { sendNotificationWithKeyboard } = require('../utils/botHelpers'); // <-- НОВЫЙ ИМПОРТ
 
 const VENDISTA_API_URL = process.env.VENDISTA_API_BASE_URL || 'https://api.vendista.ru:99';
+const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL || ''; // URL для веб-приложения
 const MAX_RETRIES = 5;
 const INITIAL_RETRY_DELAY_MS = 2000;
 // ИЗМЕНЕНО: Увеличиваем задержку между запросами страниц до 1.5 секунд
@@ -30,97 +31,147 @@ async function getAdminsAndOwner(ownerUserId, client) { // client is unused now 
     return [...new Set(adminIds)]; // Возвращаем уникальные ID
 }
 
-// НОВАЯ ФУНКЦИЯ для проверки остатков и создания задачи
-async function checkStockAndCreateTask(ownerUserId, internalTerminalId, updatedItems, client) { // client is unused now
-    if (!updatedItems || updatedItems.length === 0) return;
+// Вспомогательная функция для отправки уведомлений
+async function sendTaskNotifications(ownerUserId, taskId, taskType, terminalName, details, assignee_ids) {
+    const taskTypeName = taskType === 'restock' ? 'Пополнение' : 'Уборка';
+    const detailsText = taskType === 'restock' ? `\nТребуется пополнить: ${details.items}` : '';
+    const assigneeMessage = `<b>Новая задача: ${taskTypeName}</b>\n\nСтойка: <b>${terminalName}</b>${detailsText}`;
+    
+    // 1. Уведомление исполнителям с кнопкой
+    const keyboard = {
+        inline_keyboard: [[{ text: '🗃 Открыть задачу', url: `${WEB_APP_URL}/servicetask?taskId=${taskId}` }]]
+    };
+    for (const telegramId of assignee_ids) {
+        sendNotificationWithKeyboard(telegramId, assigneeMessage, keyboard).catch(console.error);
+    }
 
+    // 2. Уведомление владельцу и админам
+    const adminIds = await getAdminsAndOwner(ownerUserId);
+    
+    // Получаем имена всех, кто есть в списке, включая владельца
+    const assigneesInfo = await pool.query(`
+        WITH all_participants AS (
+            SELECT telegram_id::bigint, first_name AS name FROM users WHERE id = $1
+            UNION
+            SELECT shared_with_telegram_id, shared_with_name AS name FROM user_access_rights WHERE owner_user_id = $1
+        )
+        SELECT name FROM all_participants WHERE telegram_id = ANY($2::bigint[])
+        `, [ownerUserId, assignee_ids]);
+
+    const assigneeNames = assigneesInfo.rows.map(r => r.name).filter(Boolean).join(', ');
+    const adminMessage = `ℹ️ Поставлена задача "${taskTypeName}" на стойку "<b>${terminalName}</b>".\n\nНазначены: ${assigneeNames || 'не указаны'}`;
+
+    for (const adminId of adminIds) {
+        if (!assignee_ids.includes(adminId)) {
+            sendNotification(adminId, adminMessage).catch(console.error);
+        }
+    }
+}
+
+
+// ОБНОВЛЕННАЯ ФУНКЦИЯ для проверки и создания задач
+async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
     try {
+        // 1. Получаем настройки и текущее состояние терминала
         const settingsRes = await pool.query(
-            `SELECT cleaning_frequency, restock_thresholds, assignee_ids FROM stand_service_settings WHERE terminal_id = $1`,
+            `SELECT
+                s.cleaning_frequency,
+                s.assignee_ids,
+                t.sales_since_cleaning,
+                t.name as terminal_name
+            FROM terminals t
+            LEFT JOIN stand_service_settings s ON t.id = s.terminal_id
+            WHERE t.id = $1`,
             [internalTerminalId]
         );
-        // Если настроек для терминала нет, задачи не создаем
-        if (settingsRes.rowCount === 0 || !settingsRes.rows[0].assignee_ids || settingsRes.rows[0].assignee_ids.length === 0) {
-            return;
+
+        if (settingsRes.rowCount === 0) return;
+        
+        const settings = settingsRes.rows[0];
+        const { cleaning_frequency, assignee_ids, sales_since_cleaning, terminal_name } = settings;
+
+        if (!assignee_ids || assignee_ids.length === 0) {
+            return; // Нет исполнителей, нет задач.
         }
-        const { restock_thresholds, assignee_ids } = settingsRes.rows[0];
 
-        // Получаем текущие остатки и крит. значения для измененных товаров
-        const itemNames = updatedItems.map(i => i.item_name);
+        // --- 2. Логика для пополнения (Restock) ---
         const stockRes = await pool.query(
-            `SELECT item_name, current_stock, critical_stock FROM inventories WHERE terminal_id = $1 AND item_name = ANY($2::text[]) AND location = 'machine' AND critical_stock IS NOT NULL`,
-            [internalTerminalId, itemNames]
+            `SELECT item_name, current_stock, critical_stock FROM inventories 
+             WHERE terminal_id = $1 AND location = 'machine' AND critical_stock IS NOT NULL AND current_stock <= critical_stock`,
+            [internalTerminalId]
         );
+        
+        const itemsToRestock = stockRes.rows.map(r => r.item_name);
 
-        let itemsToRestock = [];
-        for (const stockItem of stockRes.rows) {
-            // Проверяем, нужно ли пополнять
-            if (stockItem.current_stock > 0 && stockItem.critical_stock > 0 && stockItem.current_stock <= stockItem.critical_stock * 2) {
-                itemsToRestock.push(stockItem.item_name);
+        if (itemsToRestock.length > 0) {
+            const existingTaskRes = await pool.query(
+                `SELECT id FROM service_tasks WHERE terminal_id = $1 AND task_type = 'restock' AND status = 'pending'`,
+                [internalTerminalId]
+            );
+
+            if (existingTaskRes.rowCount === 0) {
+                const taskDetails = { items: itemsToRestock.join(', ') };
+                const insertRes = await pool.query(
+                    `INSERT INTO service_tasks (terminal_id, task_type, status, details, assignee_ids)
+                     VALUES ($1, 'restock', 'pending', $2, $3) RETURNING id`,
+                    [internalTerminalId, JSON.stringify(taskDetails), assignee_ids]
+                );
+                const newTaskId = insertRes.rows[0].id;
+                console.log(`[Worker] User ${ownerUserId} - Created restock task #${newTaskId} for terminal ${terminal_name}`);
+
+                await sendTaskNotifications(ownerUserId, newTaskId, 'restock', terminal_name, taskDetails, assignee_ids);
             }
         }
-        
-        if (itemsToRestock.length === 0) return;
 
-        // Проверяем, есть ли уже активная задача на пополнение для этой стойки
-        const existingTaskRes = await pool.query(
-            `SELECT id FROM service_tasks WHERE terminal_id = $1 AND task_type = 'restock' AND status = 'pending'`,
-            [internalTerminalId]
-        );
+        // --- 3. Логика для уборки (Cleaning) ---
+        if (cleaning_frequency > 0 && sales_since_cleaning >= cleaning_frequency) {
+            const existingTaskRes = await pool.query(
+                `SELECT id FROM service_tasks WHERE terminal_id = $1 AND task_type = 'cleaning' AND status = 'pending'`,
+                [internalTerminalId]
+            );
 
-        if (existingTaskRes.rowCount > 0) {
-            // Уже есть активная задача, ничего не делаем
-            return;
-        }
+            if (existingTaskRes.rowCount === 0) {
+                // Создаем задачу и СБРАСЫВАЕМ СЧЕТЧИК
+                const client = await pool.connect();
+                try {
+                    await client.query('BEGIN');
+                    const insertRes = await client.query(
+                        `INSERT INTO service_tasks (terminal_id, task_type, status, assignee_ids)
+                         VALUES ($1, 'cleaning', 'pending', $2) RETURNING id`,
+                        [internalTerminalId, assignee_ids]
+                    );
+                    const newTaskId = insertRes.rows[0].id;
+                    await client.query(
+                        'UPDATE terminals SET sales_since_cleaning = 0 WHERE id = $1',
+                        [internalTerminalId]
+                    );
+                    await client.query('COMMIT');
+                    console.log(`[Worker] User ${ownerUserId} - Created cleaning task #${newTaskId} for terminal ${terminal_name} and reset counter.`);
 
-        // --- Создаем задачу ---
-        const terminalDetails = await pool.query('SELECT name FROM terminals WHERE id = $1', [internalTerminalId]);
-        const terminalName = terminalDetails.rows[0]?.name || `Терминал #${internalTerminalId}`;
+                    await sendTaskNotifications(ownerUserId, newTaskId, 'cleaning', terminal_name, null, assignee_ids);
 
-        const taskDetails = { items: itemsToRestock.join(', ') };
-        const insertRes = await pool.query(
-            `INSERT INTO service_tasks (terminal_id, owner_user_id, task_type, status, details, assignee_ids)
-             VALUES ($1, $2, 'restock', 'pending', $3, $4) RETURNING id`,
-            [internalTerminalId, ownerUserId, JSON.stringify(taskDetails), assignee_ids]
-        );
-        const newTaskId = insertRes.rows[0].id;
-        console.log(`[Worker] User ${ownerUserId} - Created restock task #${newTaskId} for terminal ${terminalName}`);
-
-        // --- Отправляем уведомления ---
-        // 1. Исполнителям
-        const assigneeMessage = `<b>Новая задача: Пополнение</b>\n\nСтойка: <b>${terminalName}</b>\nТребуется пополнить: ${taskDetails.items}`;
-        const keyboard = {
-            inline_keyboard: [[{ text: '✅ Выполнено', callback_data: `task_complete_${newTaskId}` }]]
-        };
-        for (const telegramId of assignee_ids) {
-            sendNotificationWithKeyboard(telegramId, assigneeMessage, keyboard).catch(console.error);
-        }
-
-        // 2. Владельцу и админам
-        const adminIds = await getAdminsAndOwner(ownerUserId, pool); // Pass pool instead of client
-        const assigneesInfo = await pool.query('SELECT name FROM users WHERE telegram_id = ANY($1::bigint[])', [assignee_ids]);
-        const assigneeNames = assigneesInfo.rows.map(r => r.name).join(', ');
-        
-        const adminMessage = `ℹ️ Поставлена задача на пополнение стойки "<b>${terminalName}</b>".\n\nНазначены: ${assigneeNames || 'не указаны'}`;
-        for (const adminId of adminIds) {
-            // Не отправляем дубликат, если админ и есть исполнитель
-            if (!assignee_ids.includes(adminId)) {
-                sendNotification(adminId, adminMessage).catch(console.error);
+                } catch (e) {
+                    await client.query('ROLLBACK');
+                    throw e; // Пробрасываем ошибку выше
+                } finally {
+                    client.release();
+                }
             }
         }
     } catch (e) {
-        console.error(`[Worker] User ${ownerUserId} - Failed to check stock and create task for terminal ${internalTerminalId}:`, e.message);
+        console.error(`[Worker] User ${ownerUserId} - Failed to check and create tasks for terminal ${internalTerminalId}:`, e.message);
         sendErrorToAdmin({
             userId: ownerUserId,
-            errorContext: `Check Stock & Create Task for Terminal ${internalTerminalId}`,
-            errorMessage: e.message
+            errorContext: `Check & Create Tasks for Terminal ${internalTerminalId}`,
+            errorMessage: e.message,
+            errorStack: e.stack
         }).catch(console.error);
     }
 }
 
 
 // ФУНКЦИЯ для обработки транзакций (продаж и возвратов)
-async function processInventoryUpdate(ownerUserId, transaction, client) { // client is unused now
+async function processInventoryUpdate(ownerUserId, transaction) {
     if (!transaction.term_id || !transaction.machine_item_id) {
         return; // Нечего обрабатывать
     }
@@ -150,22 +201,49 @@ async function processInventoryUpdate(ownerUserId, transaction, client) { // cli
         );
         if (recipeRes.rowCount === 0) return; // Рецепт не найден
 
-        for (const item of recipeRes.rows) {
-            if (item.quantity > 0) {
-                const quantityChange = item.quantity * operation;
-                await pool.query(
-                    `UPDATE inventories
-                     SET current_stock = current_stock + $1, updated_at = NOW()
-                     WHERE terminal_id = $2 AND item_name = $3 AND location = 'machine'`,
-                    [quantityChange, internalTerminalId, item.item_name]
-                );
-            }
-        }
         
-        // --- ВЫЗОВ НОВОЙ ФУНКЦИИ ---
-        // Проверяем остатки только после списания (продажи)
+        // --- ОБНОВЛЕННАЯ ЛОГИКА ---
         if (isSale) {
-            await checkStockAndCreateTask(ownerUserId, internalTerminalId, recipeRes.rows, pool); // Pass pool
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                // Списываем ингредиенты
+                for (const item of recipeRes.rows) {
+                    if (item.quantity > 0) {
+                        await client.query(
+                            `UPDATE inventories
+                             SET current_stock = current_stock - $1, updated_at = NOW()
+                             WHERE terminal_id = $2 AND item_name = $3 AND location = 'machine'`,
+                            [item.quantity * operation, internalTerminalId, item.item_name]
+                        );
+                    }
+                }
+                // Инкрементируем счетчик продаж
+                await client.query(
+                    `UPDATE terminals SET sales_since_cleaning = sales_since_cleaning + 1, updated_at = NOW() WHERE id = $1`,
+                    [internalTerminalId]
+                );
+                await client.query('COMMIT');
+                // Запускаем проверку на создание задач (вне транзакции)
+                await checkAndCreateTasks(ownerUserId, internalTerminalId);
+
+            } catch (e) {
+                await client.query('ROLLBACK');
+                throw e; // Пробрасываем ошибку, чтобы она была поймана внешним try/catch
+            } finally {
+                client.release();
+            }
+        } else { // Это возврат
+             for (const item of recipeRes.rows) {
+                if (item.quantity > 0) {
+                     await pool.query(
+                        `UPDATE inventories
+                         SET current_stock = current_stock + $1, updated_at = NOW()
+                         WHERE terminal_id = $2 AND item_name = $3 AND location = 'machine'`,
+                        [item.quantity * operation, internalTerminalId, item.item_name]
+                    );
+                }
+            }
         }
 
         console.log(`[Worker] User ${ownerUserId} - Processed inventory for Tx ${transaction.id} (${logPrefix})`);
@@ -280,7 +358,7 @@ async function importTransactionsForPeriod({
             }
 
             // Обрабатываем обновление инвентаря для каждой транзакции
-            await processInventoryUpdate(ownerUserId, tr, pool); // Pass pool
+            await processInventoryUpdate(ownerUserId, tr);
         }
         
         console.log(`${logPrefix}: Страница ${currentPage} обработана. Всего: ${transactionsProcessed}, Новых: ${newTransactionsAdded}, Обновлено: ${transactionsUpdated}.`);
@@ -341,4 +419,4 @@ async function startImport({ user_id, vendistaApiToken, first_coffee_date }) {
     return importTransactionsForPeriod({ ownerUserId: user_id, vendistaApiToken, dateFrom, dateTo, fetchAllPages: true });
 }
 
-module.exports = { importTransactionsForPeriod, startImport, processInventoryUpdate, checkStockAndCreateTask };
+module.exports = { importTransactionsForPeriod, startImport, processInventoryUpdate, checkAndCreateTasks };

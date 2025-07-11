@@ -1,4 +1,5 @@
 // backend/bot.js
+require('./utils/logger'); // <--- ГЛОБАЛЬНОЕ ПОДКЛЮЧЕНИЕ ЛОГГЕРА
 const path = require('path');
 const TelegramBot = require('node-telegram-bot-api');
 const pool = require('./db');
@@ -105,12 +106,15 @@ const userState = {};
 async function getUser(telegramId) {
     const ownerRes = await pool.query('SELECT id FROM users WHERE telegram_id = $1 AND vendista_api_token IS NOT NULL', [telegramId]);
     if (ownerRes.rows.length > 0) {
+        console.log(`[Bot GetUser] TG ID ${telegramId} is an OWNER (User ID: ${ownerRes.rows[0].id})`);
         return { type: 'owner', ownerUserId: ownerRes.rows[0].id };
     }
     const accessRes = await pool.query('SELECT owner_user_id, access_level FROM user_access_rights WHERE shared_with_telegram_id = $1', [telegramId]);
     if (accessRes.rows.length > 0 && accessRes.rows[0].access_level === 'admin') {
+        console.log(`[Bot GetUser] TG ID ${telegramId} is an ADMIN for User ID: ${accessRes.rows[0].owner_user_id}`);
         return { type: 'admin', ownerUserId: accessRes.rows[0].owner_user_id };
     }
+    console.log(`[Bot GetUser] TG ID ${telegramId} is UNAUTHORIZED.`);
     return { type: 'unauthorized', ownerUserId: null };
 }
 

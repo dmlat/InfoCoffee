@@ -7,10 +7,10 @@ const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 
 // Перемещение остатков
 router.post('/move', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.ownerUserId;
+    const { ownerUserId, telegramId, accessLevel } = req.user;
     const { from, to, item_name, quantity } = req.body;
 
-    console.log(`[POST /api/inventory/move] UserID: ${ownerUserId} - Request: ${item_name} (${quantity}) from ${JSON.stringify(from)} to ${JSON.stringify(to)}`);
+    console.log(`[POST /api/inventory/move] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, Level: ${accessLevel} - Request: ${item_name} (${quantity}) from ${JSON.stringify(from)} to ${JSON.stringify(to)}`);
 
     if (!from || !to || !item_name || isNaN(parseFloat(quantity)) || quantity <= 0) {
         return res.status(400).json({ success: false, error: 'Не все поля для перемещения заполнены корректно.' });
@@ -73,6 +73,35 @@ router.post('/move', authMiddleware, async (req, res) => {
             );
         }
 
+        // 3. АВТОМАТИЧЕСКОЕ ЗАКРЫТИЕ ЗАДАЧ
+        // Если перемещение было в стойку (на машину)
+        if (to.location === 'machine' && toTerminalId) {
+            const newStock = toUpdateRes.rows[0].current_stock;
+            const itemInfoRes = await client.query(
+                'SELECT critical_stock FROM inventories WHERE user_id = $1 AND terminal_id = $2 AND item_name = $3 AND location = $4',
+                [ownerUserId, toTerminalId, item_name, 'machine']
+            );
+
+            if (itemInfoRes.rowCount > 0 && itemInfoRes.rows[0].critical_stock !== null) {
+                const criticalStock = itemInfoRes.rows[0].critical_stock;
+                // Если новый остаток стал больше критического
+                if (newStock > criticalStock) {
+                    const updateTasksRes = await client.query(
+                       `UPDATE service_tasks
+                        SET status = 'completed', completed_at = NOW()
+                        WHERE terminal_id = $1
+                          AND task_type = 'restock'
+                          AND status = 'pending'
+                          AND details->>'items' ILIKE $2`,
+                       [toTerminalId, `%${item_name}%`]
+                    );
+                    if (updateTasksRes.rowCount > 0) {
+                        console.log(`[POST /api/inventory/move] OwnerID: ${ownerUserId} - Auto-closed ${updateTasksRes.rowCount} restock task(s) for terminal ${toTerminalId} involving ${item_name}.`);
+                    }
+                }
+            }
+        }
+
         await client.query('COMMIT');
         
         res.json({ 
@@ -86,9 +115,9 @@ router.post('/move', authMiddleware, async (req, res) => {
 
     } catch(err) {
         await client.query('ROLLBACK');
-        console.error(`[POST /api/inventory/move] UserID: ${ownerUserId} - Error:`, err);
+        console.error(`[POST /api/inventory/move] OwnerID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
-            userId: ownerUserId, errorContext: `POST /api/inventory/move`,
+            userId: ownerUserId, errorContext: `POST /api/inventory/move - OwnerID: ${ownerUserId}`,
             errorMessage: err.message, errorStack: err.stack, additionalInfo: { body: req.body }
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при перемещении остатков.' });
@@ -99,7 +128,7 @@ router.post('/move', authMiddleware, async (req, res) => {
 
 // Обработать продажу и списать остатки по рецепту
 router.post('/process-sale', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.ownerUserId;
+    const { ownerUserId, telegramId } = req.user;
     const { transaction } = req.body;
 
     if (!transaction || !transaction.term_id || !transaction.machine_item_id) {
@@ -108,6 +137,7 @@ router.post('/process-sale', authMiddleware, async (req, res) => {
     
     // ВРЕМЕННО ОТКЛЮЧАЕМ ПРЯМОЕ СПИСАНИЕ.
     // Логика будет перенесена в воркер для надежной обработки продаж и возвратов.
+    console.log(`[POST /api/inventory/process-sale] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Request acknowledged, will be handled by worker.`);
     return res.status(200).json({ success: true, message: 'Transaction acknowledged. Processing will be handled by the worker.' });
 
     /*
@@ -157,9 +187,9 @@ router.post('/process-sale', authMiddleware, async (req, res) => {
 
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error(`[POST /api/inventory/process-sale] UserID: ${ownerUserId} - Error:`, err);
+        console.error(`[POST /api/inventory/process-sale] OwnerID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
-            userId: ownerUserId, errorContext: `POST /api/inventory/process-sale`,
+            userId: ownerUserId, errorContext: `POST /api/inventory/process-sale - OwnerID: ${ownerUserId}`,
             errorMessage: err.message, errorStack: err.stack, additionalInfo: { body: req.body }
         }).catch(console.error);
         res.status(200).json({ success: false, error: 'Server error during stock deduction.' });

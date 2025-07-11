@@ -19,7 +19,20 @@ This document describes the current PostgreSQL database schema used in the InfoC
 ---
 
 ## `users` Table
-Stores basic information about application users. The primary user record is created upon registration and linked to a Telegram account.
+Stores basic information about application users. These records represent the *owners* of coffee businesses. The primary user record is created upon registration and linked to a Telegram account.
+
+| Column               | Type           | Nullable | Description                                                                                                                                                            |
+| -------------------- | -------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id` (PK)            | `SERIAL`       | NOT NULL | Unique internal identifier for the user. Primary key.                                                                                                                  |
+| `telegram_id` (UQ)   | `BIGINT`       | NOT NULL | The user's unique Telegram ID. Used as the primary identifier for linking with the Telegram Mini App.                                                                  |
+| `vendista_api_token` | `TEXT`         | NULL     | The encrypted API token for accessing the Vendista service on behalf of the user. Populated during the first step of registration.                                       |
+| `first_name`         | `VARCHAR(255)` | NULL     | The user's first name, as provided by Telegram during the initial handshake.                                                                                           |
+| `user_name`          | `VARCHAR(255)` | NULL     | The user's Telegram username (handle), as provided by Telegram.                                                                                                        |
+| `setup_date`         | `DATE`         | NULL     | The date the user's first coffee machine was installed. **Crucial field**: This date is entered by the user during step 2 of registration and is used as the `Date From` for the initial full history import of transactions. |
+| `tax_system`         | `VARCHAR(32)`  | NULL     | The user's selected tax system (e.g., 'income_6', 'income_expense_15'). Set during registration step 2.                                                                |
+| `acquiring`          | `NUMERIC`      | NULL     | The acquiring commission rate as a percentage. Set during registration step 2.                                                                                         |
+| `created_at`         | `TIMESTAMP`    | NOT NULL | Timestamp of when the user record was created (i.e., when the user first interacted with the bot). `DEFAULT now()`. Not used for transaction import.                     |
+| `updated_at`         | `TIMESTAMP`    | NULL     | Timestamp of the last update to the user's record. `DEFAULT now()`.                                                                                                    |
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.users (
@@ -79,6 +92,7 @@ CREATE TABLE IF NOT EXISTS public.user_access_rights (
 | `last_synced_at`         | `TIMESTAMP WITH TIME ZONE` | NULL     | Время последней успешной синхронизации данных этого терминала воркером.                               |
 | `service_interval_sales` | `INTEGER`                | NULL     | **(Legacy)** Интервал обслуживания (в продажах).                                                     |
 | `sales_since_last_service` | `INTEGER`              | NULL     | **(Legacy)** Продаж с последнего обслуживания.                                                       |
+| `sales_since_cleaning`   | `INTEGER`                | NOT NULL | Счетчик продаж с момента последней задачи на уборку. Сбрасывается при создании задачи. (DEFAULT: 0) |
 | `created_at`             | `TIMESTAMP WITH TIME ZONE` | NOT NULL | Время создания записи.                                                                               |
 | `updated_at`             | `TIMESTAMP WITH TIME ZONE` | NOT NULL | Время последнего обновления записи.                                                                  |
 

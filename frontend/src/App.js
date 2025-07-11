@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import RegisterPage from './pages/RegisterPage';
 import Dashboard from './pages/Dashboard';
+import ServiceTaskPage from './pages/ServiceTaskPage'; // <-- НОВЫЙ ИМПОРТ
 import apiClient from './api';
 import { saveUserDataToLocalStorage, clearUserDataFromLocalStorage } from './utils/user';
 import './styles/auth.css';
@@ -141,27 +142,33 @@ function AuthProvider({ children }) {
 
 
 function AppRoutes({ authStatus, setIsAuth }) {
-    if (authStatus === 'service_access') {
-        return (
-            <Routes>
-                <Route path="*" element={<ServiceUserPage />} />
-            </Routes>
-        );
-    }
-
+    // `service_access` means the user is authenticated but has a specific, limited role.
     const isUserAuthenticated = authStatus === 'authenticated';
+    const isServiceUser = authStatus === 'service_access';
 
     return (
         <Routes>
             <Route path="/app-entry" element={<AppEntryPage />} />
             <Route path="/register" element={<RegisterPage setIsAuth={setIsAuth} />} />
+            
+            {/* Маршрут для выполнения задач доступен всем аутентифицированным пользователям */}
+            <Route 
+                path="/servicetask" 
+                element={(isUserAuthenticated || isServiceUser) ? <ServiceTaskPage /> : <Navigate to="/app-entry?reason=unauthenticated" replace />} 
+            />
+
             <Route 
                 path="/dashboard/*"
-                element={isUserAuthenticated ? <Dashboard setIsAuth={setIsAuth} /> : <Navigate to="/app-entry?reason=unauthenticated" replace />} 
+                element={isUserAuthenticated ? <Dashboard setIsAuth={setIsAuth} /> : <Navigate to="/app-entry?reason=unauthorized" replace />} 
             />
+            
             <Route 
                 path="/" 
-                element={<Navigate to={isUserAuthenticated ? "/dashboard" : "/app-entry"} replace />} 
+                element={
+                    isUserAuthenticated ? <Navigate to="/dashboard" replace /> :
+                    isServiceUser ? <ServiceUserPage /> : // <-- Показываем заглушку для сервис-юзеров
+                    <Navigate to="/app-entry" replace />
+                } 
             />
             <Route path="*" element={<Navigate to="/" replace />} /> 
         </Routes>

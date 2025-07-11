@@ -8,15 +8,15 @@ const { sendErrorToAdmin } = require('../utils/adminErrorNotifier'); // <--- Н�
 
 // --- Get User Profile Settings ---
 router.get('/settings', authMiddleware, async (req, res) => {
-    const userId = req.user.userId;
-    console.log(`[GET /api/profile/settings] User ID: ${userId}`);
+    const { ownerUserId, telegramId } = req.user;
+    console.log(`[GET /api/profile/settings] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching settings.`);
     try {
         const result = await pool.query(
             'SELECT id, setup_date, tax_system, acquiring, telegram_id, first_name, user_name FROM users WHERE id = $1',
-            [userId]
+            [ownerUserId] // Используем ownerUserId, так как настройки всегда принадлежат владельцу
         );
         if (result.rows.length === 0) {
-            console.log(`[GET /api/profile/settings] User profile not found for ID: ${userId}`);
+            console.warn(`[GET /api/profile/settings] OwnerID: ${ownerUserId} - User profile not found.`);
             return res.status(404).json({ success: false, error: 'User profile not found.' });
         }
         const settings = {
@@ -29,13 +29,12 @@ router.get('/settings', authMiddleware, async (req, res) => {
         delete settings.user_name;
         delete settings.id; // userId и так есть в req.user
 
-        console.log(`[GET /api/profile/settings] Settings found for user ID: ${userId}:`, settings);
         res.json({ success: true, settings: settings });
     } catch (err) {
-        console.error(`[GET /api/profile/settings] UserID: ${userId} - Error fetching profile settings:`, err);
+        console.error(`[GET /api/profile/settings] OwnerID: ${ownerUserId} - Error fetching profile settings:`, err);
         sendErrorToAdmin({
-            userId: userId,
-            errorContext: `GET /api/profile/settings - UserID: ${userId}`,
+            userId: ownerUserId,
+            errorContext: `GET /api/profile/settings - OwnerID: ${ownerUserId}`,
             errorMessage: err.message,
             errorStack: err.stack
         }).catch(notifyErr => console.error("Failed to send admin notification from GET /api/profile/settings:", notifyErr));
@@ -45,10 +44,14 @@ router.get('/settings', authMiddleware, async (req, res) => {
 
 // --- Update User Profile Settings ---
 router.post('/settings', authMiddleware, async (req, res) => {
-    const userId = req.user.userId;
+    const { ownerUserId, telegramId, accessLevel } = req.user;
     const { tax_system, acquiring, setup_date } = req.body;
-    console.log(`[POST /api/profile/settings] User ID: ${userId}, Body:`, req.body);
+    console.log(`[POST /api/profile/settings] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, Level: ${accessLevel} - Updating settings.`);
 
+    if (accessLevel !== 'owner' && accessLevel !== 'admin') {
+        return res.status(403).json({ success: false, error: 'Недостаточно прав для изменения настроек.' });
+    }
+    
     try {
         // ... (валидация остается прежней)
         const allowedTaxSystems = ['income_6', 'income_expense_15', null, ''];
@@ -96,13 +99,13 @@ router.post('/settings', authMiddleware, async (req, res) => {
 
         // Убрали first_name, user_name из RETURNING, если они не меняются здесь
         const queryText = `UPDATE users SET ${updateFields.join(', ')} WHERE id = $${queryIndex} RETURNING id, setup_date, tax_system, acquiring, updated_at`;
-        updateValues.push(userId);
+        updateValues.push(ownerUserId);
         
-        console.log(`[POST /api/profile/settings] Executing query: ${queryText} with values:`, updateValues);
+        console.log(`[POST /api/profile/settings] OwnerID: ${ownerUserId} - Executing update query.`);
         const result = await pool.query(queryText, updateValues);
 
         if (result.rowCount === 0) {
-            console.log(`[POST /api/profile/settings] User not found for update, ID: ${userId}`);
+            console.warn(`[POST /api/profile/settings] OwnerID: ${ownerUserId} - User not found for update.`);
             return res.status(404).json({ success: false, error: 'User not found for update.' });
         }
         
@@ -110,14 +113,14 @@ router.post('/settings', authMiddleware, async (req, res) => {
             ...result.rows[0],
             acquiring: result.rows[0].acquiring !== null ? String(result.rows[0].acquiring) : null
         };
-        console.log(`[POST /api/profile/settings] Profile updated successfully for user ID: ${userId}:`, updatedSettings);
+        console.log(`[POST /api/profile/settings] OwnerID: ${ownerUserId} - Profile updated successfully.`);
         res.json({ success: true, message: 'Profile settings updated successfully.', settings: updatedSettings });
 
     } catch (err) {
-        console.error(`[POST /api/profile/settings] UserID: ${userId} - Error updating profile settings:`, err);
+        console.error(`[POST /api/profile/settings] OwnerID: ${ownerUserId} - Error updating profile settings:`, err);
         sendErrorToAdmin({
-            userId: userId,
-            errorContext: `POST /api/profile/settings - UserID: ${userId}`,
+            userId: ownerUserId,
+            errorContext: `POST /api/profile/settings - OwnerID: ${ownerUserId}`,
             errorMessage: err.message,
             errorStack: err.stack,
             additionalInfo: { body: req.body }
@@ -128,8 +131,8 @@ router.post('/settings', authMiddleware, async (req, res) => {
 
 // --- Get Sync Status ---
 router.get('/sync-status', authMiddleware, async (req, res) => {
-    const userId = req.user.userId;
-    console.log(`[GET /api/profile/sync-status] User ID: ${userId}`);
+    const { ownerUserId, telegramId } = req.user;
+    console.log(`[GET /api/profile/sync-status] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching sync status.`);
     try {
         const generalImportJobNames = [
             '15-Min Import', 
@@ -143,7 +146,7 @@ router.get('/sync-status', authMiddleware, async (req, res) => {
             `SELECT MAX(last_run_at) as last_successful_sync
              FROM worker_logs 
              WHERE user_id = $1 AND status = 'success' AND job_name LIKE ANY($2::TEXT[])`,
-            [userId, generalImportJobNames.map(name => `%${name}%`)]
+            [ownerUserId]
         );
         
         const lastSyncTime = lastDownloadRes.rows[0]?.last_successful_sync || null;
@@ -153,14 +156,13 @@ router.get('/sync-status', authMiddleware, async (req, res) => {
             lastReturnsUpdate: lastSyncTime, 
             lastButtonsUpdate: lastSyncTime, 
         };
-        console.log(`[GET /api/profile/sync-status] Sync status for user ID: ${userId}:`, syncStatusData);
         res.json({ success: true, syncStatus: syncStatusData });
 
     } catch (err) {
-        console.error(`[GET /api/profile/sync-status] UserID: ${userId} - Error fetching sync status:`, err);
+        console.error(`[GET /api/profile/sync-status] OwnerID: ${ownerUserId} - Error fetching sync status:`, err);
         sendErrorToAdmin({
-            userId: userId,
-            errorContext: `GET /api/profile/sync-status - UserID: ${userId}`,
+            userId: ownerUserId,
+            errorContext: `GET /api/profile/sync-status - OwnerID: ${ownerUserId}`,
             errorMessage: err.message,
             errorStack: err.stack
         }).catch(notifyErr => console.error("Failed to send admin notification from GET /api/profile/sync-status:", notifyErr));

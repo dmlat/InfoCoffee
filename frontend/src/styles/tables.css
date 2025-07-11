@@ -44,7 +44,7 @@
 /* --- Стили для всех заголовков таблиц --- */
 .data-table th {
   padding: 10px 12px;
-  color: #8ae6ff;    
+  color: #a0b0c8;    
   font-weight: 600;  /* Сделал жирнее, как у заголовков */
   text-align: left; /* Выравнивание по умолчанию */
   border-bottom: 2px solid #4a4f58; /* Более толстая линия под шапкой */
@@ -136,3 +136,12 @@
     min-width: 80px;
   }
 }
+
+.page-loading-container {
+    text-align: center;
+    padding: 8px 12px;
+    color: #a0b0c8;
+    font-size: 0.9em;
+}
+
+/* --- Cleaning Settings Table Specific Styles --- */

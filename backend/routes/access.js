@@ -14,8 +14,10 @@ const formatAccessLevelName = (level) => {
 
 // Получить список всех, кому предоставлен доступ
 router.get('/', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.ownerUserId;
-    if (req.user.accessLevel !== 'owner' && req.user.accessLevel !== 'admin') {
+    const { ownerUserId, telegramId, accessLevel } = req.user;
+    console.log(`[GET /api/access] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, Level: ${accessLevel} - Fetching access list.`);
+
+    if (accessLevel !== 'owner' && accessLevel !== 'admin') {
         return res.status(403).json({ success: false, error: 'Недостаточно прав для просмотра доступов' });
     }
 
@@ -26,10 +28,10 @@ router.get('/', authMiddleware, async (req, res) => {
         );
         res.json({ success: true, accessList: result.rows });
     } catch (err) {
-        console.error(`[GET /api/access] UserID: ${ownerUserId} - Error:`, err);
+        console.error(`[GET /api/access] OwnerID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
             userId: ownerUserId,
-            errorContext: `GET /api/access - UserID: ${ownerUserId}`,
+            errorContext: `GET /api/access - OwnerID: ${ownerUserId}`,
             errorMessage: err.message,
             errorStack: err.stack
         }).catch(console.error);
@@ -39,10 +41,12 @@ router.get('/', authMiddleware, async (req, res) => {
 
 // Предоставить доступ новому пользователю
 router.post('/', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.ownerUserId;
+    const { ownerUserId, telegramId, accessLevel } = req.user;
     const { shared_with_telegram_id, shared_with_name, access_level } = req.body;
+    
+    console.log(`[POST /api/access] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, Level: ${accessLevel} - Granting access to TG ID ${shared_with_telegram_id}.`);
 
-    if (req.user.accessLevel !== 'owner' && req.user.accessLevel !== 'admin') {
+    if (accessLevel !== 'owner' && accessLevel !== 'admin') {
         return res.status(403).json({ success: false, error: 'Недостаточно прав для предоставления доступа' });
     }
 
@@ -50,7 +54,7 @@ router.post('/', authMiddleware, async (req, res) => {
         return res.status(400).json({ success: false, error: 'Не все поля заполнены (telegram_id, name, access_level)' });
     }
     
-    if (String(shared_with_telegram_id) === String(req.user.telegramId)) {
+    if (String(shared_with_telegram_id) === String(telegramId)) {
         return res.status(400).json({ success: false, error: 'Вы не можете предоставить доступ самому себе.' });
     }
 
@@ -75,10 +79,10 @@ router.post('/', authMiddleware, async (req, res) => {
         sendNotification(newAccess.shared_with_telegram_id, message).catch(console.error);
 
     } catch (err) {
-        console.error(`[POST /api/access] UserID: ${ownerUserId} - Error:`, err);
+        console.error(`[POST /api/access] OwnerID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
             userId: ownerUserId,
-            errorContext: `POST /api/access - UserID: ${ownerUserId}`,
+            errorContext: `POST /api/access - OwnerID: ${ownerUserId}`,
             errorMessage: err.message,
             errorStack: err.stack,
             additionalInfo: { body: req.body }
@@ -89,11 +93,13 @@ router.post('/', authMiddleware, async (req, res) => {
 
 // Обновить доступ
 router.put('/:accessId', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.ownerUserId;
+    const { ownerUserId, telegramId, accessLevel } = req.user;
     const { accessId } = req.params;
     const { shared_with_name, access_level } = req.body;
 
-    if (req.user.accessLevel !== 'owner' && req.user.accessLevel !== 'admin') {
+    console.log(`[PUT /api/access/:id] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, Level: ${accessLevel} - Updating access ID ${accessId}.`);
+
+    if (accessLevel !== 'owner' && accessLevel !== 'admin') {
         return res.status(403).json({ success: false, error: 'Недостаточно прав для изменения доступа' });
     }
 
@@ -121,10 +127,10 @@ router.put('/:accessId', authMiddleware, async (req, res) => {
         }
 
     } catch (err) {
-        console.error(`[PUT /api/access/:id] UserID: ${ownerUserId} - Error:`, err);
+        console.error(`[PUT /api/access/:id] OwnerID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
             userId: ownerUserId,
-            errorContext: `PUT /api/access/:${accessId} - UserID: ${ownerUserId}`,
+            errorContext: `PUT /api/access/:${accessId} - OwnerID: ${ownerUserId}`,
             errorMessage: err.message,
             errorStack: err.stack,
             additionalInfo: { body: req.body }
@@ -135,10 +141,12 @@ router.put('/:accessId', authMiddleware, async (req, res) => {
 
 // Отозвать доступ
 router.delete('/:accessId', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.ownerUserId;
+    const { ownerUserId, telegramId, accessLevel } = req.user;
     const { accessId } = req.params;
 
-     if (req.user.accessLevel !== 'owner' && req.user.accessLevel !== 'admin') {
+    console.log(`[DELETE /api/access/:id] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, Level: ${accessLevel} - Revoking access ID ${accessId}.`);
+
+     if (accessLevel !== 'owner' && accessLevel !== 'admin') {
         return res.status(403).json({ success: false, error: 'Недостаточно прав для отзыва доступа' });
     }
 
@@ -154,10 +162,10 @@ router.delete('/:accessId', authMiddleware, async (req, res) => {
 
         res.json({ success: true, message: 'Доступ успешно отозван', deletedId: accessId });
     } catch (err) {
-        console.error(`[DELETE /api/access/:id] UserID: ${ownerUserId} - Error:`, err);
+        console.error(`[DELETE /api/access/:id] OwnerID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
             userId: ownerUserId,
-            errorContext: `DELETE /api/access/:${accessId} - UserID: ${ownerUserId}`,
+            errorContext: `DELETE /api/access/:${accessId} - OwnerID: ${ownerUserId}`,
             errorMessage: err.message,
             errorStack: err.stack
         }).catch(console.error);
@@ -167,7 +175,8 @@ router.delete('/:accessId', authMiddleware, async (req, res) => {
 
 // Получить список всех пользователей, кому предоставлен доступ (включая владельца)
 router.get('/users/list', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.ownerUserId;
+    const { ownerUserId, telegramId } = req.user;
+    console.log(`[GET /api/access/users/list] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching user list.`);
 
     try {
         // Получаем владельца
@@ -210,7 +219,7 @@ router.get('/users/list', authMiddleware, async (req, res) => {
         res.json({ success: true, users: allUsers });
 
     } catch (err) {
-        console.error(`[GET /api/access/users/list] UserID: ${ownerUserId} - Error:`, err);
+        console.error(`[GET /api/access/users/list] OwnerID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
             userId: ownerUserId,
             errorContext: `GET /api/access/users/list`,

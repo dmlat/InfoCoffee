@@ -99,8 +99,8 @@ export default function RegisterPage({ setIsAuth }) {
         setup_date: setupDate,
         tax_system: taxSystem || null,
         acquiring: normalizedAcq,
-        firstName: firstName, // Передаем для информации, если бэкенд захочет это сохранить
-        username: username 
+        first_name: firstName, // ИСПРАВЛЕНО: firstName -> first_name
+        user_name: username   // ИСПРАВЛЕНО: username -> user_name
       });
 
       if (response.data.success && response.data.token) {

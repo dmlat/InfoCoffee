@@ -98,22 +98,46 @@ router.get('/coffee-stats', authMiddleware, async (req, res) => {
 
 // Get all transactions (legacy or for detailed view)
 router.get('/', authMiddleware, async (req, res) => {
-    const userId = req.user.userId;
+    const { ownerUserId, telegramId } = req.user;
+    let { dateFrom, dateTo, terminalId } = req.query;
+
+    console.log(`[GET /api/transactions] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching transactions from ${dateFrom} to ${dateTo}, TerminalID: ${terminalId || 'All'}.`);
+
+    if (!dateFrom || !dateTo) {
+        return res.status(400).json({ success: false, error: 'Date range is required.' });
+    }
+
     try {
-        const result = await pool.query(
-            'SELECT * FROM transactions WHERE user_id = $1 ORDER BY transaction_time DESC',
-            [userId]
-        );
+        let query = `
+            SELECT 
+                t.id, t.user_id, t.coffee_shop_id, t.amount, t.transaction_time, t.result, t.reverse_id, 
+                t.terminal_comment, t.card_number, t.status, t.bonus, t.left_sum, t.left_bonus, t.machine_item_id,
+                t.vendista_terminal_id, t.last_updated_at
+            FROM transactions t
+            WHERE t.user_id = $1
+              AND t.transaction_time >= $2 AND t.transaction_time <= $3
+        `;
+        const queryParams = [ownerUserId, dateFrom, dateTo];
+
+        if (terminalId) {
+            query += ` AND t.vendista_terminal_id = $${queryParams.length + 1}`;
+            queryParams.push(terminalId);
+        }
+
+        query += ' ORDER BY t.transaction_time DESC';
+
+        const result = await pool.query(query, queryParams);
         res.json({ success: true, transactions: result.rows });
     } catch (err) {
-        console.error(`[GET /api/transactions/] UserID: ${userId} - Error:`, err);
+        console.error(`[GET /api/transactions] OwnerID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
-            userId: userId,
-            errorContext: `GET /api/transactions/ - UserID: ${userId}`,
+            userId: ownerUserId,
+            errorContext: `GET /api/transactions - OwnerID: ${ownerUserId}`,
             errorMessage: err.message,
-            errorStack: err.stack
-        }).catch(notifyErr => console.error("Failed to send admin notification from GET /api/transactions/:", notifyErr));
-        res.status(500).json({ success: false, error: 'Ошибка сервера при получении транзакций' });
+            errorStack: err.stack,
+            additionalInfo: { query: req.query }
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Server error fetching transactions.' });
     }
 });
 

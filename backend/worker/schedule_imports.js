@@ -1,11 +1,11 @@
 // backend/worker/schedule_imports.js
+require('../utils/logger'); // <--- ГЛОБАЛЬНОЕ ПОДКЛЮЧЕНИЕ ЛОГГЕРА
 const cron = require('node-cron');
 const pool = require('../db');
 const moment = require('moment-timezone');
 const jwt = require('jsonwebtoken');
 
 const { importTransactionsForPeriod } = require('./vendista_import_worker');
-const { checkAndCreateTasks } = require('./cleaning_task_worker');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 const { decrypt } = require('../utils/security');
 const { syncAllTerminals } = require('./terminal_sync_worker');

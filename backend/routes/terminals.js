@@ -8,7 +8,8 @@ const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 // --- ГЛАВНЫЙ ЭНДПОИНТ: Получение списка всех активных терминалов ---
 // Данные берутся из нашей локальной базы данных, которая синхронизируется воркером.
 router.get('/', authMiddleware, async (req, res) => {
-    const { ownerUserId } = req.user;
+    const { ownerUserId, telegramId } = req.user;
+    console.log(`[GET /api/terminals] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching active terminals.`);
 
     try {
         const result = await pool.query(
@@ -51,10 +52,10 @@ router.get('/', authMiddleware, async (req, res) => {
         );
         res.json({ success: true, terminals: result.rows });
     } catch (err) {
-        console.error(`[GET /api/terminals] UserID: ${ownerUserId} - Error:`, err);
+        console.error(`[GET /api/terminals] OwnerID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
             userId: ownerUserId, 
-            errorContext: 'GET /api/terminals', 
+            errorContext: `GET /api/terminals - OwnerID: ${ownerUserId}`, 
             errorMessage: err.message, 
             errorStack: err.stack
         }).catch(console.error);
@@ -67,13 +68,15 @@ router.get('/', authMiddleware, async (req, res) => {
 
 // Получить настройки (остатки/инвентарь) для терминала по его ID из НАШЕЙ БД
 router.get('/:internalId/settings', authMiddleware, async (req, res) => {
-    const { ownerUserId } = req.user;
+    const { ownerUserId, telegramId } = req.user;
     const { internalId } = req.params;
+    console.log(`[GET /api/terminals/:id/settings] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, TerminalID: ${internalId} - Fetching settings.`);
 
     try {
         // Проверяем, что терминал принадлежит пользователю
         const termCheck = await pool.query('SELECT id FROM terminals WHERE id = $1 AND user_id = $2', [internalId, ownerUserId]);
         if (termCheck.rows.length === 0) {
+            console.warn(`[GET /api/terminals/:id/settings] OwnerID: ${ownerUserId}, TerminalID: ${internalId} - Terminal not found or access denied.`);
             return res.status(404).json({ success: false, error: 'Терминал не найден или у вас нет к нему доступа.' });
         }
 
@@ -84,7 +87,7 @@ router.get('/:internalId/settings', authMiddleware, async (req, res) => {
         
         res.json({ success: true, settings: inventoryRes.rows });
     } catch (err) {
-        console.error(`[GET /api/terminals/:id/settings] UserID: ${ownerUserId} - Error:`, err);
+        console.error(`[GET /api/terminals/:id/settings] OwnerID: ${ownerUserId}, TerminalID: ${internalId} - Error:`, err);
         sendErrorToAdmin({
             userId: ownerUserId, errorContext: `GET /api/terminals/${internalId}/settings`,
             errorMessage: err.message, errorStack: err.stack,
@@ -95,12 +98,18 @@ router.get('/:internalId/settings', authMiddleware, async (req, res) => {
 
 // Сохранить/обновить настройки остатков для терминала по его ID из НАШЕЙ БД
 router.post('/:internalId/settings', authMiddleware, async (req, res) => {
-    const { ownerUserId } = req.user;
+    const { ownerUserId, telegramId, accessLevel } = req.user;
     const { internalId } = req.params;
     const { inventorySettings } = req.body; 
 
+    console.log(`[POST /api/terminals/:id/settings] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, Level: ${accessLevel}, TerminalID: ${internalId} - Saving settings.`);
+
     if (!Array.isArray(inventorySettings)) {
         return res.status(400).json({ success: false, error: 'Неверный формат данных' });
+    }
+    
+    if (accessLevel === 'service') {
+        return res.status(403).json({ success: false, error: 'Уровень доступа "Обслуживание" не позволяет изменять эти настройки.' });
     }
 
     const client = await pool.pool.connect();
@@ -111,6 +120,7 @@ router.post('/:internalId/settings', authMiddleware, async (req, res) => {
         const termCheck = await client.query('SELECT id FROM terminals WHERE id = $1 AND user_id = $2', [internalId, ownerUserId]);
         if (termCheck.rows.length === 0) {
             await client.query('ROLLBACK');
+            console.warn(`[POST /api/terminals/:id/settings] OwnerID: ${ownerUserId}, TerminalID: ${internalId} - Terminal not found or access denied.`);
             return res.status(404).json({ success: false, error: 'Терминал не найден или у вас нет к нему доступа.' });
         }
 
@@ -138,7 +148,7 @@ router.post('/:internalId/settings', authMiddleware, async (req, res) => {
 
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error(`[POST /api/terminals/:id/settings] UserID: ${ownerUserId} - Error:`, err);
+        console.error(`[POST /api/terminals/:id/settings] OwnerID: ${ownerUserId}, TerminalID: ${internalId} - Error:`, err);
         sendErrorToAdmin({
             userId: ownerUserId, errorContext: `POST /api/terminals/${internalId}/settings`,
             errorMessage: err.message, errorStack: err.stack,
@@ -154,11 +164,17 @@ router.post('/:internalId/settings', authMiddleware, async (req, res) => {
 
 // Копирование настроек контейнеров
 router.post('/copy-settings', authMiddleware, async (req, res) => {
-    const { ownerUserId } = req.user;
+    const { ownerUserId, telegramId, accessLevel } = req.user;
     const { sourceInternalId, destinationInternalIds } = req.body;
+
+    console.log(`[POST /copy-settings] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, Level: ${accessLevel} - Copying settings from ${sourceInternalId} to ${destinationInternalIds.length} terminals.`);
 
     if (!sourceInternalId || !Array.isArray(destinationInternalIds) || destinationInternalIds.length === 0) {
         return res.status(400).json({ success: false, error: 'Необходимы ID исходного и целевых терминалов.' });
+    }
+    
+    if (accessLevel === 'service') {
+        return res.status(403).json({ success: false, error: 'Уровень доступа "Обслуживание" не позволяет копировать настройки.' });
     }
     
     const allTerminalIds = [sourceInternalId, ...destinationInternalIds];
@@ -174,6 +190,7 @@ router.post('/copy-settings', authMiddleware, async (req, res) => {
 
         if (ownerCheck.rowCount !== allTerminalIds.length) {
             await client.query('ROLLBACK');
+            console.warn(`[POST /copy-settings] OwnerID: ${ownerUserId} - Access denied to one or more terminals.`);
             return res.status(403).json({ success: false, error: 'Доступ к одному или нескольким терминалам запрещен.' });
         }
         
@@ -186,6 +203,7 @@ router.post('/copy-settings', authMiddleware, async (req, res) => {
 
         if (sourceSettings.length === 0) {
             await client.query('ROLLBACK');
+            console.warn(`[POST /copy-settings] OwnerID: ${ownerUserId} - Source terminal ${sourceInternalId} has no settings to copy.`);
             return res.status(404).json({ success: false, error: 'У исходного терминала нет настроек контейнеров для копирования.' });
         }
         
@@ -208,9 +226,9 @@ router.post('/copy-settings', authMiddleware, async (req, res) => {
 
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error(`[POST /copy-settings] UserID: ${ownerUserId} - Error:`, err);
+        console.error(`[POST /copy-settings] OwnerID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
-             userId: ownerUserId, errorContext: `POST /copy-settings`, errorMessage: err.message, errorStack: err.stack,
+             userId: ownerUserId, errorContext: `POST /copy-settings - OwnerID: ${ownerUserId}`, errorMessage: err.message, errorStack: err.stack,
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при копировании настроек.' });
     } finally {
@@ -220,13 +238,16 @@ router.post('/copy-settings', authMiddleware, async (req, res) => {
 
 // Получить уникальные ID кнопок (напитков) для терминала из транзакций
 router.get('/:internalId/machine-items', authMiddleware, async (req, res) => {
-    const { ownerUserId } = req.user;
+    const { ownerUserId, telegramId } = req.user;
     const { internalId } = req.params;
+
+    console.log(`[GET /api/terminals/:id/machine-items] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, TerminalID: ${internalId} - Fetching machine items.`);
 
     try {
         // Сначала убедимся, что терминал принадлежит этому пользователю, чтобы не утекали чужие данные
         const terminalCheck = await pool.query('SELECT vendista_terminal_id FROM terminals WHERE id = $1 AND user_id = $2', [internalId, ownerUserId]);
         if (terminalCheck.rowCount === 0) {
+            console.warn(`[GET /api/terminals/:id/machine-items] OwnerID: ${ownerUserId}, TerminalID: ${internalId} - Terminal not found or access denied.`);
             return res.status(404).json({ success: false, error: 'Терминал не найден.' });
         }
         const vendistaId = terminalCheck.rows[0].vendista_terminal_id;
@@ -239,9 +260,9 @@ router.get('/:internalId/machine-items', authMiddleware, async (req, res) => {
         );
         res.json({ success: true, machineItems: itemsRes.rows.map(row => row.machine_item_id) });
     } catch(err) {
-        console.error(`[GET /api/terminals/:id/machine-items] UserID: ${ownerUserId} - Error:`, err);
+        console.error(`[GET /api/terminals/:id/machine-items] OwnerID: ${ownerUserId}, TerminalID: ${internalId} - Error:`, err);
         sendErrorToAdmin({
-            userId: ownerUserId, errorContext: `GET /api/terminals/${internalId}/machine-items`,
+            userId: ownerUserId, errorContext: `GET /api/terminals/${internalId}/machine-items - OwnerID: ${ownerUserId}`,
             errorMessage: err.message, errorStack: err.stack,
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при получении списка напитков' });

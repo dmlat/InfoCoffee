@@ -259,11 +259,27 @@ router.post('/validate-vendista', async (req, res) => {
 });
 
 router.post('/complete-registration', async (req, res) => {
-    const { telegram_id, vendista_api_token, setup_date, first_name, user_name } = req.body;
-    console.log(`[POST /api/auth/complete-registration] Registering user, TG ID: ${telegram_id}`);
+    const { telegram_id, vendista_api_token_plain, setup_date, tax_system, acquiring, first_name, user_name } = req.body;
+    console.log(`[POST /api/auth/complete-registration] Attempting to register user, TG ID: ${telegram_id}`);
 
-    if (!telegram_id || !vendista_api_token || !setup_date || !first_name) {
-        return res.status(400).json({ success: false, error: 'All fields are required: telegram_id, vendista_api_token, setup_date, first_name' });
+    if (!telegram_id || !vendista_api_token_plain || !setup_date || !first_name) {
+        const errorMsg = 'Одно или несколько обязательных полей для регистрации отсутствовали.';
+        console.error(`[POST /api/auth/complete-registration] Validation Failed for TG ID ${telegram_id}. Error: ${errorMsg}. Body:`, req.body);
+        
+        sendErrorToAdmin({
+            telegramId: telegram_id,
+            userFirstName: first_name,
+            userUsername: user_name,
+            errorContext: `Registration Error: Missing Fields`,
+            errorMessage: 'A user failed to complete registration due to missing required fields. This might indicate a frontend issue.',
+            additionalInfo: { 
+                note: "This error occurs when the backend endpoint /api/auth/complete-registration does not receive all required data from the client.",
+                expected: ['telegram_id', 'vendista_api_token_plain', 'setup_date', 'first_name'],
+                receivedBody: req.body 
+            }
+        }).catch(err => console.error("Failed to send admin notification for missing registration fields:", err));
+
+        return res.status(400).json({ success: false, error: 'Все поля являются обязательными: telegram_id, токен Vendista, дата установки, имя.' });
     }
 
     const client = await pool.connect();
@@ -271,26 +287,28 @@ router.post('/complete-registration', async (req, res) => {
     try {
         await client.query('BEGIN');
         
-        const encryptedToken = encrypt(vendista_api_token);
+        const encryptedToken = encrypt(vendista_api_token_plain);
         if (!encryptedToken) {
             await client.query('ROLLBACK');
             return res.status(500).json({ success: false, error: 'Server encryption error.' });
         }
 
         const userInsertQuery = `
-            INSERT INTO users (telegram_id, vendista_api_token, setup_date, registration_date, first_name, user_name)
-            VALUES ($1, $2, $3, NOW(), $4, $5)
+            INSERT INTO users (telegram_id, vendista_api_token, setup_date, tax_system, acquiring, first_name, user_name)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (telegram_id) DO UPDATE SET
                 vendista_api_token = EXCLUDED.vendista_api_token,
                 setup_date = EXCLUDED.setup_date,
+                tax_system = EXCLUDED.tax_system,
+                acquiring = EXCLUDED.acquiring,
                 first_name = EXCLUDED.first_name,
                 user_name = EXCLUDED.user_name,
                 updated_at = NOW()
             RETURNING id, setup_date, tax_system, acquiring, first_name, user_name;
         `;
-        const userResult = await client.query(userInsertQuery, [telegram_id, encryptedToken, setup_date, first_name, user_name]);
+        const userResult = await client.query(userInsertQuery, [telegram_id, encryptedToken, setup_date, tax_system, acquiring, first_name, user_name]);
         const user = userResult.rows[0];
-        console.log(`[POST /api/auth/complete-registration] User registered/updated with ID: ${user.id}`);
+        console.log(`[POST /api/auth/complete-registration] User registered/updated successfully! DB User ID: ${user.id}, TG ID: ${telegram_id}`);
 
         await client.query('COMMIT');
 
@@ -302,7 +320,7 @@ router.post('/complete-registration', async (req, res) => {
         console.log(`[POST /api/auth/complete-registration] Initiating first import for user ID: ${user.id}`);
         startImport({
             user_id: user.id,
-            vendistaApiToken: vendista_api_token, 
+            vendistaApiToken: vendista_api_token_plain, 
             first_coffee_date: setup_date,
             appToken: appToken
         }).catch(importError => {
