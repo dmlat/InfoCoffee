@@ -2,12 +2,13 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
-const pool = require('../db');
+const { pool } = require('../db');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 
 // Получить остатки на центральном складе
 router.get('/', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.ownerUserId;
+    const { ownerUserId, telegramId } = req.user;
+    console.log(`[GET /api/warehouse] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching warehouse stock.`);
     try {
         const result = await pool.query(
             `SELECT item_name, current_stock FROM inventories WHERE user_id = $1 AND location = 'warehouse' AND terminal_id IS NULL`,
@@ -26,14 +27,15 @@ router.get('/', authMiddleware, async (req, res) => {
 
 // "Приходовать" товар на склад (через модальное окно)
 router.post('/stock-up', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.ownerUserId;
+    const { ownerUserId, telegramId } = req.user;
     const { items } = req.body; // Ожидаем массив { item_name, quantity }
+    console.log(`[POST /api/warehouse/stock-up] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Stocking up ${items.length} items.`);
 
     if (!Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ success: false, error: 'Не предоставлены товары для приходования.' });
     }
 
-    const client = await pool.pool.connect();
+    const client = await pool.connect();
     try {
         await client.query('BEGIN');
         
@@ -69,16 +71,16 @@ router.post('/stock-up', authMiddleware, async (req, res) => {
 
 // Изменить количество товара на складе (для кнопок +/-)
 router.post('/adjust', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.ownerUserId;
+    const { ownerUserId, telegramId } = req.user;
     const { item_name, quantity } = req.body; // quantity может быть отрицательным для списания
 
-    console.log(`[POST /api/warehouse/adjust] UserID: ${ownerUserId}, Item: ${item_name}, Quantity: ${quantity}`);
+    console.log(`[POST /api/warehouse/adjust] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, Item: ${item_name}, Quantity: ${quantity}`);
 
     if (!item_name || isNaN(parseFloat(quantity))) {
         return res.status(400).json({ success: false, error: 'Некорректные данные для изменения остатка.' });
     }
 
-    const client = await pool.pool.connect();
+    const client = await pool.connect();
     try {
         await client.query('BEGIN');
 

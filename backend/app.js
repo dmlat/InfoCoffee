@@ -17,6 +17,7 @@ const recipesRoutes = require('./routes/recipes');
 const warehouseRoutes = require('./routes/warehouse'); // <-- Убедимся, что он есть
 const inventoryRoutes = require('./routes/inventory'); // <-- НОВЫЙ ИМПОРТ
 const tasksRoutes = require('./routes/tasks'); // <-- НОВЫЙ ИМПОРТ
+const { startPolling } = require('./bot'); // <-- ИМПОРТ ФУНКЦИИ
 
 const app = express();
 
@@ -49,4 +50,5 @@ app.get('/api/test-db', async (req, res) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Backend server started on port ${PORT}`);
+  startPolling(); // <-- ЗАПУСК ПРОСЛУШИВАНИЯ
 });

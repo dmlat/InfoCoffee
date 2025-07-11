@@ -53,3 +53,7 @@ ehthumbs_vista.db
 frontend/src/utils/dev.js
 
 copytree.bat
+
+# Local development scripts and manuals
+/manuals
+/scripts/reset-local-db.sh

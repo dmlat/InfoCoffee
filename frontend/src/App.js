@@ -76,7 +76,20 @@ function AuthProvider({ children }) {
 
         // Если объекта Telegram Web App нет, значит мы точно не в Telegram
         if (!tgWebApp || !tgWebApp.initData) {
-            // Проверяем старый токен на случай, если это было обновление страницы в браузере
+            // В режиме разработки, проверяем, не был ли это принудительный переход на регистрацию
+            if (process.env.NODE_ENV === 'development' && localStorage.getItem('telegram_id_unsafe')) {
+                setAuthStatus('register');
+                const params = new URLSearchParams({
+                    status: 'registration_required',
+                    tg_id: localStorage.getItem('telegram_id_unsafe'),
+                    firstName: localStorage.getItem('firstName_unsafe'),
+                    username: localStorage.getItem('username_unsafe')
+                });
+                navigate(`/register?${params.toString()}`, { replace: true });
+                return;
+            }
+
+            // Проверяем старый токен на случай, если это было обновление страницы в браузere
             if (localStorage.getItem('app_token')) {
                 const accessLevel = localStorage.getItem('userAccessLevel');
                 setAuthStatus(accessLevel === 'service' ? 'service_access' : 'authenticated');

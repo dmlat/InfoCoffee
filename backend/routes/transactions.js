@@ -3,7 +3,7 @@ const path = require('path');
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
-const pool = require('../db');
+const db = require('../db');
 const moment = require('moment-timezone');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier'); // <--- НОВЫЙ ИМПОРТ
 const { getFinancialSummary } = require('../utils/financials');
@@ -13,8 +13,9 @@ const TIMEZONE = 'Europe/Moscow';
 // --- Aggregating endpoint for Dashboard ---
 // --- Aggregating endpoint for Dashboard ---
 router.get('/stats', authMiddleware, async (req, res) => {
-    const userId = req.user.userId;
-    let { from, to } = req.query;
+    const { ownerUserId, telegramId } = req.user;
+    const { from, to } = req.query;
+    console.log(`[GET /api/transactions/stats] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching dashboard stats.`);
     try {
         let dateFrom, dateTo;
 
@@ -28,7 +29,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
         }
         
         // ИСПОЛЬЗУЕМ НОВУЮ УТИЛИТУ
-        const summary = await getFinancialSummary(userId, dateFrom, dateTo);
+        const summary = await getFinancialSummary(ownerUserId, dateFrom, dateTo);
 
         // Формируем ответ для старого контракта, чтобы фронтенд не сломался
         res.json({
@@ -40,10 +41,10 @@ router.get('/stats', authMiddleware, async (req, res) => {
             }
         });
     } catch (err) {
-        console.error(`[GET /api/transactions/stats] UserID: ${userId} - Error:`, err);
+        console.error(`[GET /api/transactions/stats] UserID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
-            userId: userId,
-            errorContext: `GET /api/transactions/stats - UserID: ${userId}`,
+            userId: ownerUserId,
+            errorContext: `GET /api/transactions/stats - UserID: ${ownerUserId}`,
             errorMessage: err.message,
             errorStack: err.stack,
             additionalInfo: { query: req.query }
@@ -54,10 +55,11 @@ router.get('/stats', authMiddleware, async (req, res) => {
 
 // Stats-endpoint by coffee shops
 router.get('/coffee-stats', authMiddleware, async (req, res) => {
-    const userId = req.user.userId;
+    const { ownerUserId, telegramId } = req.user;
     let { from, to } = req.query;
+    console.log(`[GET /api/transactions/coffee-stats] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Raw query params: from=${from}, to=${to}`);
     try {
-        console.log(`[GET /api/transactions/coffee-stats] UserID: ${userId}, Raw query params: from=${from}, to=${to}`);
+        console.log(`[GET /api/transactions/coffee-stats] UserID: ${ownerUserId}, Raw query params: from=${from}, to=${to}`);
         let dateFrom, dateTo;
         if (from && to && moment(from, 'YYYY-MM-DD', true).isValid() && moment(to, 'YYYY-MM-DD', true).isValid()) {
             dateFrom = moment.tz(from, TIMEZONE).startOf('day').format('YYYY-MM-DD HH:mm:ss');
@@ -70,24 +72,25 @@ router.get('/coffee-stats', authMiddleware, async (req, res) => {
         }
         console.log(`[GET /api/transactions/coffee-stats] SQL Date Range: from='${dateFrom}', to='${dateTo}'`);
 
-        const result = await pool.query(`
+        const result = await db.query(`
             SELECT 
-                coffee_shop_id,
-                MAX(terminal_comment) AS terminal_comment,
-                COUNT(*) FILTER (WHERE result = '1' AND reverse_id = 0) as sales_count,
-                COALESCE(SUM(amount) FILTER (WHERE result = '1' AND reverse_id = 0),0)/100 as revenue
-            FROM transactions
-            WHERE user_id = $1
-              AND transaction_time >= $2 AND transaction_time <= $3
-            GROUP BY coffee_shop_id
+                t.vendista_terminal_id as coffee_shop_id,
+                t.name as terminal_comment,
+                COUNT(tr.id) FILTER (WHERE tr.result = '1' AND tr.reverse_id = 0) as sales_count,
+                COALESCE(SUM(tr.amount) FILTER (WHERE tr.result = '1' AND tr.reverse_id = 0), 0) / 100 as revenue
+            FROM terminals t
+            LEFT JOIN transactions tr ON t.vendista_terminal_id = tr.coffee_shop_id AND t.user_id = tr.user_id
+                AND tr.transaction_time >= $2 AND tr.transaction_time <= $3
+            WHERE t.user_id = $1 AND t.is_active = true
+            GROUP BY t.id, t.name, t.vendista_terminal_id
             ORDER BY revenue DESC
-        `, [userId, dateFrom, dateTo]);
+        `, [ownerUserId, dateFrom, dateTo]);
         res.json({ success: true, stats: result.rows });
     } catch (err) {
-        console.error(`[GET /api/transactions/coffee-stats] UserID: ${userId} - Error:`, err);
+        console.error(`[GET /api/transactions/coffee-stats] UserID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
-            userId: userId,
-            errorContext: `GET /api/transactions/coffee-stats - UserID: ${userId}`,
+            userId: ownerUserId,
+            errorContext: `GET /api/transactions/coffee-stats - UserID: ${ownerUserId}`,
             errorMessage: err.message,
             errorStack: err.stack,
             additionalInfo: { query: req.query }
@@ -126,7 +129,7 @@ router.get('/', authMiddleware, async (req, res) => {
 
         query += ' ORDER BY t.transaction_time DESC';
 
-        const result = await pool.query(query, queryParams);
+        const result = await db.query(query, queryParams);
         res.json({ success: true, transactions: result.rows });
     } catch (err) {
         console.error(`[GET /api/transactions] OwnerID: ${ownerUserId} - Error:`, err);
@@ -143,7 +146,8 @@ router.get('/', authMiddleware, async (req, res) => {
 
 // POST transaction (example for manual addition)
 router.post('/', authMiddleware, async (req, res) => {
-    const userId = req.user.userId;
+    const { ownerUserId, telegramId } = req.user;
+    console.log(`[POST /api/transactions] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Manually adding transaction.`);
     try {
         const {
             coffee_shop_id, amount, transaction_time, result: tr_result, 
@@ -151,7 +155,7 @@ router.post('/', authMiddleware, async (req, res) => {
             bonus, left_sum, left_bonus, machine_item_id
         } = req.body;
 
-        const resultDb = await pool.query(
+        const resultDb = await db.query(
             `INSERT INTO transactions (
                 user_id, coffee_shop_id, amount, transaction_time, result, reverse_id, 
                 terminal_comment, card_number, status, bonus, left_sum, left_bonus, machine_item_id, last_updated_at
@@ -159,17 +163,17 @@ router.post('/', authMiddleware, async (req, res) => {
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW()
             ) RETURNING *`,
             [
-                userId, coffee_shop_id, amount, transaction_time, tr_result,
+                ownerUserId, coffee_shop_id, amount, transaction_time, tr_result,
                 reverse_id, terminal_comment, card_number, status,
                 bonus, left_sum, left_bonus, machine_item_id
             ]
         );
         res.status(201).json({ success: true, transaction: resultDb.rows[0] });
     } catch (err) {
-        console.error(`[POST /api/transactions/] UserID: ${userId} - Error:`, err);
+        console.error(`[POST /api/transactions/] UserID: ${ownerUserId} - Error:`, err);
         sendErrorToAdmin({
-            userId: userId,
-            errorContext: `POST /api/transactions/ - UserID: ${userId}`,
+            userId: ownerUserId,
+            errorContext: `POST /api/transactions/ - UserID: ${ownerUserId}`,
             errorMessage: err.message,
             errorStack: err.stack,
             additionalInfo: { body: req.body }

@@ -10,21 +10,14 @@ require('dotenv').config({ path: envPath });
 
 const { Pool } = require('pg');
 
-const connectionOptions = {
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-};
-
-if (process.env.DATABASE_URL) {
-    connectionOptions.connectionString = process.env.DATABASE_URL;
-} else {
-    connectionOptions.user = process.env.PGUSER;
-    connectionOptions.host = process.env.PGHOST;
-    connectionOptions.database = process.env.PGDATABASE;
-    connectionOptions.password = process.env.PGPASSWORD;
-    connectionOptions.port = process.env.PGPORT;
-}
-
-const pool = new Pool(connectionOptions);
+const pool = new Pool({
+  user: process.env.PGUSER,
+  host: process.env.PGHOST,
+  database: process.env.PGDATABASE,
+  password: process.env.PGPASSWORD,
+  port: process.env.PGPORT,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
 
 module.exports = {
   // Этот метод query используется для одиночных запросов, 

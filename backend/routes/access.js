@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
-const pool = require('../db');
+const db = require('../db');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 const { sendNotification } = require('../utils/botNotifier'); // <-- НОВЫЙ ИМПОРТ
 
@@ -22,7 +22,7 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 
     try {
-        const result = await pool.query(
+        const result = await db.query(
             'SELECT id, shared_with_telegram_id, shared_with_name, access_level FROM user_access_rights WHERE owner_user_id = $1 ORDER BY created_at DESC',
             [ownerUserId]
         );
@@ -59,7 +59,7 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 
     try {
-        const result = await pool.query(
+        const result = await db.query(
             `INSERT INTO user_access_rights (owner_user_id, shared_with_telegram_id, shared_with_name, access_level)
              VALUES ($1, $2, $3, $4)
              ON CONFLICT (owner_user_id, shared_with_telegram_id) DO UPDATE SET
@@ -104,7 +104,7 @@ router.put('/:accessId', authMiddleware, async (req, res) => {
     }
 
     try {
-        const result = await pool.query(
+        const result = await db.query(
             `UPDATE user_access_rights
              SET shared_with_name = COALESCE($1, shared_with_name), access_level = COALESCE($2, access_level)
              WHERE id = $3 AND owner_user_id = $4
@@ -151,7 +151,7 @@ router.delete('/:accessId', authMiddleware, async (req, res) => {
     }
 
     try {
-        const deleteResult = await pool.query(
+        const deleteResult = await db.query(
             'DELETE FROM user_access_rights WHERE id = $1 AND owner_user_id = $2 RETURNING id',
             [accessId, ownerUserId]
         );
@@ -180,7 +180,7 @@ router.get('/users/list', authMiddleware, async (req, res) => {
 
     try {
         // Получаем владельца
-        const ownerRes = await pool.query('SELECT id, telegram_id, first_name, user_name FROM users WHERE id = $1', [ownerUserId]);
+        const ownerRes = await db.query('SELECT id, telegram_id, first_name, user_name FROM users WHERE id = $1', [ownerUserId]);
         const owner = ownerRes.rows[0] 
             ? { 
                 id: ownerRes.rows[0].id, 
@@ -190,7 +190,7 @@ router.get('/users/list', authMiddleware, async (req, res) => {
             : null;
 
         // Получаем тех, кому дали доступ
-        const sharedUsersRes = await pool.query(
+        const sharedUsersRes = await db.query(
             'SELECT id, shared_with_telegram_id as telegram_id, shared_with_name as name FROM user_access_rights WHERE owner_user_id = $1',
             [ownerUserId]
         );

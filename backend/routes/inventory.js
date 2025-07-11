@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
-const pool = require('../db');
+const { pool } = require('../db');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 
 // Перемещение остатков
@@ -16,7 +16,7 @@ router.post('/move', authMiddleware, async (req, res) => {
         return res.status(400).json({ success: false, error: 'Не все поля для перемещения заполнены корректно.' });
     }
     
-    const client = await pool.pool.connect();
+    const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
@@ -130,6 +130,7 @@ router.post('/move', authMiddleware, async (req, res) => {
 router.post('/process-sale', authMiddleware, async (req, res) => {
     const { ownerUserId, telegramId } = req.user;
     const { transaction } = req.body;
+    console.log(`[POST /api/inventory/process-sale] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Acknowledging sale.`);
 
     if (!transaction || !transaction.term_id || !transaction.machine_item_id) {
         return res.status(200).json({ success: true, message: 'No recipe to process for this transaction.' });

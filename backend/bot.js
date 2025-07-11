@@ -7,7 +7,8 @@ const moment = require('moment-timezone');
 const { getFinancialSummary } = require('./utils/financials');
 const { EXPENSE_INSTRUCTION, parseExpenseMessage } = require('./utils/botHelpers');
 
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const IS_DEV = process.env.NODE_ENV === 'development';
+const TOKEN = IS_DEV ? process.env.DEV_TELEGRAM_BOT_TOKEN : process.env.TELEGRAM_BOT_TOKEN;
 const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL;
 const TIMEZONE = 'Europe/Moscow';
 
@@ -16,7 +17,7 @@ if (!TOKEN || !WEB_APP_URL) {
   process.exit(1);
 }
 
-const bot = new TelegramBot(TOKEN, { polling: true });
+const bot = new TelegramBot(TOKEN, { polling: false }); // Устанавливаем polling в false
 
 let BOT_USERNAME = '';
 let keyboards = {};
@@ -93,6 +94,17 @@ let keyboards = {};
             { command: '/finances', description: '📊 Открыть меню финансов' },
             { command: '/expenses', description: '💸 Быстро записать расходы' },
         ]);
+
+        if (IS_DEV) {
+            const devCommands = [
+                { command: '/dev_reset_db', description: '⚠️ DEV: Сбросить локальную БД' },
+            ];
+            await bot.setMyCommands([
+                ...await bot.getMyCommands(),
+                ...devCommands
+            ]);
+        }
+
         console.log(`Bot commands are set.`);
 
     } catch (e) {
@@ -268,6 +280,59 @@ bot.on('callback_query', async (query) => {
     const messageId = query.message.message_id;
     const data = query.data;
 
+    if (IS_DEV && data === 'dev_confirm_db_reset') {
+        const TABLES_TO_TRUNCATE = [
+            "users", "user_access_rights", "terminals", "transactions", "expenses",
+            "inventories", "recipes", "recipe_items", "stand_service_settings",
+            "maintenance_tasks", "service_tasks", "worker_logs"
+        ];
+        const truncateQuery = `TRUNCATE TABLE ${TABLES_TO_TRUNCATE.join(', ')} RESTART IDENTITY CASCADE;`;
+
+        try {
+            await pool.query(truncateQuery);
+            await bot.editMessageText('✅ База данных успешно очищена.', { chat_id: chatId, message_id: messageId });
+            console.log(`[DEV] Database has been reset by user ${query.from.id}.`);
+            await bot.answerCallbackQuery(query.id, { text: 'База данных очищена!', show_alert: true });
+        } catch (err) {
+            console.error('[DEV] DB Reset failed:', err);
+            await bot.editMessageText(`❌ Ошибка при очистке базы данных:\n\n<pre><code>${err.message}</code></pre>`, { chat_id: chatId, message_id: messageId, parse_mode: 'HTML' });
+            await bot.answerCallbackQuery(query.id, { text: 'Ошибка при сбросе БД.', show_alert: true });
+        }
+        return;
+    }
+
+    if (data.startsWith('task_complete_')) {
+        const taskId = data.split('_')[2];
+        try {
+            const { rows: taskRows } = await pool.query(
+                `SELECT id FROM service_tasks WHERE id = $1 AND $2 = ANY(assignee_ids)`,
+                [taskId, query.from.id]
+            );
+
+            if (taskRows.length === 0) {
+                return bot.answerCallbackQuery(query.id, 'Это не ваша задача, или она уже выполнена.', { show_alert: true });
+            }
+
+            await pool.query(
+                `UPDATE service_tasks SET status = 'completed', completed_at = NOW() WHERE id = $1`,
+                [taskId]
+            );
+            
+            await bot.editMessageText(query.message.text + '\n\n✅ <b>Выполнено</b>', {
+                chat_id: chatId,
+                message_id: messageId,
+                parse_mode: 'HTML'
+            });
+            bot.answerCallbackQuery(query.id, 'Задача отмечена как выполненная!');
+
+        } catch (err) {
+            console.error(`[Bot] Error completing task ${taskId} by user ${query.from.id}:`, err);
+            bot.answerCallbackQuery(query.id, 'Ошибка при обновлении задачи.', { show_alert: true });
+        }
+        return;
+    }
+
+
     const user = await getUser(query.from.id);
     if (user.type === 'unauthorized' && !['main_menu', 'show_my_id'].includes(data)) {
         bot.answerCallbackQuery(query.id, { text: 'Эта функция доступна после регистрации.', show_alert: true });
@@ -338,54 +403,41 @@ bot.on('callback_query', async (query) => {
     }
 });
 
-// Обработка всех callback_query
-bot.on('callback_query', async (ctx) => {
-    const data = ctx.callbackQuery.data;
-    const telegramId = ctx.from.id;
 
-    if (data.startsWith('task_complete_')) {
-        const taskId = data.split('_')[2];
-        try {
-            // Проверяем, что у пользователя есть права на выполнение этой задачи
-            const taskRes = await pool.query(
-                `SELECT id, assignee_ids FROM service_tasks WHERE id = $1 AND $2 = ANY(assignee_ids)`,
-                [taskId, telegramId]
-            );
-
-            if (taskRes.rowCount === 0) {
-                return ctx.answerCbQuery('Это не ваша задача, или она уже выполнена.', { show_alert: true });
+if (IS_DEV) {
+    bot.onText(/\/dev_reset_db/, (msg) => {
+        const chatId = msg.chat.id;
+        bot.sendMessage(chatId, 
+            '⚠️ *Вы уверены, что хотите полностью очистить локальную базу данных?*\n\nЭто действие необратимо и удалит всех пользователей, транзакции, инвентарь и т.д.', 
+            {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '🔴 Да, я уверен, удалить всё', callback_data: 'dev_confirm_db_reset' }],
+                        [{ text: '🟢 Отмена', callback_data: 'main_menu' }]
+                    ]
+                }
             }
+        );
+    });
+}
 
-            // Обновляем статус задачи
-            await pool.query(
-                `UPDATE service_tasks SET status = 'completed', completed_at = NOW() WHERE id = $1`,
-                [taskId]
-            );
-
-            // Редактируем исходное сообщение, убирая кнопку
-            await ctx.editMessageText(ctx.callbackQuery.message.text + '\n\n✅ <b>Выполнено</b>', {
-                parse_mode: 'HTML'
-            });
-            ctx.answerCbQuery('Задача отмечена как выполненная!');
-
-            // TODO: Отправить уведомление админам о выполнении
-
-        } catch (err) {
-            console.error(`[Bot] Error completing task ${taskId} by user ${telegramId}:`, err);
-            ctx.answerCbQuery('Ошибка при обновлении задачи.', { show_alert: true });
-        }
+const startPolling = () => {
+    if (bot.isPolling()) {
+        console.log('[Bot] Polling is already active.');
+        return;
     }
-
-    // Здесь могут быть другие обработчики callback_query
-});
-
-// Запускаем бота
-// bot.launch().then(() => {
-//     console.log('Telegram bot started successfully.');
-// }).catch(err => {
-//     console.error('Failed to start Telegram bot:', err);
-// });
-
-module.exports = bot;
+    bot.startPolling({ restart: true }).then(() => {
+        console.log('[Bot] Polling started successfully.');
+    }).catch(err => {
+        console.error('[Bot] Failed to start polling:', err);
+    });
+};
 
 bot.on('polling_error', (error) => console.error('[Bot Polling Error]', error.code, error.message));
+
+
+module.exports = {
+    bot,
+    startPolling,
+};

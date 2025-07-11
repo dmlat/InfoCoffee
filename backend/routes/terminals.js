@@ -1,7 +1,7 @@
 // backend/routes/terminals.js
 const express = require('express');
 const router = express.Router();
-const pool = require('../db');
+const { pool } = require('../db');
 const authMiddleware = require('../middleware/auth');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 
@@ -112,7 +112,7 @@ router.post('/:internalId/settings', authMiddleware, async (req, res) => {
         return res.status(403).json({ success: false, error: 'Уровень доступа "Обслуживание" не позволяет изменять эти настройки.' });
     }
 
-    const client = await pool.pool.connect();
+    const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
@@ -179,7 +179,7 @@ router.post('/copy-settings', authMiddleware, async (req, res) => {
     
     const allTerminalIds = [sourceInternalId, ...destinationInternalIds];
 
-    const client = await pool.pool.connect();
+    const client = await pool.connect();
     try {
         await client.query('BEGIN');
         

@@ -9,6 +9,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 const { encrypt, decrypt } = require('../utils/security'); // Импортируем из нового файла
 const { startImport } = require('../worker/vendista_import_worker');
+const { syncTerminalsForUser } = require('../worker/terminal_sync_worker');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 const { clearUserDataFromLocalStorage } = require('../../frontend/src/utils/user');
 
@@ -118,6 +119,40 @@ router.post('/telegram-handshake', async (req, res) => {
 
     const telegramUser = validationResult.data;
     const telegram_id = telegramUser.id;
+
+    // --- DEV MODE ROLE EMULATION ---
+    // Этот блок выполняется только в режиме разработки, если в мок-данных есть специальное поле dev_role
+    if (process.env.NODE_ENV === 'development' && telegramUser.dev_role) {
+        const dev_role = telegramUser.dev_role;
+        console.log(`[DEV_MODE] Emulating role: "${dev_role}" for TG ID: ${telegram_id}`);
+        
+        const devOwnerId = 1; // Используем постоянный ID владельца для консистентности в тестах
+        
+        const tokenPayload = { 
+            userId: devOwnerId, 
+            telegramId: telegram_id.toString(),
+            accessLevel: dev_role
+        };
+        
+        const userPayloadForClient = {
+            userId: devOwnerId,
+            telegramId: telegram_id.toString(),
+            firstName: telegramUser.first_name || `Dev ${dev_role}`,
+            username: telegramUser.username || `dev_${dev_role}`,
+            accessLevel: dev_role
+        };
+
+        const appToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '12h' });
+        const action = (dev_role === 'owner') ? 'login_success' : 'login_shared_access';
+
+        return res.json({
+            success: true,
+            action: action,
+            token: appToken,
+            user: userPayloadForClient
+        });
+    }
+    // --- END DEV MODE ROLE EMULATION ---
 
     try {
         const userResult = await pool.query('SELECT id, vendista_api_token, setup_date, tax_system, acquiring, first_name, user_name FROM users WHERE telegram_id = $1', [telegram_id]);
@@ -321,20 +356,28 @@ router.post('/complete-registration', async (req, res) => {
             JWT_SECRET, { expiresIn: '12h' }
         );
 
-        console.log(`[POST /api/auth/complete-registration] Initiating first import for user ID: ${user.id}`);
-        startImport({
-            user_id: user.id,
-            vendistaApiToken: vendista_api_token_plain, 
-            first_coffee_date: setup_date,
-            appToken: appToken
-        }).catch(importError => {
-            console.error(`[POST /api/auth/complete-registration] Initial import failed for user ${user.id}:`, importError.message, importError.stack);
-            sendErrorToAdmin({ 
-                userId: user.id, telegramId: telegram_id, userFirstName: final_first_name, userUsername: final_user_name,
-                errorContext: `Initial Import after registration for User ID: ${user.id}`,
-                errorMessage: importError.message, errorStack: importError.stack
-            }).catch(notifyErr => console.error("Failed to send admin notification for initial import error:", notifyErr));
-        });
+        console.log(`[POST /api/auth/complete-registration] Triggering initial data sync for user ID: ${user.id}`);
+        // Запускаем синхронизацию и импорт в фоновом режиме, не блокируя ответ
+        (async () => {
+            try {
+                console.log(`[Initial Sync] User ${user.id}: Starting terminal sync...`);
+                await syncTerminalsForUser(user.id, vendista_api_token_plain);
+                console.log(`[Initial Sync] User ${user.id}: Terminal sync finished. Starting transaction import...`);
+                await startImport({
+                    user_id: user.id,
+                    vendistaApiToken: vendista_api_token_plain,
+                    first_coffee_date: setup_date,
+                });
+                 console.log(`[Initial Sync] User ${user.id}: Initial transaction import finished.`);
+            } catch (importError) {
+                console.error(`[POST /api/auth/complete-registration] Initial import failed for user ${user.id}:`, importError.message, importError.stack);
+                sendErrorToAdmin({ 
+                    userId: user.id, telegramId: telegram_id, userFirstName: final_first_name, userUsername: final_user_name,
+                    errorContext: `Initial Import after registration for User ID: ${user.id}`,
+                    errorMessage: importError.message, errorStack: importError.stack
+                }).catch(notifyErr => console.error("Failed to send admin notification for initial import error:", notifyErr));
+            }
+        })();
 
         res.status(200).json({
             success: true, token: appToken,

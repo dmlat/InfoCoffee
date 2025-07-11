@@ -65,6 +65,20 @@ sudo find ${WEB_ROOT} -type d -exec chmod 755 {} \;
 sudo find ${WEB_ROOT} -type f -exec chmod 644 {} \;
 echo "      Done."
 
+# Обновляем зависимости, если package.json или package-lock.json изменились
+if ! cmp -s "package.json" ".install-stamp" || ! cmp -s "frontend/package.json" ".install-stamp"; then
+    echo "Dependencies have changed. Running npm install..."
+    npm install
+    (cd frontend && npm install)
+    # Создаем или обновляем временную метку
+    cp package.json .install-stamp
+else
+    echo "Dependencies are up to date."
+fi
+
+echo "Setting script permissions..."
+chmod +x scripts/run-manual-job.sh
+
 # Шаг 7: Перезапуск PM2 сервисов с NODE_ENV=production
 echo "[7/7] Restarting backend services in PRODUCTION mode..."
 pm2 restart ${PM2_APP_NAME} --update-env

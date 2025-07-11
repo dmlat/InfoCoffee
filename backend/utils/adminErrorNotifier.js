@@ -1,12 +1,30 @@
 // backend/utils/adminErrorNotifier.js
 const TelegramBot = require('node-telegram-bot-api');
-const pool = require('../db');
+const { pool } = require('../db'); // ИСПРАВЛЕНИЕ: деструктурируем pool
 const moment = require('moment-timezone');
 
-const ADMIN_BOT_TOKEN = process.env.ADMIN_TELEGRAM_BOT_TOKEN;
-const ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS = process.env.ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS;
+const IS_DEV = process.env.NODE_ENV === 'development';
+// В dev-режиме используем основной тестовый бот и тестовый чат. В production - отдельные.
+const ADMIN_BOT_TOKEN = IS_DEV ? process.env.DEV_TELEGRAM_BOT_TOKEN : process.env.ADMIN_TELEGRAM_BOT_TOKEN;
+const ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS = IS_DEV ? process.env.DEV_ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS : process.env.ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS;
 
 let botInstance;
+
+// --- НОВАЯ ЛОГИКА ДЛЯ ПОДАВЛЕНИЯ СПАМА ---
+const notificationCache = new Map();
+const NOTIFICATION_COOLDOWN_MS = 5 * 60 * 1000; // 5 минут
+
+// Периодическая очистка кэша от старых записей, чтобы избежать утечек памяти
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, timestamp] of notificationCache.entries()) {
+        if (now - timestamp > NOTIFICATION_COOLDOWN_MS) {
+            notificationCache.delete(key);
+        }
+    }
+}, NOTIFICATION_COOLDOWN_MS);
+// --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+
 
 if (ADMIN_BOT_TOKEN && ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS) {
     botInstance = new TelegramBot(ADMIN_BOT_TOKEN);
@@ -32,6 +50,23 @@ async function sendErrorToAdmin({
     errorStack, 
     additionalInfo, 
 }) {
+    // --- НОВАЯ ЛОГИКА ДЕБАУНСИНГА ---
+    const userIdentifier = userId || telegramId;
+    // Создаем ключ из того, что есть. Для анонимных ошибок ключ будет основан на контексте и сообщении.
+    const cacheKey = `${errorContext}:${userIdentifier || 'anonymous'}:${errorMessage}`;
+    const now = Date.now();
+    
+    if (notificationCache.has(cacheKey)) {
+        const lastSent = notificationCache.get(cacheKey);
+        if (now - lastSent < NOTIFICATION_COOLDOWN_MS) {
+            console.log(`[AdminNotifier] DEBOUNCED notification for key: ${cacheKey}.`);
+            return; // Подавляем отправку уведомления
+        }
+    }
+    // Обновляем время последней отправки в кэше
+    notificationCache.set(cacheKey, now);
+    // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+
     if (!botInstance || !ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS) {
         console.log('[AdminErrorNotifier] Admin bot or chat ID not configured, skipping notification. Error was:', errorMessage);
         return;

@@ -2,13 +2,14 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
-const pool = require('../db');
+const { pool } = require('../db');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 
 // GET-запрос остается без изменений
 router.get('/terminal/:terminalId', authMiddleware, async (req, res) => {
-    const ownerUserId = req.user.ownerUserId;
+    const { ownerUserId, telegramId } = req.user;
     const { terminalId } = req.params;
+    console.log(`[GET /api/recipes] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching recipes for TerminalID: ${terminalId}.`);
     try {
         const ownerCheck = await pool.query('SELECT id FROM terminals WHERE id = $1 AND user_id = $2', [terminalId, ownerUserId]);
         if (ownerCheck.rowCount === 0) {
@@ -30,13 +31,14 @@ router.get('/terminal/:terminalId', authMiddleware, async (req, res) => {
 
 // Сохранить/обновить один рецепт
 router.post('/', authMiddleware, async (req, res) => {
-    const { ownerUserId } = req.user;
+    const { ownerUserId, telegramId } = req.user;
     const { terminalId, machine_item_id, name, items } = req.body;
+    console.log(`[POST /api/recipes] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Saving recipe for TerminalID: ${terminalId}, MachineItemID: ${machine_item_id}.`);
     if (!terminalId || !machine_item_id || !Array.isArray(items)) {
         return res.status(400).json({ success: false, error: 'Неверный формат данных' });
     }
 
-    const client = await pool.pool.connect();
+    const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const ownerCheck = await client.query('SELECT id FROM terminals WHERE id = $1 AND user_id = $2', [terminalId, ownerUserId]);
@@ -79,14 +81,15 @@ router.post('/', authMiddleware, async (req, res) => {
 
 // Копировать рецепты
 router.post('/copy', authMiddleware, async (req, res) => {
-    const { ownerUserId } = req.user;
+    const { ownerUserId, telegramId } = req.user;
     const { sourceTerminalId, destinationTerminalIds } = req.body;
+    console.log(`[POST /api/recipes/copy] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Copying recipes from ${sourceTerminalId} to ${destinationTerminalIds.join(', ')}.`);
 
     if (!sourceTerminalId || !Array.isArray(destinationTerminalIds) || destinationTerminalIds.length === 0) {
         return res.status(400).json({ success: false, error: 'Необходимы ID исходного и целевых терминалов.' });
     }
 
-    const client = await pool.pool.connect();
+    const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const allIdsToCheck = [sourceTerminalId, ...destinationTerminalIds];
