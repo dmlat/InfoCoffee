@@ -259,22 +259,26 @@ router.post('/validate-vendista', async (req, res) => {
 });
 
 router.post('/complete-registration', async (req, res) => {
-    const { telegram_id, vendista_api_token_plain, setup_date, tax_system, acquiring, first_name, user_name } = req.body;
+    const { telegram_id, vendista_api_token_plain, setup_date, tax_system, acquiring } = req.body;
+    // Handle both camelCase and snake_case for names to make the endpoint more robust against client-side changes.
+    const final_first_name = req.body.first_name || req.body.firstName;
+    const final_user_name = req.body.user_name || req.body.username;
+    
     console.log(`[POST /api/auth/complete-registration] Attempting to register user, TG ID: ${telegram_id}`);
 
-    if (!telegram_id || !vendista_api_token_plain || !setup_date || !first_name) {
+    if (!telegram_id || !vendista_api_token_plain || !setup_date || !final_first_name) {
         const errorMsg = 'Одно или несколько обязательных полей для регистрации отсутствовали.';
         console.error(`[POST /api/auth/complete-registration] Validation Failed for TG ID ${telegram_id}. Error: ${errorMsg}. Body:`, req.body);
         
         sendErrorToAdmin({
             telegramId: telegram_id,
-            userFirstName: first_name,
-            userUsername: user_name,
+            userFirstName: final_first_name,
+            userUsername: final_user_name,
             errorContext: `Registration Error: Missing Fields`,
             errorMessage: 'A user failed to complete registration due to missing required fields. This might indicate a frontend issue.',
             additionalInfo: { 
                 note: "This error occurs when the backend endpoint /api/auth/complete-registration does not receive all required data from the client.",
-                expected: ['telegram_id', 'vendista_api_token_plain', 'setup_date', 'first_name'],
+                expected: ['telegram_id', 'vendista_api_token_plain', 'setup_date', 'first_name (or firstName)'],
                 receivedBody: req.body 
             }
         }).catch(err => console.error("Failed to send admin notification for missing registration fields:", err));
@@ -306,7 +310,7 @@ router.post('/complete-registration', async (req, res) => {
                 updated_at = NOW()
             RETURNING id, setup_date, tax_system, acquiring, first_name, user_name;
         `;
-        const userResult = await client.query(userInsertQuery, [telegram_id, encryptedToken, setup_date, tax_system, acquiring, first_name, user_name]);
+        const userResult = await client.query(userInsertQuery, [telegram_id, encryptedToken, setup_date, tax_system, acquiring, final_first_name, final_user_name]);
         const user = userResult.rows[0];
         console.log(`[POST /api/auth/complete-registration] User registered/updated successfully! DB User ID: ${user.id}, TG ID: ${telegram_id}`);
 
@@ -326,7 +330,7 @@ router.post('/complete-registration', async (req, res) => {
         }).catch(importError => {
             console.error(`[POST /api/auth/complete-registration] Initial import failed for user ${user.id}:`, importError.message, importError.stack);
             sendErrorToAdmin({ 
-                userId: user.id, telegramId: telegram_id, userFirstName: first_name, userUsername: user_name,
+                userId: user.id, telegramId: telegram_id, userFirstName: final_first_name, userUsername: final_user_name,
                 errorContext: `Initial Import after registration for User ID: ${user.id}`,
                 errorMessage: importError.message, errorStack: importError.stack
             }).catch(notifyErr => console.error("Failed to send admin notification for initial import error:", notifyErr));
@@ -335,7 +339,7 @@ router.post('/complete-registration', async (req, res) => {
         res.status(200).json({
             success: true, token: appToken,
             user: { 
-                userId: user.id, telegramId: telegram_id.toString(), firstName: first_name, username: user_name,   
+                userId: user.id, telegramId: telegram_id.toString(), firstName: final_first_name, username: final_user_name,   
                 setup_date: setup_date, tax_system: user.tax_system,
                 acquiring: user.acquiring !== null ? String(user.acquiring) : null, accessLevel: 'owner'
             }
@@ -345,7 +349,7 @@ router.post('/complete-registration', async (req, res) => {
         await client.query('ROLLBACK');
         console.error("[POST /api/auth/complete-registration] Error during DB transaction:", err);
         sendErrorToAdmin({ 
-            telegramId: telegram_id, userFirstName: first_name, userUsername: user_name,
+            telegramId: telegram_id, userFirstName: final_first_name, userUsername: final_user_name,
             errorContext: `Complete Registration DB Transaction for TG ID: ${telegram_id}`,
             errorMessage: err.message, errorStack: err.stack, additionalInfo: { code: err.code, constraint: err.constraint }
         }).catch(notifyErr => console.error("Failed to send admin notification for DB transaction error:", notifyErr));
