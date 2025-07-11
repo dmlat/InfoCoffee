@@ -4,7 +4,7 @@ const path = require('path');
 
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const pool = require('../db');
+const { pool } = require('../db');
 const axios = require('axios');
 const crypto = require('crypto');
 const { encrypt, decrypt } = require('../utils/security'); // Импортируем из нового файла
