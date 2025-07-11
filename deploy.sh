@@ -14,9 +14,12 @@ echo " "
 
 # --- Шаг 1: Установка зависимостей БЭКЕНДА ---
 echo "[1/7] Checking backend dependencies..."
-if [ ! -d "backend/node_modules" ] || [ "backend/package.json" -nt "backend/node_modules" ] || [ "backend/package-lock.json" -nt "backend/node_modules" ]; then
+# Мы сравниваем package.json и package-lock.json с файлом-меткой .install-stamp
+# Это надежнее, чем сравнивать с папкой node_modules, чье время изменения не всегда обновляется.
+if [ ! -d "backend/node_modules" ] || [ "backend/package.json" -nt "backend/node_modules/.install-stamp" ] || [ "backend/package-lock.json" -nt "backend/node_modules/.install-stamp" ]; then
     echo "      Backend dependencies are missing or outdated. Installing..."
     (cd backend && npm install --omit=dev)
+    touch backend/node_modules/.install-stamp # Создаем или обновляем файл-метку
     echo "      Backend dependencies installed."
 else
     echo "      Backend dependencies are up-to-date. Skipping."
@@ -24,9 +27,10 @@ fi
 
 # --- Шаг 2: Установка зависимостей и сборка ФРОНТЕНДА ---
 echo "[2/7] Checking frontend dependencies and building..."
-if [ ! -d "frontend/node_modules" ] || [ "frontend/package.json" -nt "frontend/node_modules" ] || [ "frontend/package-lock.json" -nt "frontend/node_modules" ]; then
+if [ ! -d "frontend/node_modules" ] || [ "frontend/package.json" -nt "frontend/node_modules/.install-stamp" ] || [ "frontend/package-lock.json" -nt "frontend/node_modules/.install-stamp" ]; then
     echo "      Frontend dependencies are missing or outdated. Installing..."
     (cd frontend && npm install)
+    touch frontend/node_modules/.install-stamp # Создаем или обновляем файл-метку
     echo "      Frontend dependencies installed."
 else
     echo "      Frontend dependencies are up-to-date. Skipping."
