@@ -146,7 +146,7 @@ router.get('/sync-status', authMiddleware, async (req, res) => {
             `SELECT MAX(last_run_at) as last_successful_sync
              FROM worker_logs 
              WHERE user_id = $1 AND status = 'success' AND job_name LIKE ANY($2::TEXT[])`,
-            [ownerUserId]
+            [ownerUserId, generalImportJobNames.map(name => `%${name}%`)]
         );
         
         const lastSyncTime = lastDownloadRes.rows[0]?.last_successful_sync || null;
