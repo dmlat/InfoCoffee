@@ -311,6 +311,9 @@ async function importTransactionsForPeriod({ ownerUserId, vendistaApiToken, appT
     const logPrefix = `[Import Worker] [User ${ownerUserId}] [${dateFrom} to ${dateTo}]`;
     console.log(`${logPrefix}: Starting transaction import...`);
 
+    // CRITICAL FIX: Assign vendistaApiToken to vendistaToken for use in fetchTransactionPage
+    const vendistaToken = vendistaApiToken;
+
     const results = { processed: 0, added: 0, updated: 0, errors: [] };
 
     try {

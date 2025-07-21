@@ -2,6 +2,15 @@ Important Development Notes
 
 This document provides key considerations and guidelines for development within this project, especially regarding environment-specific configurations and feature implementation.
 
+CRITICAL UPDATE: Production Architecture Changed (2025-01-21)
+
+  PM2 Process Management:
+    - Production now uses `ecosystem.config.js` for PM2 process management
+    - Only TWO processes: `infocoffee-backend` and `infocoffee-scheduler`
+    - Bot functionality is integrated into backend process (NOT separate)
+    - Deploy script updated to use `pm2 start ecosystem.config.js`
+    - Worker files now include environment variable loading for standalone execution
+
 Development vs. Production Environment (NODE_ENV)
 
   The project utilizes the NODE_ENV environment variable to differentiate between development and production modes.
@@ -11,6 +20,7 @@ Development vs. Production Environment (NODE_ENV)
     Conditional logic based on NODE_ENV is implemented in various backend files (e.g., app.js, auth.js, middleware/auth.js).
     Development-only features, such as role emulation login via DevEntryPage.js, are active only when NODE_ENV is set to 'development'.
     Ensure that any new development-specific routes or middleware are guarded by NODE_ENV checks.
+    Worker files (schedule_imports.js, manual_runner.js) now include .env loading logic with NODE_ENV checks.
 
   Frontend:
     - **DevEntryPage.js & "Выйти (Дев)"**: Для тестирования ролей используется страница входа для разработчика (`DevEntryPage.js`), которая теперь является **основной точкой входа** в приложение в режиме разработки. Также есть специальная кнопка выхода, видимая только в `development` режиме. Это позволяет быстро переключаться между ролями, что является основным способом отладки.

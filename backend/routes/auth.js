@@ -11,7 +11,6 @@ const { encrypt, decrypt } = require('../utils/security'); // Импортиру
 const { startImport } = require('../worker/vendista_import_worker');
 const { syncTerminalsForUser } = require('../worker/terminal_sync_worker');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
-const { clearUserDataFromLocalStorage } = require('../../frontend/src/utils/user');
 
 const router = express.Router();
 

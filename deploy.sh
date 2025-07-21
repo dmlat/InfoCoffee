@@ -1,8 +1,5 @@
 #!/bin/bash
 # --- CONFIGURATION ---
-PM2_APP_NAME="infocoffee-backend"
-PM2_BOT_NAME="infocoffee-bot"
-PM2_SCHEDULER_NAME="infocoffee-scheduler"
 WEB_ROOT="/var/www/va"
 # --- END CONFIGURATION ---
 
@@ -79,14 +76,30 @@ fi
 echo "Setting script permissions..."
 chmod +x scripts/run-manual-job.sh
 
-# Шаг 7: Перезапуск PM2 сервисов с NODE_ENV=production
-echo "[7/7] Restarting backend services in PRODUCTION mode..."
-pm2 restart ${PM2_APP_NAME} --update-env
-echo "      '${PM2_APP_NAME}' restarted."
-pm2 restart ${PM2_BOT_NAME} --update-env
-echo "      '${PM2_BOT_NAME}' restarted."
-pm2 restart ${PM2_SCHEDULER_NAME} --update-env
-echo "      '${PM2_SCHEDULER_NAME}' restarted."
+# Шаг 7: Перезапуск PM2 сервисов через ecosystem.config.js
+echo "[7/7] Restarting backend services via ecosystem.config.js..."
+
+# Проверяем наличие существующих PM2 процессов
+if pm2 list 2>/dev/null | grep -q "infocoffee-backend\|infocoffee-scheduler"; then
+    echo "      Found existing PM2 processes. Restarting with latest code and environment..."
+    pm2 restart ecosystem.config.js --update-env
+    echo "      ✅ PM2 processes restarted successfully."
+else
+    echo "      No existing PM2 processes found. Starting fresh from ecosystem.config.js..."
+    pm2 start ecosystem.config.js
+    echo "      ✅ PM2 processes started successfully."
+fi
+
+# Сохраняем конфигурацию PM2 для автозапуска при перезагрузке сервера
+pm2 save
+echo "      ✅ PM2 configuration saved for auto-startup."
+
+# Показываем итоговый статус
+echo " "
+echo "📊 Final PM2 Status:"
+pm2 list
+echo " "
+echo "      All backend services are running in PRODUCTION mode! 🚀"
 
 echo " "
 echo "--- [SUCCESS] Deployment finished! ---"
