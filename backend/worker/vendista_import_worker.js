@@ -352,33 +352,32 @@ async function fetchTransactionPage(api, page, retries = 2) {
     }
 }
 
-async function importTransactionsForPeriod(user, days, fullHistory = false) {
-    const logPrefix = `[Import Worker] [User ${user.id}] [${days} days]`;
+async function importTransactionsForPeriod({
+    ownerUserId,
+    vendistaApiToken,
+    dateFrom,
+    dateTo,
+    fetchAllPages = true
+}) {
+    const logPrefix = `[Import Worker] [User ${ownerUserId}] [${dateFrom} to ${dateTo}]`;
     console.log(`${logPrefix}: Starting transaction import...`);
 
-    const plainToken = decrypt(user.vendista_api_token);
-    if (!plainToken) {
-        console.error(`${logPrefix}: Decryption of Vendista token failed. Skipping user.`);
-        await pool.query("UPDATE users SET vendista_token_status = 'invalid_creds' WHERE id = $1", [user.id]);
-        return { processed: 0, added: 0, updated: 0, errors: ['Token decryption failed'] };
+    if (!vendistaApiToken) {
+        console.error(`${logPrefix}: Vendista API token is missing.`);
+        return { success: false, error: 'Missing Vendista API token', processed: 0, added: 0, updated: 0 };
     }
-
-    const dateTo = moment().tz('Europe/Moscow').format('YYYY-MM-DD');
-    const dateFrom = fullHistory 
-        ? moment(user.setup_date).format('YYYY-MM-DD')
-        : moment().subtract(days, 'days').format('YYYY-MM-DD');
 
     // Create a dedicated axios instance for this user's import session
     const api = axios.create({
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${plainToken}`,
+            'Authorization': `Bearer ${vendistaApiToken}`,
         },
     });
     // Attach metadata to the instance for use in fetchTransactionPage
-    api.user_id = user.id;
-    api.dateFrom = dateFrom;
-    api.dateTo = dateTo;
+    api.user_id = ownerUserId;
+    api.dateFrom = `${dateFrom}T00:00:00`;
+    api.dateTo = `${dateTo}T23:59:59`;
 
     const results = { processed: 0, added: 0, updated: 0, errors: [] };
     const client = await pool.connect();
@@ -406,7 +405,7 @@ async function importTransactionsForPeriod(user, days, fullHistory = false) {
                 continue;
             }
             
-            await processTransactions(user.id, transactions, client, results);
+            await processTransactions(ownerUserId, transactions, client, results);
 
             // ИСПРАВЛЕНО: Правильная логика пагинации для Vendista API
             // Продолжаем, пока получаем полную страницу (500 записей)
@@ -420,26 +419,26 @@ async function importTransactionsForPeriod(user, days, fullHistory = false) {
         
         await client.query('COMMIT');
         console.log(`${logPrefix}: Import completed. Processed: ${results.processed}, Added: ${results.added}, Updated: ${results.updated}`);
+        return { success: true, processed: results.processed, added: results.added, updated: results.updated };
 
     } catch (error) {
         await client.query('ROLLBACK');
         console.error(`${logPrefix}: Import failed with transaction rollback. Error:`, error.message);
-        results.errors.push(`Import failed: ${error.message}`);
-        
         if (error.message === 'VENDISTA_PAYMENT_REQUIRED' && error.userId) {
              await handleVendistaPaymentError(error.userId, 'Vendista payment required - HTTP 402 error');
         } else {
              await sendErrorToAdmin({
-                userId: user.id,
-                errorContext: `Vendista Import Worker - User ${user.id}`,
+                userId: ownerUserId,
+                errorContext: `Vendista Import Worker - User ${ownerUserId}`,
                 errorMessage: error.message,
                 errorStack: error.stack,
              });
         }
+        
+        return { success: false, error: `Import failed: ${error.message}`, processed: results.processed, added: results.added, updated: results.updated };
     } finally {
         client.release();
     }
-    return results;
 }
 
 // A new helper function to isolate the transaction processing logic
@@ -560,8 +559,7 @@ async function startImport({ ownerUserId, vendistaApiToken, appToken, dateFrom, 
     try {
         const result = await importTransactionsForPeriod({
             ownerUserId,
-            vendistaApiToken, 
-            appToken,
+            vendistaApiToken,
             dateFrom,
             dateTo,
             fetchAllPages: true

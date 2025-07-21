@@ -57,45 +57,42 @@ async function processImportQueue() {
     }
 
     activeIpImports++;
-    const { user, days, fullHistory, jobName } = importQueue.shift();
+    const { importParams, jobName } = importQueue.shift();
     const logTime = moment().tz(TIMEZONE).format();
     
-    console.log(`[Cron ${logTime}] [${jobName}] Извлечение из очереди для User ${user.id}. Активных импортов: ${activeIpImports}. В очереди: ${importQueue.length}`);
+    console.log(`[Cron ${logTime}] [${jobName}] Извлечение из очереди для User ${importParams.ownerUserId}. Активных импортов: ${activeIpImports}. В очереди: ${importQueue.length}`);
 
     try {
-        const importResult = await importTransactionsForPeriod(user, days, fullHistory);
-        // The result from importTransactionsForPeriod doesn't have a 'success' property.
-        // We can infer success if there are no errors.
-        if (!importResult.errors || importResult.errors.length === 0) {
-            await logJobStatus(user.id, jobName, 'success', importResult);
+        const importResult = await importTransactionsForPeriod(importParams);
+        if (importResult.success) {
+            await logJobStatus(importParams.ownerUserId, jobName, 'success', importResult);
         } else {
-            const errorMessage = importResult.errors.join('; ');
-            await logJobStatus(user.id, jobName, 'failure', importResult, errorMessage);
-            if (errorMessage.toLowerCase().includes('token')) {
-                console.error(`[Cron ${logTime}] [${jobName}] User ${user.id} Vendista token might be invalid.`);
+            await logJobStatus(importParams.ownerUserId, jobName, 'failure', importResult, importResult.error);
+            if (importResult.error && importResult.error.toLowerCase().includes('token')) {
+                console.error(`[Cron ${logTime}] [${jobName}] User ${importParams.ownerUserId} Vendista token might be invalid.`);
             }
         }
     } catch (e) {
-        console.error(`[Cron ${logTime}] [${jobName}] КРИТИЧЕСКАЯ Ошибка для User ${user.id}: ${e.message}`);
-        await logJobStatus(user.id, jobName, 'critical_failure', null, e.message);
+        console.error(`[Cron ${logTime}] [${jobName}] КРИТИЧЕСКАЯ Ошибка для User ${importParams.ownerUserId}: ${e.message}`);
+        await logJobStatus(importParams.ownerUserId, jobName, 'critical_failure', null, e.message);
         await sendErrorToAdmin({
-            userId: user.id,
-            errorContext: `Critical scheduleSafeImport ${jobName} for User ${user.id}`,
+            userId: importParams.ownerUserId,
+            errorContext: `Critical scheduleSafeImport ${jobName} for User ${importParams.ownerUserId}`,
             errorMessage: e.message,
             errorStack: e.stack
         });
     } finally {
         activeIpImports--;
-        console.log(`[Cron ${logTime}] [${jobName}] Завершение для User ${user.id}. Активных импортов: ${activeIpImports}.`);
+        console.log(`[Cron ${logTime}] [${jobName}] Завершение для User ${importParams.ownerUserId}. Активных импортов: ${activeIpImports}.`);
         if (importQueue.length > 0) {
              setTimeout(processImportQueue, USER_PROCESSING_DELAY_MS);
         }
     }
 }
 
-function addToImportQueue(user, days, fullHistory, jobName) {
-    importQueue.push({ user, days, fullHistory, jobName });
-    console.log(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] User ${user.id} добавлен в очередь. Всего в очереди: ${importQueue.length}`);
+function addToImportQueue(importParams, jobName) {
+    importQueue.push({ importParams, jobName });
+    console.log(`[Cron ${moment().tz(TIMEZONE).format()}] [${jobName}] User ${importParams.ownerUserId} добавлен в очередь. Всего в очереди: ${importQueue.length}`);
     processImportQueue();
 }
 
@@ -124,12 +121,28 @@ async function runScheduledJob(jobName, dateSubtractArgs, isFullHistory) {
           continue;
       }
 
-      const daysToImport = isFullHistory
-        ? moment().diff(moment(user.setup_date), 'days') + 1
-        : moment.duration(dateSubtractArgs[0], dateSubtractArgs[1]).asDays();
+              const dateTo = moment().tz(TIMEZONE).format('YYYY-MM-DD');
+        const dateFrom = isFullHistory 
+            ? moment(user.setup_date).format('YYYY-MM-DD')
+            : moment().tz(TIMEZONE).subtract(dateSubtractArgs[0], dateSubtractArgs[1]).format('YYYY-MM-DD');
 
-      // Pass the entire user object to the queue
-      addToImportQueue(user, daysToImport, isFullHistory, jobName);
+        const plainToken = decrypt(user.vendista_api_token);
+        if (!plainToken) {
+            console.error(`[Cron ${logTime}] [${jobName}] Failed to decrypt token for User ${user.id}. Skipping.`);
+            await logJobStatus(user.id, jobName, 'skipped_decrypt_failed', null, 'Token decryption failed');
+            continue;
+        }
+
+        // Create import parameters object like in the old working code
+        const importParams = {
+            ownerUserId: user.id,
+            vendistaApiToken: plainToken,
+            dateFrom,
+            dateTo,
+            fetchAllPages: true
+        };
+
+        addToImportQueue(importParams, jobName);
     }
   } catch (e) {
     console.error(`[Cron ${logTime}] [${jobName}] Глобальная ошибка: ${e.message}`);
@@ -171,8 +184,27 @@ async function manualImportLastNDays(days, targetUserId, isFullHistory = false) 
                 continue;
             }
             
-            // Pass the entire user object to the queue
-            addToImportQueue(user, days, isFullHistory, jobName);
+            const dateTo = moment().tz(TIMEZONE).format('YYYY-MM-DD');
+            const dateFrom = isFullHistory 
+                ? moment(user.setup_date).format('YYYY-MM-DD')
+                : moment().tz(TIMEZONE).subtract(days, 'days').format('YYYY-MM-DD');
+
+            const plainToken = decrypt(user.vendista_api_token);
+            if (!plainToken) {
+                console.error(`[Cron ${logTime}] [${jobName}] Failed to decrypt token for User ${user.id}. Skipping.`);
+                continue;
+            }
+
+            // Create import parameters object like in the old working code
+            const importParams = {
+                ownerUserId: user.id,
+                vendistaApiToken: plainToken,
+                dateFrom,
+                dateTo,
+                fetchAllPages: true
+            };
+            
+            addToImportQueue(importParams, jobName);
         }
     } catch (e) {
         console.error(`[Cron ${logTime}] [${jobName}] Глобальная ошибка: ${e.message}`);
