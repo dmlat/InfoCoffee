@@ -31,7 +31,7 @@ API Endpoints (Backend)
             - В Development-режиме эндпоинт корректно обрабатывает эмулированные роли из токена. Если в токене указан `accessLevel` 'admin' или 'service', эндпоинт вернет объект пользователя с соответствующими данными (имя, `telegram_id`), а не данные владельца.
         - Выходные данные (успех):
             - success: true
-            - user: Полный объект пользователя из БД, дополненный `role` и `accessLevel` из токена.
+            - user: Полный объект пользователя из БД, дополненный `accessLevel` из токена.
         - Выходные данные (ошибка):
             - success: false
             - error: Сообщение об ошибке ('Invalid or expired token', 'User not found').
@@ -156,13 +156,27 @@ API Endpoints (Backend)
             - machineItems: Массив уникальных machine_item_id.
         - Выходные данные (ошибка): success: false, error
 
+    2.6. POST /api/terminals/:internalId/recipes
+        - Назначение: Обновление рецептов для указанного терминала.
+        - Входные параметры (URL):
+            - :internalId: Внутренний ID терминала.
+        - Входные параметры (заголовки): Authorization: Bearer <JWT_TOKEN>
+        - Входные параметры (тело запроса):
+            - recipes: Массив объектов рецептов. Каждый объект должен содержать:
+                - machine_item_id: ID напитка/товара.
+                - name: Название напитка.
+                - items: Массив ингредиентов { item_name, quantity }.
+        - Особенности: Требует уровня доступа owner или admin.
+        - Выходные данные (успех): success: true, message
+        - Выходные данные (ошибка): success: false, error
+
 3.  Инвентарь
 
     3.1. GET /api/inventory?location={location}&terminal_id={id}
         - Назначение: Универсальный эндпоинт для получения информации об инвентаре.
         - Входные параметры (URL-параметры):
-            - location: warehouse для центрального склада, stand для конкретной стойки.
-            - terminal_id: (Обязательно, если location=stand) Внутренний ID терминала.
+            - location: `warehouse` для центрального склада, `stand` или `machine` для инвентаря стойки.
+            - terminal_id: (Обязательно, если location=`stand` или `machine`) Внутренний ID терминала.
         - Входные параметры (заголовки): Authorization: Bearer <JWT_TOKEN>
         - Выходные данные (успех):
             - success: true
@@ -175,12 +189,10 @@ API Endpoints (Backend)
         - Входные параметры (тело запроса):
             - item_name: Название товара.
             - quantity: Количество для перемещения.
-            - source_location: Исходная локация (warehouse, stand, machine).
-            - destination_location: Целевая локация (warehouse, stand, machine).
-            - source_terminal_id: (Опционально) ID исходного терминала.
-            - destination_terminal_id: (Опционально) ID целевого терминала.
-        - Особенности: Требует уровня доступа owner, admin или service (для restock_task).
-        - Выходные данные (успех): success: true, message
+            - from: Объект источника { location: "warehouse" | "stand" | "machine", terminal_id?: number }.
+            - to: Объект назначения { location: "warehouse" | "stand" | "machine", terminal_id?: number }.
+        - Особенности: Требует уровня доступа owner, admin или service.
+        - Выходные данные (успех): success: true, message, updatedStock: { from, to }
         - Выходные данные (ошибка): success: false, error
 
 4.  Задачи
@@ -234,7 +246,16 @@ API Endpoints (Backend)
         - Выходные данные (успех): success: true, message
         - Выходные данные (ошибка): success: false, error
 
-    4.5. POST /api/tasks/:taskId/comment
+    4.5. DELETE /api/tasks/:taskId
+        - Назначение: Удаление задачи.
+        - Входные параметры (URL):
+            - :taskId: ID задачи для удаления.
+        - Входные параметры (заголовки): Authorization: Bearer <JWT_TOKEN>
+        - Особенности: Требует уровня доступа owner или admin.
+        - Выходные данные (успех): success: true, message
+        - Выходные данные (ошибка): success: false, error
+
+    4.6. POST /api/tasks/:taskId/comment
         - Назначение: Добавление комментария к задаче.
         - Входные параметры (URL):
             - :taskId: ID задачи.
@@ -244,7 +265,7 @@ API Endpoints (Backend)
         - Выходные данные (успех): success: true, message
         - Выходные данные (ошибка): success: false, error
 
-    4.6. GET /api/tasks/settings
+    4.7. GET /api/tasks/settings
         - Назначение: Получение настроек сервисных задач (cleaning_frequency, assignee_id_cleaning, assignee_id_restock) для всех терминалов пользователя.
         - Входные параметры (заголовки): Authorization: Bearer <JWT_TOKEN>
         - Выходные данные (успех):
@@ -252,7 +273,7 @@ API Endpoints (Backend)
             - settings: Массив объектов настроек, дополненных полем `needs_containers_config` (boolean), указывающим, требуется ли настройка контейнеров для терминала.
         - Выходные данные (ошибка): success: false, error
 
-    4.7. POST /api/tasks/settings
+    4.8. POST /api/tasks/settings
         - Назначение: Сохранение/обновление настроек сервисных задач для терминала.
         - Входные параметры (тело запроса):
             - terminal_id: ID терминала.
@@ -263,7 +284,7 @@ API Endpoints (Backend)
         - Выходные данные (успех): success: true, message
         - Выходные данные (ошибка): success: false, error
 
-    4.8. GET /api/tasks/restock-info
+    4.9. GET /api/tasks/restock-info
         - Назначение: Получение информации о товарах, требующих пополнения для текущего пользователя.
         - Входные параметры (заголовки): Authorization: Bearer <JWT_TOKEN>
         - Выходные данные (успех):

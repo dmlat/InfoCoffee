@@ -283,7 +283,7 @@ async function sendNotificationsBatch(notifications, priority = false, context =
 }
 
 async function fetchTransactionPage(api, page, retries = 2) {
-    const requestUrl = `${VENDISTA_API_URL}/transaction/report`;
+    const requestUrl = `${VENDISTA_API_URL}/transactions`;
     
     // We need to extract the plain token for the request params,
     // but the api object holds the full 'Bearer <token>' header.
@@ -291,19 +291,11 @@ async function fetchTransactionPage(api, page, retries = 2) {
 
     const requestParams = {
         token: currentToken,
-        page,
-        date_from: api.dateFrom,
-        date_to: api.dateTo,
+        PageNumber: page,
+        DateFrom: api.dateFrom,
+        DateTo: api.dateTo,
+        ItemsOnPage: 500 // Max items per page as per good practice
     };
-    
-    // --- DEBUG LOGGING ---
-    console.log(`\n[DEBUG] Making Vendista Request:`);
-    console.log(`  - URL: ${requestUrl}`);
-    console.log(`  - Page: ${requestParams.page}`);
-    console.log(`  - Date From: ${requestParams.date_from}`);
-    console.log(`  - Date To: ${requestParams.date_to}`);
-    console.log(`  - Token (first 8 chars): ${requestParams.token.substring(0, 8)}...`);
-    // --- END DEBUG LOGGING ---
     
     if (page === 1) {
         console.log(`[Import Worker] Requesting page 1 for user ${api.user_id}`);
