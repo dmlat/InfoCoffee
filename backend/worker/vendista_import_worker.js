@@ -389,6 +389,7 @@ async function importTransactionsForPeriod(user, days, fullHistory = false) {
         let hasMore = true;
 
         while (hasMore) {
+            // ИСПРАВЛЕНИЕ: Передаем созданный 'api' объект, а не undefined
             const response = await fetchTransactionPage(api, currentPage);
 
             if (response.error === 'token_refresh_failed') {
