@@ -23,8 +23,9 @@ async function createTask(type, terminalId) {
     console.log(`Creating '${type}' task for terminal ID ${terminalId}...`);
 
     // 1. Get terminal owner and assignees
+    // ИСПРАВЛЕНО: Изменено поле согласно DB.txt схеме
     const settingsRes = await pool.query(
-        `SELECT t.user_id, s.assignee_ids 
+        `SELECT t.user_id, s.assignee_id_cleaning, s.assignee_id_restock 
          FROM terminals t
          LEFT JOIN stand_service_settings s ON t.id = s.terminal_id
          WHERE t.id = $1`,
@@ -35,10 +36,18 @@ async function createTask(type, terminalId) {
         throw new Error(`Terminal with ID ${terminalId} not found.`);
     }
 
-    const { user_id: ownerUserId, assignee_ids } = settingsRes.rows[0];
+    const { user_id: ownerUserId, assignee_id_cleaning, assignee_id_restock } = settingsRes.rows[0];
 
-    if (!assignee_ids || assignee_ids.length === 0) {
-        console.warn(`Terminal ${terminalId} has no assignees. Task will be created but nobody will be notified.`);
+    // ИСПРАВЛЕНО: Выбираем assignee_id в зависимости от типа задачи
+    let assignee_id;
+    if (type === 'cleaning') {
+        assignee_id = assignee_id_cleaning;
+    } else if (type === 'restock') {
+        assignee_id = assignee_id_restock;
+    }
+
+    if (!assignee_id) {
+        console.warn(`Terminal ${terminalId} has no assignee for ${type}. Task will be created but nobody will be notified.`);
     }
 
     // 2. Create task
@@ -47,10 +56,11 @@ async function createTask(type, terminalId) {
         details = { items: 'Тестовый набор, Ингредиент 2' }; // Generic details for testing
     }
 
+    // ИСПРАВЛЕНО: Используем assignee_id (единичное поле) вместо assignee_ids
     const insertRes = await pool.query(
-        `INSERT INTO service_tasks (terminal_id, task_type, status, details, assignee_ids)
+        `INSERT INTO service_tasks (terminal_id, task_type, status, details, assignee_id)
          VALUES ($1, $2, 'pending', $3, $4) RETURNING id`,
-        [terminalId, type, JSON.stringify(details), assignee_ids]
+        [terminalId, type, JSON.stringify(details), assignee_id]
     );
     
     const newTaskId = insertRes.rows[0].id;

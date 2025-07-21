@@ -4,10 +4,10 @@ import './ModalFrame.css';
 import './TerminalListModal.css';
 import { ALL_ITEMS } from '../constants';
 
-const ITEM_UNITS = ALL_ITEMS.reduce((acc, item) => {
-    acc[item.name] = item.unit;
-    return acc;
-}, {});
+// const ITEM_UNITS = ALL_ITEMS.reduce((acc, item) => {
+//     acc[item.name] = item.unit;
+//     return acc;
+// }, {});
 
 export default function TerminalListModal({ isOpen, terminals, onSelect, onClose, currentSelection, disabledId = null, title = "Выберите стойку" }) {
     

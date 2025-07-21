@@ -6,6 +6,9 @@ const moment = require('moment-timezone');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 const { sendPriorityNotification } = require('../utils/botNotifier');
 const { sendBulkNotifications, getAdminsAndOwner } = require('../utils/botHelpers');
+const { sendTaskNotifications } = require('../utils/taskNotifier');
+const { decrypt } = require('../utils/security');
+const { getNewVendistaToken, refreshToken } = require('../utils/vendista');
 
 const VENDISTA_API_URL = process.env.VENDISTA_API_BASE_URL || 'https://api.vendista.ru:99';
 const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL || '';
@@ -68,12 +71,12 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
     let ownerTelegramId;
 
     try {
-        // 1. Получаем настройки и текущее состояние терминала
+        // ИСПРАВЛЕНО: Изменены имена полей согласно DB.txt схеме
         const settingsRes = await pool.query(
             `SELECT
                 s.cleaning_frequency,
-                s.assignee_ids_cleaning,
-                s.assignee_ids_restock,
+                s.assignee_id_cleaning,
+                s.assignee_id_restock,
                 t.sales_since_cleaning,
                 t.name as terminal_name,
                 u.telegram_id as owner_telegram_id
@@ -87,11 +90,13 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
         if (settingsRes.rowCount === 0) return;
         
         const settings = settingsRes.rows[0];
-        const { cleaning_frequency, assignee_ids_cleaning, assignee_ids_restock, sales_since_cleaning, terminal_name, owner_telegram_id } = settings;
+        // ИСПРАВЛЕНО: Изменены имена переменных согласно БД схеме (единичные поля)
+        const { cleaning_frequency, assignee_id_cleaning, assignee_id_restock, sales_since_cleaning, terminal_name, owner_telegram_id } = settings;
         ownerTelegramId = owner_telegram_id;
 
         // --- Логика для пополнения (Restock) ---
-        if (assignee_ids_restock && assignee_ids_restock.length > 0) {
+        // ИСПРАВЛЕНО: Проверяем единичное поле, а не массив
+        if (assignee_id_restock) {
             const stockRes = await pool.query(
                 `SELECT item_name, current_stock, critical_stock FROM inventories 
                  WHERE terminal_id = $1 AND location = 'machine' AND critical_stock IS NOT NULL AND current_stock <= critical_stock`,
@@ -107,10 +112,11 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
                 );
 
                 if (existingTaskRes.rows.length === 0) {
+                    // ИСПРАВЛЕНО: Используем assignee_id (единичное поле) вместо assignee_ids
                     const taskRes = await pool.query(
-                        `INSERT INTO service_tasks (terminal_id, task_type, assignee_ids, status, created_at, details)
+                        `INSERT INTO service_tasks (terminal_id, task_type, assignee_id, status, created_at, details)
                          VALUES ($1, $2, $3, $4, NOW(), $5) RETURNING id`,
-                        [internalTerminalId, 'restock', assignee_ids_restock, 'pending', JSON.stringify({ 
+                        [internalTerminalId, 'restock', assignee_id_restock, 'pending', JSON.stringify({ 
                             terminal_name, 
                             items_to_restock: itemsToRestock,
                             created_by_import: true
@@ -120,7 +126,8 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
                     createdTasksInfo.push({
                         type: 'restock',
                         taskId: taskRes.rows[0].id,
-                        assignees: assignee_ids_restock,
+                        // ИСПРАВЛЕНО: Единичный assignee вместо массива
+                        assignee: assignee_id_restock,
                         terminalName: terminal_name,
                         itemsToRestock
                     });
@@ -129,17 +136,19 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
         }
 
         // --- Логика для уборки (Cleaning) ---
-        if (assignee_ids_cleaning && assignee_ids_cleaning.length > 0 && cleaning_frequency && sales_since_cleaning >= cleaning_frequency) {
+        // ИСПРАВЛЕНО: Проверяем единичное поле, а не массив
+        if (assignee_id_cleaning && cleaning_frequency && sales_since_cleaning >= cleaning_frequency) {
             const existingCleaningTaskRes = await pool.query(
                 'SELECT id FROM service_tasks WHERE terminal_id = $1 AND task_type = $2 AND status = $3',
                 [internalTerminalId, 'cleaning', 'pending']
             );
 
             if (existingCleaningTaskRes.rows.length === 0) {
+                // ИСПРАВЛЕНО: Используем assignee_id (единичное поле) вместо assignee_ids
                 const cleaningTaskRes = await pool.query(
-                    `INSERT INTO service_tasks (terminal_id, task_type, assignee_ids, status, created_at, details)
+                    `INSERT INTO service_tasks (terminal_id, task_type, assignee_id, status, created_at, details)
                      VALUES ($1, $2, $3, $4, NOW(), $5) RETURNING id`,
-                    [internalTerminalId, 'cleaning', assignee_ids_cleaning, 'pending', JSON.stringify({ 
+                    [internalTerminalId, 'cleaning', assignee_id_cleaning, 'pending', JSON.stringify({ 
                         terminal_name, 
                         sales_count: sales_since_cleaning,
                         created_by_import: true
@@ -149,7 +158,8 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
                 createdTasksInfo.push({
                     type: 'cleaning',
                     taskId: cleaningTaskRes.rows[0].id,
-                    assignees: assignee_ids_cleaning,
+                    // ИСПРАВЛЕНО: Единичный assignee вместо массива
+                    assignee: assignee_id_cleaning,
                     terminalName: terminal_name,
                     salesCount: sales_since_cleaning
                 });
@@ -178,12 +188,11 @@ async function sendTaskNotificationsBatch(tasksInfo, ownerUserId, ownerTelegramI
         const assigneeGroups = new Map();
         
         for (const taskInfo of tasksInfo) {
-            for (const assigneeId of taskInfo.assignees) {
-                if (!assigneeGroups.has(assigneeId)) {
-                    assigneeGroups.set(assigneeId, []);
-                }
-                assigneeGroups.get(assigneeId).push(taskInfo);
+            // ИСПРАВЛЕНО: Используем assignee вместо assignee_ids
+            if (!assigneeGroups.has(taskInfo.assignee)) {
+                assigneeGroups.set(taskInfo.assignee, []);
             }
+            assigneeGroups.get(taskInfo.assignee).push(taskInfo);
         }
 
         // Отправляем уведомления назначенным исполнителям по группам
@@ -230,7 +239,7 @@ async function sendTaskNotificationsBatch(tasksInfo, ownerUserId, ownerTelegramI
                 const taskTypeName = taskInfo.type === 'restock' ? 'Пополнение' : 'Уборка';
                 
                 adminMessage += `${taskTypeEmoji} <b>${taskTypeName}</b> - ${taskInfo.terminalName}\n`;
-                adminMessage += `   Назначено: ${taskInfo.assignees.length} исполнителя(ей)\n`;
+                adminMessage += `   Назначено: ${taskInfo.assignee}\n`;
             }
             
             // Отправляем админам простые уведомления без клавиатуры
@@ -274,201 +283,236 @@ async function sendNotificationsBatch(notifications, priority = false, context =
     }
 }
 
-async function fetchTransactionPage(vendistaToken, page, dateFrom, dateTo, coffeeShopFilter, maxRetries) {
+async function fetchTransactionPage(api, page, retries = 2) {
     const requestUrl = `${VENDISTA_API_URL}/transaction/report`;
+    
+    // We need to extract the plain token for the request params,
+    // but the api object holds the full 'Bearer <token>' header.
+    const currentToken = api.defaults.headers.common['Authorization'].split(' ')[1];
+
     const requestParams = {
-        token: vendistaToken,
+        token: currentToken,
         page,
-        date_from: dateFrom,
-        date_to: dateTo,
-        coffee_shop: coffeeShopFilter || undefined,
+        date_from: api.dateFrom,
+        date_to: api.dateTo,
     };
     
-    // Логируем детали запроса только для первой страницы или при ошибках
     if (page === 1) {
-        console.log(`[Import Worker] Request URL: ${requestUrl}`);
-        console.log(`[Import Worker] Request params:`, {
-            ...requestParams,
-            token: `${vendistaToken.substring(0, 8)}...` // Маскируем токен
-        });
+        console.log(`[Import Worker] Requesting page 1 for user ${api.user_id}`);
     }
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            const response = await axios.get(requestUrl, {
-                params: requestParams,
-                timeout: 30000,
-            });
-
-            return response.data;
-        } catch (error) {
-            console.error(`[Import Worker] Error on page ${page}, attempt ${attempt}:`, error.message);
-            
-            // Дополнительная информация об ошибке
-            if (error.response) {
-                console.error(`[Import Worker] Response status: ${error.response.status}`);
-                console.error(`[Import Worker] Response data:`, error.response.data);
-            }
-
-            if (error.response?.status === 402) {
-                throw new Error('VENDISTA_PAYMENT_REQUIRED');
-            }
-
-            if (error.response?.status === 404) {
-                console.error(`[Import Worker] 404 Error Details:`);
-                console.error(`  - URL: ${requestUrl}`);
-                console.error(`  - Token (first 8 chars): ${vendistaToken.substring(0, 8)}...`);
-                console.error(`  - Date range: ${dateFrom} to ${dateTo}`);
-                throw new Error(`VENDISTA_404: Invalid token or endpoint. Check token validity and API endpoint.`);
-            }
-
-            if (attempt === maxRetries) {
-                throw error;
-            }
-
-            const backoffDelay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
-            console.log(`[Import Worker] Retrying page ${page} in ${backoffDelay}ms...`);
-            await delay(backoffDelay);
-        }
-    }
-}
-
-async function importTransactionsForPeriod({ ownerUserId, vendistaApiToken, appToken, dateFrom, dateTo, fetchAllPages = false }) {
-    const logPrefix = `[Import Worker] [User ${ownerUserId}] [${dateFrom} to ${dateTo}]`;
-    console.log(`${logPrefix}: Starting transaction import...`);
-
-    // CRITICAL FIX: Assign vendistaApiToken to vendistaToken for use in fetchTransactionPage
-    const vendistaToken = vendistaApiToken;
-
-    const results = { processed: 0, added: 0, updated: 0, errors: [] };
 
     try {
-        let currentPage = 1;
-        let hasMorePages = true;
-
-        while (hasMorePages) {
-            console.log(`${logPrefix}: Fetching page ${currentPage}...`);
-
-            try {
-                const resp = await fetchTransactionPage(vendistaToken, currentPage, dateFrom, dateTo, null, MAX_RETRIES);
-
-                if (!resp.items || resp.items.length === 0) {
-                    console.log(`${logPrefix}: Page ${currentPage} is empty or no more data.`);
-                    break;
-                }
-
-                console.log(`${logPrefix}: Processing ${resp.items.length} transactions from page ${currentPage}...`);
-
-                const client = await pool.connect();
-                try {
-                    await client.query('BEGIN');
-
-                    for (const transaction of resp.items) {
-                        try {
-                            const existingTransaction = await client.query(
-                                'SELECT id FROM transactions WHERE vendista_transaction_id = $1 AND user_id = $2',
-                                [transaction.id, ownerUserId]
-                            );
-
-                            if (existingTransaction.rows.length === 0) {
-                                await client.query(`
-                                    INSERT INTO transactions (
-                                        user_id, vendista_transaction_id, coffee_shop_id, machine_item_id, 
-                                        name, price, payment_method, transaction_time
-                                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                                `, [
-                                    ownerUserId,
-                                    transaction.id,
-                                    transaction.coffee_shop_id || null,
-                                    transaction.machine_item_id || null,
-                                    transaction.name || 'Unknown',
-                                    parseFloat(transaction.price) || 0,
-                                    transaction.payment_method || 'unknown',
-                                    new Date(transaction.date)
-                                ]);
-
-                                results.added++;
-
-                                // Увеличиваем счетчик продаж для терминала
-                                if (transaction.coffee_shop_id) {
-                                    const terminalRes = await client.query(
-                                        'SELECT id FROM terminals WHERE vendista_terminal_id = $1 AND user_id = $2',
-                                        [transaction.coffee_shop_id, ownerUserId]
-                                    );
-
-                                    if (terminalRes.rows.length > 0) {
-                                        const terminalId = terminalRes.rows[0].id;
-                                        
-                                        await client.query(
-                                            'UPDATE terminals SET sales_since_cleaning = sales_since_cleaning + 1 WHERE id = $1',
-                                            [terminalId]
-                                        );
-
-                                        // Списание инвентаря и проверка задач будет после коммита
-                                    }
-                                }
-                            } else {
-                                results.updated++;
-                            }
-
-                            results.processed++;
-
-                        } catch (transactionError) {
-                            console.error(`${logPrefix}: Error processing transaction ${transaction.id}:`, transactionError);
-                            results.errors.push(`Transaction ${transaction.id}: ${transactionError.message}`);
-                        }
-                    }
-
-                    await client.query('COMMIT');
-                    console.log(`${logPrefix}: Page ${currentPage} committed to database.`);
-
-                } catch (dbError) {
-                    await client.query('ROLLBACK');
-                    throw dbError;
-                } finally {
-                    client.release();
-                }
-
-                // Проверяем создание задач для всех терминалов
-                const terminalRes = await pool.query(
-                    'SELECT id FROM terminals WHERE user_id = $1 AND is_active = true',
-                    [ownerUserId]
-                );
-
-                for (const terminal of terminalRes.rows) {
-                    await checkAndCreateTasks(ownerUserId, terminal.id);
-                }
-
-                // Определяем, есть ли еще страницы
-                if (!fetchAllPages) {
-                    hasMorePages = false;
-                } else {
-                    hasMorePages = resp.items.length >= 100; // Предполагаем, что полная страница содержит 100 записей
-                    currentPage++;
-
-                    if (hasMorePages) {
-                        await delay(PAGE_FETCH_DELAY_MS);
-                    }
-                }
-
-            } catch (pageError) {
-                if (pageError.message === 'VENDISTA_PAYMENT_REQUIRED') {
-                    await handleVendistaPaymentError(ownerUserId, 'Vendista payment required - HTTP 402 error');
-                    throw new Error('Vendista payment required');
-                }
-                throw pageError;
-            }
+        const response = await axios.get(requestUrl, {
+            params: requestParams,
+            timeout: 30000,
+        });
+        return response.data; // Success
+    } catch (error) {
+        if (!error.response) {
+            console.error(`[Import Worker] Network error or timeout for user ${api.user_id} on page ${page}.`, error.message);
+            // Throw a generic error to be handled by a potential outer retry mechanism if any
+            throw new Error(`Network error for user ${api.user_id}`);
         }
 
-        console.log(`${logPrefix}: Import completed. Processed: ${results.processed}, Added: ${results.added}, Updated: ${results.updated}`);
-        return results;
+        const status = error.response.status;
+        console.error(`[Import Worker] User ${api.user_id} request failed on page ${page} with status ${status}.`);
 
-    } catch (error) {
-        console.error(`${logPrefix}: Import failed:`, error.message);
-        results.errors.push(`Import failed: ${error.message}`);
-        throw error;
+        if (status === 402) {
+            // Payment required is a terminal failure for this user.
+            const paymentError = new Error('VENDISTA_PAYMENT_REQUIRED');
+            paymentError.userId = api.user_id;
+            throw paymentError;
+        }
+
+        // For 401 (Unauthorized) or 404 (Not Found), we attempt a token refresh.
+        if ((status === 401 || status === 404) && retries > 0) {
+            console.log(`[User ${api.user_id}] Token might be expired (status ${status}). Attempting refresh. Retries left: ${retries}`);
+            
+            // Mark token as expired before attempting refresh
+            await pool.query("UPDATE users SET vendista_token_status = 'expired' WHERE id = $1", [api.user_id]);
+
+            const refreshResult = await refreshToken(api.user_id);
+
+            if (refreshResult.success) {
+                console.log(`[User ${api.user_id}] Token refreshed successfully. Retrying the request.`);
+                // Update the Authorization header in the existing axios instance for the retry
+                api.defaults.headers.common['Authorization'] = `Bearer ${refreshResult.token}`;
+                return fetchTransactionPage(api, page, retries - 1); // Recursive call with one less retry
+            } else {
+                console.error(`[User ${api.user_id}] Failed to refresh token. Aborting import for this user. Error: ${refreshResult.error}`);
+                // Return a specific structure to indicate a terminal failure for this user.
+                return { items: [], error: 'token_refresh_failed' };
+            }
+        }
+        
+        // If all retries are exhausted or it's another error code, throw a specific error.
+        const vendistaError = new Error(`VENDISTA_${status}: API error after all retries.`);
+        vendistaError.userId = api.user_id;
+        throw vendistaError;
     }
 }
+
+async function importTransactionsForPeriod(user, days, fullHistory = false) {
+    const logPrefix = `[Import Worker] [User ${user.id}] [${days} days]`;
+    console.log(`${logPrefix}: Starting transaction import...`);
+
+    const plainToken = decrypt(user.vendista_api_token);
+    if (!plainToken) {
+        console.error(`${logPrefix}: Decryption of Vendista token failed. Skipping user.`);
+        await pool.query("UPDATE users SET vendista_token_status = 'invalid_creds' WHERE id = $1", [user.id]);
+        return { processed: 0, added: 0, updated: 0, errors: ['Token decryption failed'] };
+    }
+
+    const dateTo = moment().tz('Europe/Moscow').format('YYYY-MM-DD');
+    const dateFrom = fullHistory 
+        ? moment(user.setup_date).format('YYYY-MM-DD')
+        : moment().subtract(days, 'days').format('YYYY-MM-DD');
+
+    // Create a dedicated axios instance for this user's import session
+    const api = axios.create({
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${plainToken}`,
+        },
+    });
+    // Attach metadata to the instance for use in fetchTransactionPage
+    api.user_id = user.id;
+    api.dateFrom = dateFrom;
+    api.dateTo = dateTo;
+
+    const results = { processed: 0, added: 0, updated: 0, errors: [] };
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        let currentPage = 1;
+        let hasMore = true;
+
+        while (hasMore) {
+            const response = await fetchTransactionPage(api, currentPage);
+
+            if (response.error === 'token_refresh_failed') {
+                console.error(`${logPrefix}: Halting import for user due to token refresh failure.`);
+                results.errors.push('Token refresh failed');
+                break; // Exit the while loop for this user
+            }
+
+            const transactions = response.items;
+            const totalPages = response._meta ? response._meta.pageCount : currentPage;
+
+            if (!transactions || transactions.length === 0) {
+                hasMore = false;
+                continue;
+            }
+            
+            await processTransactions(user.id, transactions, client, results);
+
+            hasMore = currentPage < totalPages;
+            currentPage++;
+
+            if (hasMore) {
+                await delay(PAGE_FETCH_DELAY_MS);
+            }
+        }
+        
+        await client.query('COMMIT');
+        console.log(`${logPrefix}: Import completed. Processed: ${results.processed}, Added: ${results.added}, Updated: ${results.updated}`);
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error(`${logPrefix}: Import failed with transaction rollback. Error:`, error.message);
+        results.errors.push(`Import failed: ${error.message}`);
+        
+        if (error.message === 'VENDISTA_PAYMENT_REQUIRED' && error.userId) {
+             await handleVendistaPaymentError(error.userId, 'Vendista payment required - HTTP 402 error');
+        } else {
+             await sendErrorToAdmin({
+                userId: user.id,
+                errorContext: `Vendista Import Worker - User ${user.id}`,
+                errorMessage: error.message,
+                errorStack: error.stack,
+             });
+        }
+    } finally {
+        client.release();
+    }
+    return results;
+}
+
+// A new helper function to isolate the transaction processing logic
+async function processTransactions(ownerUserId, transactions, client, results) {
+    for (const transaction of transactions) {
+        try {
+            const existingTransaction = await client.query(
+                `SELECT id FROM transactions 
+                 WHERE user_id = $1 AND coffee_shop_id = $2 AND amount = $3 
+                   AND transaction_time = $4 AND machine_item_id IS NOT DISTINCT FROM $5`,
+                [
+                    ownerUserId,
+                    transaction.coffee_shop_id || null,
+                    Math.round(parseFloat(transaction.price) * 100) || 0,
+                    new Date(transaction.date),
+                    transaction.machine_item_id || null
+                ]
+            );
+
+            if (existingTransaction.rows.length === 0) {
+                await client.query(`
+                    INSERT INTO transactions (
+                        user_id, coffee_shop_id, machine_item_id, amount, transaction_time,
+                        result, reverse_id, terminal_comment, status
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                `, [
+                    ownerUserId,
+                    transaction.coffee_shop_id || null,
+                    transaction.machine_item_id || null,
+                    Math.round(parseFloat(transaction.price) * 100) || 0,
+                    new Date(transaction.date),
+                    transaction.result || '1',
+                    transaction.reverse_id || 0,
+                    transaction.name || 'Unknown',
+                    transaction.status || 'completed'
+                ]);
+                results.added++;
+
+                if (transaction.coffee_shop_id) {
+                    const terminalRes = await client.query(
+                        'SELECT id FROM terminals WHERE vendista_terminal_id = $1 AND user_id = $2',
+                        [transaction.coffee_shop_id, ownerUserId]
+                    );
+
+                    if (terminalRes.rows.length > 0) {
+                        await client.query(
+                            'UPDATE terminals SET sales_since_cleaning = sales_since_cleaning + 1 WHERE id = $1',
+                            [terminalRes.rows[0].id]
+                        );
+                        await checkAndCreateTasks(ownerUserId, terminalRes.rows[0].id);
+                    }
+                }
+            } else {
+                await client.query(`
+                    UPDATE transactions SET
+                        result = $1, reverse_id = $2, terminal_comment = $3, 
+                        status = $4, last_updated_at = NOW()
+                    WHERE id = $5
+                `, [
+                    transaction.result || '1',
+                    transaction.reverse_id || 0, 
+                    transaction.name || 'Unknown',
+                    transaction.status || 'completed',
+                    existingTransaction.rows[0].id
+                ]);
+                results.updated++;
+            }
+            results.processed++;
+        } catch (transactionError) {
+            console.error(`[Import Worker] Error processing transaction ${transaction.id}:`, transactionError);
+            results.errors.push(`Transaction ${transaction.id}: ${transactionError.message}`);
+        }
+    }
+}
+
 
 async function startImport({ ownerUserId, vendistaApiToken, appToken, dateFrom, dateTo }) {
     console.log(`[Import Worker] Starting import for user ${ownerUserId}: ${dateFrom} to ${dateTo}`);

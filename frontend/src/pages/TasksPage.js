@@ -473,7 +473,7 @@ const CleaningSettingsBlock = ({ settings, users, isLoading, onSettingChange, on
 
 export default function TasksPage() {
     const { user } = useAuth();
-    const navigate = useNavigate();
+    // const navigate = useNavigate();  // Unused in this component
 
     const [myTasks, setMyTasks] = useState([]);
     const [allTasks, setAllTasks] = useState([]);

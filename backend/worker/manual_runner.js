@@ -13,7 +13,8 @@ if (process.env.NODE_ENV === 'production') {
 
 require('../utils/logger'); // Глобальное подключение логгера
 const { pool } = require('../db');
-const { decrypt } = require('../utils/security');
+const { decrypt, encrypt } = require('../utils/security');
+const { getNewVendistaToken } = require('../utils/vendista');
 const { manualImportLastNDays } = require('./schedule_imports');
 const { syncTerminalsForUser } = require('./terminal_sync_worker');
 const moment = require('moment');
@@ -22,6 +23,7 @@ const axios = require('axios');
 const COMMANDS = {
   IMPORT_TRANSACTIONS: 'import-transactions',
   SYNC_TERMINALS: 'sync-terminals',
+  UPDATE_CREDS: 'update-creds',
   TEST_TOKEN: 'test-token'
 };
 
@@ -138,6 +140,7 @@ function printHelp() {
     Commands:
       import-transactions   Imports transactions for users.
       sync-terminals        Syncs terminal lists for users.
+      update-creds          Updates Vendista login and password for a user.
       test-token           Tests Vendista token validity.
 
     Options:
@@ -243,6 +246,35 @@ async function main() {
       case COMMANDS.SYNC_TERMINALS:
         console.log('  -> Starting terminal sync.');
         await syncTerminalsForUser(user.id, plainToken);
+        break;
+
+      case COMMANDS.UPDATE_CREDS:
+        const { login, password } = options;
+        if (!login || !password) {
+            console.error('ERROR: --login and --password are required for update-creds command.');
+            process.exit(1);
+        }
+        console.log(`  -> Updating Vendista credentials for user ${user.id}.`);
+        
+        const encryptedLogin = encrypt(login);
+        const encryptedPassword = encrypt(password);
+
+        // Also fetch a new token with the new credentials to ensure they are valid
+        const newToken = await getNewVendistaToken(login, password);
+        if (!newToken) {
+            console.error('ERROR: Failed to fetch a new token with the provided credentials. Are they correct? Aborting.');
+            process.exit(1);
+        }
+        console.log('  -> Successfully fetched new token with provided credentials.');
+        const encryptedToken = encrypt(newToken);
+
+        await pool.query(
+            `UPDATE users 
+             SET vendista_login = $1, vendista_password = $2, vendista_api_token = $3, vendista_token_status = 'valid'
+             WHERE id = $4`,
+            [encryptedLogin, encryptedPassword, encryptedToken, user.id]
+        );
+        console.log(`  -> Credentials and new token for user ${user.id} successfully updated in the database.`);
         break;
 
       case COMMANDS.TEST_TOKEN:

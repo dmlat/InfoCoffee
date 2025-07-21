@@ -1,475 +1,342 @@
-# Database Schema for "coffee_dashboard"
+### 1. Таблица `users`
 
-This document describes the current PostgreSQL database schema used in the InfoCoffee Analytics project. The schema consists of 12 tables responsible for storing data about users, transactions, expenses, inventory, and system logs.
-
-**Core Principles:**
-- **Ownership**: Most data is tied to a `user_id`, representing the business owner.
-- **Delegated Access**: The `user_access_rights` table allows users to grant access to their data to other Telegram users (admins, service staff).
-- **Centralized Stock**: The `inventories` table acts as the source of truth for all stock, both at the central warehouse and in individual coffee stands.
-- **Payment Status Tracking**: The `vendista_payment_status` field in the `users` table tracks Vendista service payment status to prevent spam notifications when payment is required.
-
-### Table of Contents
-1.  [`users`](#users-table)
-2.  [`user_access_rights`](#user_access_rights-table)
-3.  [`terminals`](#terminals-table)
-4.  [`transactions`](#transactions-table)
-5.  [`expenses`](#expenses-table)
-6.  [`inventories`](#inventories-table)
-7.  [`recipes`](#recipes-table)
-8.  [`recipe_items`](#recipe_items-table)
-9.  [`stand_service_settings`](#stand_service_settings-table)
-10. [`service_tasks`](#service_tasks-table)
-11. [`worker_logs`](#worker_logs-table)
-
----
-
-## `users` Table
-Stores primary information about application users. These records represent the *owners* of coffee businesses. The record is created upon the user's first interaction with the bot and is fully populated upon successful registration.
-
-| Column               | Type           | Nullable | Description                                                                                                                                                            |
-| -------------------- | -------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id` (PK)            | `SERIAL`       | NOT NULL | Unique internal identifier for the user. Primary key.                                                                                                                  |
-| `telegram_id` (UQ)   | `BIGINT`       | NOT NULL | The user's unique Telegram ID. The primary link to their Telegram account.                                                                                             |
-| `vendista_api_token` | `TEXT`         | NULL     | **Encrypted** API token for accessing the Vendista service. Populated during registration step 1.                                                                      |
-| `first_name`         | `VARCHAR(255)` | NULL     | User's first name from Telegram. Can be empty if not set in the user's profile.                                                                                        |
-| `user_name`          | `VARCHAR(255)` | NULL     | User's Telegram username (e.g., @username). Can be empty.                                                                                                              |
-| `setup_date`         | `DATE`         | NULL     | **Crucial field**: The date of the first coffee machine installation. Entered by the user during registration step 2 and used as the `Date From` for the initial full history import. |
-| `tax_system`         | `VARCHAR(32)`  | NULL     | User's selected tax system (e.g., 'income_6'). Set during registration.                                                                                                |
-| `acquiring`          | `NUMERIC`      | NULL     | Acquiring commission rate as a percentage (e.g., 1.9). Set during registration.                                                                                        |
-| `vendista_payment_status` | `VARCHAR(20)` | NULL   | **Payment tracking**: Status of Vendista service payment. Values: 'active' (default), 'payment_required', 'notified'. Used to prevent spam notifications when payment is required. |
-| `vendista_payment_notified_at` | `TIMESTAMPTZ` | NULL | Timestamp of when the user was last notified about payment issues. Used to track notification history.                                                                |
-| `created_at`         | `TIMESTAMP`    | NOT NULL | Timestamp when the user record was created. Defaults to `now()`.                                                                                                       |
-| `updated_at`         | `TIMESTAMP`    | NULL     | Timestamp of the last record update. Automatically updated by a trigger.                                                                                               |
+Хранит данные о владельцах кофеен и их статусе в системе Vendista.
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.users (
-    id SERIAL PRIMARY KEY,
-    telegram_id BIGINT UNIQUE NOT NULL,
-    vendista_api_token TEXT,
-    first_name VARCHAR(255),
-    user_name VARCHAR(255),
-    setup_date DATE,
-    tax_system VARCHAR(32),
-    acquiring NUMERIC,
-    vendista_payment_status VARCHAR(20) DEFAULT 'active' 
-        CHECK (vendista_payment_status IN ('active', 'payment_required', 'notified')),
-    vendista_payment_notified_at TIMESTAMPTZ,
-    created_at TIMESTAMP NOT NULL DEFAULT now(),
-    updated_at TIMESTAMP DEFAULT now()
+    id                           SERIAL PRIMARY KEY,
+    telegram_id                  BIGINT UNIQUE NOT NULL,
+    vendista_api_token           TEXT,
+    vendista_login               TEXT, -- Encrypted
+    vendista_password            TEXT, -- Encrypted
+    name                         VARCHAR(255),
+    first_name                   VARCHAR(255),
+    last_name                    VARCHAR(255),
+    user_name                    VARCHAR(255),
+    language_code                VARCHAR(10),
+    photo_url                    TEXT,
+    setup_date                   DATE,
+    tax_system                   VARCHAR(32),
+    acquiring                    NUMERIC,
+    registration_date            TIMESTAMPTZ,
+    created_at                   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+    updated_at                   TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT now(),
+    vendista_payment_status      VARCHAR(20) DEFAULT 'active'
+                                    CHECK (vendista_payment_status IN (
+                                        'active','payment_required','notified'
+                                    )),
+    vendista_token_status        VARCHAR(20) DEFAULT 'valid'
+                                    CHECK (vendista_token_status IN (
+                                        'valid', 'expired', 'invalid_creds'
+                                    )),
+    vendista_payment_notified_at TIMESTAMPTZ
 );
 
--- Trigger to automatically update the updated_at timestamp
+-- Триггер для автоматического обновления updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
+  RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
+  NEW.updated_at = NOW();
+  RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER set_timestamp_users
-BEFORE UPDATE ON users
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+  BEFORE UPDATE ON users
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
--- Index for efficient payment status queries
-CREATE INDEX idx_users_payment_status ON users(vendista_payment_status);
+CREATE INDEX IF NOT EXISTS idx_users_payment_status
+  ON public.users(vendista_payment_status);
+
+CREATE INDEX IF NOT EXISTS idx_users_telegram_id
+  ON public.users(telegram_id);
 ```
 
 ---
 
-## `user_access_rights` Table
-Defines permissions for one user (e.g., an admin or service staff) to access another user's data (the owner). This is the core of the delegated access system.
+### 2. Таблица `user_access_rights`
 
-| Column                          | Type        | Nullable | Description                                                                   |
-| ------------------------------- | ----------- | -------- | ----------------------------------------------------------------------------- |
-| `id` (PK)                       | `SERIAL`    | NOT NULL | Unique identifier for the access right.                                       |
-| `owner_user_id` (FK)            | `INTEGER`   | NOT NULL | References `users.id`. The user who owns the data.                            |
-| `shared_with_telegram_id`       | `BIGINT`    | NOT NULL | The Telegram ID of the person being granted access.                           |
-| `shared_with_name`              | `VARCHAR`   | NOT NULL | The name of the person granted access (for display purposes).                 |
-| `access_level`                  | `VARCHAR`   | NOT NULL | The level of access, e.g., 'admin', 'service'. `DEFAULT 'admin'`.           |
-| `can_receive_stock_notifications` | `BOOLEAN`   | NULL     | Can this person receive notifications about low stock?                        |
-| `can_receive_service_notifications`| `BOOLEAN`   | NULL     | Can this person receive notifications about maintenance tasks?              |
-| `assigned_terminals_stock`      | `INTEGER[]` | NULL     | Array of `terminals.id` this person is responsible for restocking.            |
-| `assigned_terminals_service`    | `INTEGER[]` | NULL     | Array of `terminals.id` this person is responsible for servicing.             |
-| `timezone`                      | `VARCHAR`   | NULL     | The timezone of the service staff member (for future notification scheduling).|
-| `created_at`                    | `TIMESTAMPTZ`| NULL     | Timestamp of when the access was granted.                                   |
+Управляет правами доступа приглашённых пользователей к данным владельцев.
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.user_access_rights (
-    id SERIAL PRIMARY KEY,
-    owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    shared_with_telegram_id BIGINT NOT NULL,
-    shared_with_name VARCHAR(255) NOT NULL,
-    access_level VARCHAR(50) NOT NULL DEFAULT 'admin',
-    can_receive_stock_notifications BOOLEAN DEFAULT FALSE,
-    can_receive_service_notifications BOOLEAN DEFAULT FALSE,
-    assigned_terminals_stock INTEGER[],
-    assigned_terminals_service INTEGER[],
-    timezone VARCHAR(100),
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    id                              SERIAL PRIMARY KEY,
+    owner_user_id                   INTEGER NOT NULL
+                                       REFERENCES public.users(id)
+                                       ON DELETE CASCADE,
+    shared_with_telegram_id         BIGINT NOT NULL,
+    shared_with_name                VARCHAR(255) NOT NULL,
+    access_level                    VARCHAR(50) NOT NULL DEFAULT 'admin',
+    can_receive_stock_notifications BOOLEAN     DEFAULT FALSE,
+    can_receive_service_notifications BOOLEAN    DEFAULT FALSE,
+    assigned_terminals_stock        INTEGER[],
+    assigned_terminals_service      INTEGER[],
+    timezone                        VARCHAR(100),
+    created_at                      TIMESTAMPTZ  DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (owner_user_id, shared_with_telegram_id)
 );
 ```
 
 ---
 
-## `terminals` Table
-Stores information about coffee terminals (stands), linked to a user. This table acts as a local cache and the single source of truth for the application, synchronized with the Vendista API by a background worker.
+### 3. Таблица `terminals`
 
-| Column                     | Type        | Nullable | Description                                                                                             |
-| -------------------------- | ----------- | -------- | ------------------------------------------------------------------------------------------------------- |
-| `id` (PK)                  | `INTEGER`   | NOT NULL | Unique internal identifier for the terminal.                                                            |
-| `user_id` (FK)             | `INTEGER`   | NOT NULL | References `users.id`, the owner of the terminal.                                                       |
-| `vendista_terminal_id`     | `INTEGER`   | NOT NULL | The terminal's ID in the Vendista system. Used to link transactions.                                    |
-| `name`                     | `VARCHAR`   | NULL     | The terminal's name (from the `comment` field in Vendista).                                             |
-| `serial_number`            | `VARCHAR`   | NULL     | The machine's serial number.                                                                            |
-| `last_online_time`         | `TIMESTAMPTZ`| NULL     | The last time the terminal was online, according to Vendista.                                           |
-| `is_online`                | `BOOLEAN`   | NULL     | A calculated flag indicating if the terminal is currently online.                                       |
-| `is_active`                | `BOOLEAN`   | NOT NULL | "Soft delete" flag. `false` if the terminal is removed from Vendista but kept in our DB for history.    |
-| `last_synced_at`           | `TIMESTAMPTZ`| NULL     | Timestamp of the last successful data synchronization for this terminal by the worker.                  |
-| `sales_since_cleaning`     | `INTEGER`   | NOT NULL | **Important**: A counter for sales made since the last 'cleaning' task. Reset to 0 when a cleaning task is completed. `DEFAULT: 0`. |
-| `created_at`               | `TIMESTAMPTZ`| NOT NULL | Record creation timestamp.                                                                              |
-| `updated_at`               | `TIMESTAMPTZ`| NOT NULL | Record last update timestamp.                                                                           |
+Кэш информации о кофейных терминалах, синхронизируемых с Vendista.
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.terminals (
-    id INTEGER NOT NULL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    vendista_terminal_id INTEGER NOT NULL,
-    name VARCHAR(255),
-    serial_number VARCHAR(100),
-    last_online_time TIMESTAMPTZ,
-    is_online BOOLEAN,
-    is_active BOOLEAN NOT NULL DEFAULT true,
-    last_synced_at TIMESTAMPTZ,
-    sales_since_cleaning INTEGER NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    id                       SERIAL PRIMARY KEY,
+    user_id                  INTEGER NOT NULL
+                               REFERENCES public.users(id)
+                               ON DELETE CASCADE,
+    vendista_terminal_id     INTEGER NOT NULL,
+    name                     VARCHAR(255),
+    serial_number            VARCHAR(100),
+    last_online_time         TIMESTAMPTZ,
+    is_online                BOOLEAN     DEFAULT FALSE,
+    is_active                BOOLEAN     NOT NULL DEFAULT TRUE,
+    last_synced_at           TIMESTAMPTZ,
+    service_interval_sales   INTEGER,
+    sales_since_last_service INTEGER     DEFAULT 0,
+    sales_since_cleaning     INTEGER     NOT NULL DEFAULT 0,
+    created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_id, vendista_terminal_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_terminals_user_id
+  ON public.terminals(user_id);
 ```
 
 ---
 
-## `transactions` Table
-Stores all financial transactions retrieved from Vendista. This is one of the largest tables in the database.
+### 4. Таблица `transactions`
 
-| Column           | Type        | Nullable | Description                                                           |
-| ---------------- | ----------- | -------- | --------------------------------------------------------------------- |
-| `id` (PK)        | `SERIAL`    | NOT NULL | Unique identifier for the transaction record in our database.         |
-| `user_id` (FK)   | `INTEGER`   | NOT NULL | References `users.id`, the owner of the business.                     |
-| `coffee_shop_id` | `INTEGER`   | NULL     | The `vendista_terminal_id` this transaction belongs to.               |
-| `amount`         | `NUMERIC`   | NULL     | The transaction amount in cents (e.g., 15000 for 150.00 currency units).|
-| `transaction_time`| `TIMESTAMPTZ`| NULL     | The exact timestamp of the transaction from Vendista.                 |
-| `result`         | `VARCHAR`   | NULL     | Transaction result code from Vendista ('1' usually means success).    |
-| `reverse_id`     | `INTEGER`   | NULL     | ID of the reversal transaction, if any. 0 if it's not a reversal.     |
-| `terminal_comment`| `VARCHAR`   | NULL     | The terminal's name at the time of the transaction.                   |
-| `machine_item_id`| `INTEGER`   | NULL     | The ID of the button/item sold on the machine. Links to `recipes`.    |
-| `last_updated_at`| `TIMESTAMPTZ`| NULL     | When this record was last updated by our system.                      |
+Все финансовые транзакции из Vendista.
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.transactions (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    coffee_shop_id INTEGER,
-    amount NUMERIC,
+    id               SERIAL PRIMARY KEY,
+    user_id          INTEGER     NOT NULL
+                               REFERENCES public.users(id)
+                               ON DELETE CASCADE,
+    coffee_shop_id   INTEGER,
+    amount           NUMERIC,
     transaction_time TIMESTAMPTZ,
-    result VARCHAR(255),
-    reverse_id INTEGER,
+    result           VARCHAR(255),
+    reverse_id       INTEGER,
     terminal_comment VARCHAR(255),
-    card_number VARCHAR(32),
-    status VARCHAR(64),
-    bonus NUMERIC,
-    left_sum NUMERIC,
-    left_bonus NUMERIC,
-    machine_item_id INTEGER,
-    last_updated_at TIMESTAMPTZ DEFAULT now()
+    card_number      VARCHAR(32),
+    status           VARCHAR(64),
+    bonus            NUMERIC,
+    left_sum         NUMERIC,
+    left_bonus       NUMERIC,
+    machine_item_id  INTEGER,
+    last_updated_at  TIMESTAMPTZ DEFAULT now()
 );
 ```
 
 ---
 
-## `expenses` Table
-Stores expenses manually entered by the user.
+### 5. Таблица `expenses`
 
-| Column       | Type        | Nullable | Description                                        |
-| ------------ | ----------- | -------- | -------------------------------------------------- |
-| `id` (PK)    | `SERIAL`    | NOT NULL | Unique identifier for the expense.                 |
-| `user_id` (FK)| `INTEGER`   | NOT NULL | References `users.id`, the owner.                  |
-| `amount`     | `NUMERIC`   | NOT NULL | The monetary value of the expense.                 |
-| `comment`    | `TEXT`      | NULL     | A user-provided description of the expense.        |
-| `expense_time`| `TIMESTAMPTZ`| NOT NULL | The date and time of the expense, set by the user. |
+Расходы, введённые вручную пользователями.
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.expenses (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    amount NUMERIC NOT NULL,
-    comment TEXT,
-    expense_time TIMESTAMPTZ NOT NULL
+    id            SERIAL PRIMARY KEY,
+    user_id       INTEGER     NOT NULL
+                        REFERENCES public.users(id)
+                        ON DELETE CASCADE,
+    amount        NUMERIC     NOT NULL,
+    comment       TEXT,
+    expense_time  TIMESTAMPTZ NOT NULL
 );
 ```
 
 ---
 
-## `inventories` Table
-Tracks ingredient and consumable stock levels at the central warehouse and in individual stands. This is the single source of truth for all stock management.
+### 6. Таблица `inventories`
 
-| Column          | Type          | Nullable | Description                                                                                                            |
-| --------------- | ------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `id` (PK)       | `SERIAL`      | NOT NULL | Unique identifier for the inventory record.                                                                            |
-| `user_id` (FK)  | `INTEGER`     | NOT NULL | References `users.id`, the owner.                                                                                      |
-| `terminal_id` (FK)| `INTEGER`     | NULL     | References `terminals.id`. `NULL` if the location is 'warehouse'.                                                      |
-| `item_name`     | `VARCHAR`     | NOT NULL | The name of the ingredient or consumable (e.g., "Кофе", "Стаканы").                                                    |
-| `location`      | `VARCHAR`     | NOT NULL | Where the item is stored. Either `'warehouse'` for the central warehouse or `'machine'` for a specific coffee stand.     |
-| `current_stock` | `NUMERIC`     | NOT NULL | The current stock level. Conventionally stored in base units (grams, milliliters, pieces). `DEFAULT 0`.                  |
-| `max_stock`     | `NUMERIC`     | NULL     | The maximum capacity for this item at this location. Used to calculate fullness percentage.                            |
-| `critical_stock`| `NUMERIC`     | NULL     | The stock level at which a restock notification should be triggered.                                                   |
-| `updated_at`    | `TIMESTAMPTZ` | NOT NULL | Timestamp of the last stock update. `DEFAULT now()`.                                                                   |
+Остатки ингредиентов на складе и в каждой стойке.
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.inventories (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    terminal_id INTEGER REFERENCES terminals(id) ON DELETE CASCADE,
-    item_name VARCHAR(100) NOT NULL,
-    location VARCHAR(50) NOT NULL, -- 'warehouse' or 'machine'
-    current_stock NUMERIC(12,3) NOT NULL DEFAULT 0,
-    max_stock NUMERIC(12,3),
-    critical_stock NUMERIC(12,3),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    id                        SERIAL PRIMARY KEY,
+    user_id                   INTEGER     NOT NULL
+                                REFERENCES public.users(id)
+                                ON DELETE CASCADE,
+    terminal_id               INTEGER
+                                REFERENCES public.terminals(id)
+                                ON DELETE CASCADE,
+    item_name                 VARCHAR(100) NOT NULL,
+    location                  VARCHAR(50)  NOT NULL,
+    current_stock             NUMERIC(12,3) NOT NULL DEFAULT 0,
+    max_stock                 NUMERIC(12,3),
+    critical_stock            NUMERIC(12,3),
+    updated_at                TIMESTAMPTZ  NOT NULL DEFAULT now(),
     UNIQUE (user_id, terminal_id, item_name, location)
 );
+
+CREATE INDEX IF NOT EXISTS idx_inventories_user_location
+  ON public.inventories(user_id, location);
 ```
 
 ---
 
-## `recipes` Table
-Defines drink recipes, linking a specific button on a terminal (`machine_item_id`) to a set of ingredients.
+### 7. Таблица `recipes`
 
-| Column          | Type        | Nullable | Description                                                                |
-| --------------- | ----------- | -------- | -------------------------------------------------------------------------- |
-| `id` (PK)       | `SERIAL`    | NOT NULL | Unique identifier for the recipe.                                          |
-| `terminal_id` (FK)| `INTEGER`   | NOT NULL | References `terminals.id`. The terminal this recipe belongs to.            |
-| `machine_item_id`| `INTEGER`   | NOT NULL | The ID of the button/item on the machine, from `transactions`.             |
-| `name`          | `VARCHAR`   | NULL     | A user-friendly name for the drink (e.g., "Капучино").                     |
-| `updated_at`    | `TIMESTAMPTZ`| NOT NULL | Timestamp of the last recipe update. `DEFAULT now()`.                      |
+Рецепты напитков, привязанные к кнопкам терминала.
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.recipes (
-    id SERIAL PRIMARY KEY,
-    terminal_id INTEGER NOT NULL REFERENCES terminals(id) ON DELETE CASCADE,
-    machine_item_id INTEGER NOT NULL,
-    name VARCHAR(255),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    id               SERIAL PRIMARY KEY,
+    terminal_id      INTEGER     NOT NULL
+                              REFERENCES public.terminals(id)
+                              ON DELETE CASCADE,
+    machine_item_id  INTEGER     NOT NULL,
+    name             VARCHAR(255),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (terminal_id, machine_item_id)
 );
 ```
 
 ---
 
-## `recipe_items` Table
-A junction table specifying the ingredients and quantities required for each recipe.
+### 8. Таблица `recipe_items`
 
-| Column       | Type      | Nullable | Description                                                        |
-| ------------ | --------- | -------- | ------------------------------------------------------------------ |
-| `id` (PK)    | `SERIAL`  | NOT NULL | Unique identifier for the recipe item link.                        |
-| `recipe_id` (FK)| `INTEGER` | NOT NULL | References `recipes.id`.                                           |
-| `item_name`  | `VARCHAR` | NOT NULL | The name of the ingredient, linking to `inventories.item_name`.    |
-| `quantity`   | `NUMERIC` | NOT NULL | The quantity of the ingredient used in the recipe, in base units.  |
+Состав рецепта: ингредиенты и их количества.
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.recipe_items (
-    id SERIAL PRIMARY KEY,
-    recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
-    item_name VARCHAR(100) NOT NULL,
-    quantity NUMERIC(10,3) NOT NULL DEFAULT 0,
+    id         SERIAL PRIMARY KEY,
+    recipe_id  INTEGER     NOT NULL
+                          REFERENCES public.recipes(id)
+                          ON DELETE CASCADE,
+    item_name  VARCHAR(100) NOT NULL,
+    quantity   NUMERIC(10,3) NOT NULL DEFAULT 0,
     UNIQUE (recipe_id, item_name)
 );
 ```
 
 ---
 
-## `stand_service_settings` Table
-Stores maintenance settings for each coffee stand, such as cleaning frequency and restock thresholds.
+### 9. Таблица `stand_service_settings`
 
-| Column                  | Type        | Nullable | Description                                                                          |
-| ----------------------- | ----------- | -------- | ------------------------------------------------------------------------------------ |
-| `id` (PK)               | `SERIAL`    | NOT NULL | Unique identifier for the settings record.                                           |
-| `terminal_id` (FK, UQ)  | `INTEGER`   | NOT NULL | References `terminals.id`. Each terminal has only one settings record.               |
-| `cleaning_frequency`    | `INTEGER`   | NULL     | The number of sales after which a cleaning task should be generated.                 |
-| `assignee_id_cleaning`  | `BIGINT`    | NULL     | The `telegram_id` of the user assigned to perform cleaning tasks on this terminal.   |
-| `assignee_id_restock`   | `BIGINT`    | NULL     | The `telegram_id` of the user assigned to perform restock tasks on this terminal.    |
+Настройки задач по чистке и пополнению для каждой стойки.
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.stand_service_settings (
-    id SERIAL PRIMARY KEY,
-    terminal_id INTEGER NOT NULL UNIQUE REFERENCES terminals(id) ON DELETE CASCADE,
-    cleaning_frequency INTEGER CHECK (cleaning_frequency > 0),
-    assignee_id_cleaning BIGINT,
-    assignee_id_restock BIGINT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    id                       SERIAL PRIMARY KEY,
+    terminal_id              INTEGER     NOT NULL
+                                   REFERENCES public.terminals(id)
+                                   ON DELETE CASCADE,
+    cleaning_frequency       INTEGER     CHECK (cleaning_frequency > 0),
+    restock_thresholds       JSONB,
+    assignee_id_cleaning     BIGINT,
+    assignee_id_restock      BIGINT,
+    created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (terminal_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_stand_service_settings_terminal_id
+  ON public.stand_service_settings(terminal_id);
+
+CREATE TRIGGER set_stand_service_settings_updated_at
+  BEFORE UPDATE ON public.stand_service_settings
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
 ```
 
 ---
 
-## `service_tasks` Table
-A log of user-facing service tasks, specifically for **cleaning** and **restocking**. These tasks are generated both automatically (based on sales count) and manually by users.
+### 10. Таблица `service_tasks`
 
-| Column         | Type        | Nullable | Description                                                               |
-| -------------- | ----------- | -------- | ------------------------------------------------------------------------- |
-| `id` (PK)      | `SERIAL`    | NOT NULL | Unique identifier for the service task.                                   |
-| `terminal_id` (FK)| `INTEGER` | NOT NULL | The terminal that requires service.                                       |
-| `task_type`    | `VARCHAR`   | NOT NULL | `'cleaning'` or `'restock'`.                                              |
-| `status`       | `VARCHAR`   | NOT NULL | `'pending'` or `'completed'`. `DEFAULT 'pending'`.                        |
-| `details`      | `JSONB`     | NULL     | A JSON object for extra details (e.g., which items need restocking, or if the task was `is_manual: true`).      |
-| `comment`      | `TEXT`      | NULL     | A user-provided comment for manually created tasks.                       |
-| `assignee_id`  | `BIGINT`    | NULL     | The `telegram_id` of the user assigned to this specific task.             |
-| `created_at`   | `TIMESTAMPTZ`| NOT NULL | When the task was created.                                                |
-| `completed_at` | `TIMESTAMPTZ`| NULL     | When the task was completed.                                              |
+Журнал задач на **cleaning** и **restock**, как автоматических, так и ручных.
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.service_tasks (
-    id SERIAL PRIMARY KEY,
-    terminal_id INTEGER NOT NULL REFERENCES terminals(id) ON DELETE CASCADE,
-    task_type VARCHAR(20) NOT NULL CHECK (task_type IN ('cleaning','restock')),
-    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','completed')),
-    details JSONB,
-    comment TEXT,
-    assignee_id BIGINT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    id           SERIAL PRIMARY KEY,
+    terminal_id  INTEGER     NOT NULL
+                             REFERENCES public.terminals(id)
+                             ON DELETE CASCADE,
+    task_type    VARCHAR(20) NOT NULL
+                             CHECK (task_type IN ('cleaning','restock')),
+    status       VARCHAR(20) NOT NULL DEFAULT 'pending'
+                             CHECK (status IN ('pending','completed')),
+    details      JSONB,
+    comment      TEXT,
+    assignee_id  BIGINT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at TIMESTAMPTZ
 );
+
+CREATE INDEX IF NOT EXISTS idx_service_tasks_terminal_id
+  ON public.service_tasks(terminal_id);
+CREATE INDEX IF NOT EXISTS idx_service_tasks_status
+  ON public.service_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_service_tasks_task_type
+  ON public.service_tasks(task_type);
 ```
 
 ---
 
-## `worker_logs` Table
-Logs the execution of background processes (workers), such as data imports from Vendista and task cleanup operations. Essential for debugging synchronization issues and monitoring automated processes.
+### 11. Таблица `worker_logs`
 
-| Column          | Type        | Nullable | Description                                                             |
-| --------------- | ----------- | -------- | ----------------------------------------------------------------------- |
-| `id` (PK)       | `SERIAL`    | NOT NULL | Unique identifier for the log entry.                                    |
-| `user_id` (FK)  | `INTEGER`   | NULL     | The user for whom the job was running.                                  |
-| `job_name`      | `VARCHAR`   | NOT NULL | The name of the background job (e.g., '15-Min Import', 'Daily Update', 'task_cleanup'). |
-| `last_run_at`   | `TIMESTAMPTZ`| NULL     | When the job started.                                                   |
-| `status`        | `VARCHAR`   | NULL     | The final status of the job run ('success', 'failure').                 |
-| `processed_items`| `INTEGER`   | NULL     | Number of items the job attempted to process.                         |
-| `added_items`   | `INTEGER`   | NULL     | Number of new records added to the database.                            |
-| `updated_items` | `INTEGER`   | NULL     | Number of existing records updated.                                     |
-| `error_message` | `TEXT`      | NULL     | The error message if the job failed.                                    |
+Логи фоновых воркеров (импорт транзакций, очистка задач и т.д.).
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.worker_logs (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    job_name VARCHAR(100) NOT NULL,
-    last_run_at TIMESTAMPTZ,
-    status VARCHAR(50),
+    id              SERIAL PRIMARY KEY,
+    user_id         INTEGER
+                        REFERENCES public.users(id)
+                        ON DELETE CASCADE,
+    job_name        VARCHAR(100) NOT NULL,
+    last_run_at     TIMESTAMPTZ,
+    status          VARCHAR(50),
     processed_items INTEGER,
-    added_items INTEGER,
-    updated_items INTEGER,
-    error_message TEXT,
-    details TEXT
+    added_items     INTEGER,
+    updated_items   INTEGER,
+    error_message   TEXT,
+    details         TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_worker_logs_job_name
+  ON public.worker_logs(job_name);
+CREATE INDEX IF NOT EXISTS idx_worker_logs_last_run_at
+  ON public.worker_logs(last_run_at);
+CREATE INDEX IF NOT EXISTS idx_worker_logs_user_id
+  ON public.worker_logs(user_id);
 ```
 
 ---
 
-## `inventory_change_log` Table
-A log of inventory changes made by users. This table is primarily intended to track adjustments made by users with 'service' or other limited roles, allowing business owners to be notified of stock level modifications.
+### 12. Таблица `inventory_change_log`
 
-| Column                   | Type        | Nullable | Description                                                                        |
-| ------------------------ | ----------- | -------- | ---------------------------------------------------------------------------------- |
-| `id` (PK)                | `SERIAL`    | NOT NULL | Unique identifier for the log entry.                                               |
-| `owner_user_id` (FK)     | `INTEGER`   | NOT NULL | References `users.id`, the owner of the business.                                  |
-| `changed_by_telegram_id` | `BIGINT`    | NOT NULL | The Telegram ID of the user who made the change.                                   |
-| `change_timestamp`       | `TIMESTAMPTZ`| NOT NULL | Timestamp when the change occurred. `DEFAULT NOW()`                                |
-| `change_source`          | `VARCHAR`   | NOT NULL | The source of the change, e.g., 'restock_task', 'warehouse_adjust'.                |
-| `terminal_id` (FK)       | `INTEGER`   | NULL     | References `terminals.id` if the change occurred at a stand. `NULL` for warehouse. |
-| `item_name`              | `VARCHAR`   | NOT NULL | The name of the item that was changed.                                             |
-| `quantity_before`        | `NUMERIC`   | NOT NULL | The stock quantity before the change.                                              |
-| `quantity_after`         | `NUMERIC`   | NOT NULL | The stock quantity after the change.                                               |
-| `is_notified`            | `BOOLEAN`   | NOT NULL | Flag indicating if a notification for this change has been sent. `DEFAULT FALSE`.    |
+Журнал изменений остатков, сделанных пользователями.
 
 ```sql
--- Таблица для логирования изменений в инвентаре, сделанных пользователями с ограниченным доступом
--- Используется воркером для отправки сводных уведомлений администраторам.
-CREATE TABLE inventory_change_log (
-    id SERIAL PRIMARY KEY,
-    owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    changed_by_telegram_id BIGINT NOT NULL,
-    change_timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    change_source VARCHAR(20) NOT NULL, -- 'restock_task', 'warehouse_adjust' etc.
-    terminal_id INTEGER REFERENCES terminals(id) ON DELETE SET NULL, -- Может быть NULL, если изменение на главном складе
-    item_name VARCHAR(100) NOT NULL,
-    quantity_before NUMERIC(10, 3) NOT NULL,
-    quantity_after NUMERIC(10, 3) NOT NULL,
-    is_notified BOOLEAN NOT NULL DEFAULT FALSE
+CREATE TABLE IF NOT EXISTS public.inventory_change_log (
+    id                     SERIAL PRIMARY KEY,
+    owner_user_id          INTEGER     NOT NULL
+                                   REFERENCES public.users(id)
+                                   ON DELETE CASCADE,
+    changed_by_telegram_id BIGINT      NOT NULL,
+    change_timestamp       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    change_source          VARCHAR(20) NOT NULL,
+    terminal_id            INTEGER
+                              REFERENCES public.terminals(id)
+                              ON DELETE SET NULL,
+    item_name              VARCHAR(100) NOT NULL,
+    quantity_before        NUMERIC(10,3) NOT NULL,
+    quantity_after         NUMERIC(10,3) NOT NULL,
+    is_notified            BOOLEAN     NOT NULL DEFAULT FALSE
 );
 
-CREATE INDEX idx_inventory_change_log_notified ON inventory_change_log (is_notified, change_timestamp);
-```
-
-### Worker Logs Examples
-
-**Task Cleanup Worker:**
-```sql
--- Пример записи воркера task_cleanup_worker
-INSERT INTO worker_logs (user_id, job_name, last_run_at, status, processed_items, added_items, updated_items, error_message)
-VALUES (NULL, 'task_cleanup', NOW(), 'success', 8, 0, 0, 'Скрыто выполненных задач: 8');
-
--- Запрос для мониторинга работы воркера
-SELECT * FROM worker_logs 
-WHERE job_name = 'task_cleanup' 
-ORDER BY last_run_at DESC 
-LIMIT 10;
+CREATE INDEX IF NOT EXISTS idx_inventory_change_log_notified
+  ON public.inventory_change_log(is_notified, change_timestamp);
 ```
 
 ---
-
-## Vendista Payment Status Tracking System
-
-The system includes a mechanism to track the payment status of Vendista services and prevent spam notifications when users have unpaid accounts.
-
-### Key Fields in `users` Table:
-- `vendista_payment_status`: Current payment status ('active', 'payment_required', 'notified')
-- `vendista_payment_notified_at`: Timestamp of the last payment notification
-
-### How It Works:
-
-1. **Normal Operation**: Users have `vendista_payment_status = 'active'` by default
-2. **Payment Required**: When a 402 error is received from Vendista API:
-   - Status changes to `'payment_required'`
-   - One notification is sent to administrators
-   - User is skipped in subsequent worker runs
-3. **Payment Restored**: When API calls succeed again:
-   - Status automatically resets to `'active'`
-   - Normal processing resumes
-
-### Worker Behavior:
-- `terminal_sync_worker.js`: Skips users with `payment_required` status
-- `schedule_imports.js`: Skips users with `payment_required` status  
-- `vendista_import_worker.js`: Handles 402 errors and updates status
-
-### Manual Management:
-```sql
--- Reset payment status manually
-UPDATE users 
-SET vendista_payment_status = 'active', 
-    vendista_payment_notified_at = NULL 
-WHERE id = <user_id>;
-
--- Check users with payment issues
-SELECT id, telegram_id, first_name, vendista_payment_status, vendista_payment_notified_at 
-FROM users 
-WHERE vendista_payment_status != 'active';
-```
-
-### API Endpoint:
-`POST /api/auth/reset-payment-status` - Allows manual reset of payment status for administrators.
-
-```

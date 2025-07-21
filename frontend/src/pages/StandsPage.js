@@ -152,7 +152,7 @@ export default function StandsPage({ user }) {
                     ) : (
                         terminals.map(terminal => {
                             const isOnline = terminal.is_online;
-                            const { stock_summary, needs_containers_config, needs_recipes_config, machine_inventory } = terminal;
+                            const { needs_containers_config, needs_recipes_config, machine_inventory } = terminal;
                             
                             const stockParts = formatStock(machine_inventory);
 

@@ -11,24 +11,82 @@ echo " "
 
 # --- Шаг 1: Установка зависимостей БЭКЕНДА ---
 echo "[1/7] Checking backend dependencies..."
-# Мы сравниваем package.json и package-lock.json с файлом-меткой .install-stamp
-# Это надежнее, чем сравнивать с папкой node_modules, чье время изменения не всегда обновляется.
-if [ ! -d "backend/node_modules" ] || [ "backend/package.json" -nt "backend/node_modules/.install-stamp" ] || [ "backend/package-lock.json" -nt "backend/node_modules/.install-stamp" ]; then
-    echo "      Backend dependencies are missing or outdated. Installing..."
+
+# Улучшенная проверка зависимостей backend
+BACKEND_NEEDS_INSTALL=false
+
+# Проверяем существование node_modules
+if [ ! -d "backend/node_modules" ]; then
+    echo "      Backend node_modules not found."
+    BACKEND_NEEDS_INSTALL=true
+fi
+
+# Проверяем наличие .install-stamp
+if [ ! -f "backend/node_modules/.install-stamp" ]; then
+    echo "      Backend install stamp missing."
+    BACKEND_NEEDS_INSTALL=true
+fi
+
+# Проверяем актуальность package.json
+if [ -f "backend/node_modules/.install-stamp" ] && [ "backend/package.json" -nt "backend/node_modules/.install-stamp" ]; then
+    echo "      Backend package.json is newer than install stamp."
+    BACKEND_NEEDS_INSTALL=true
+fi
+
+# Проверяем актуальность package-lock.json
+if [ -f "backend/node_modules/.install-stamp" ] && [ "backend/package-lock.json" -nt "backend/node_modules/.install-stamp" ]; then
+    echo "      Backend package-lock.json is newer than install stamp."
+    BACKEND_NEEDS_INSTALL=true
+fi
+
+if [ "$BACKEND_NEEDS_INSTALL" = true ]; then
+    echo "      Backend dependencies need to be installed..."
     (cd backend && npm install --omit=dev)
-    touch backend/node_modules/.install-stamp # Создаем или обновляем файл-метку
-    echo "      Backend dependencies installed."
+    # Создаем директорию если не существует и обновляем метку
+    mkdir -p backend/node_modules
+    touch backend/node_modules/.install-stamp
+    echo "      Backend dependencies installed and stamp updated."
 else
     echo "      Backend dependencies are up-to-date. Skipping."
 fi
 
 # --- Шаг 2: Установка зависимостей и сборка ФРОНТЕНДА ---
 echo "[2/7] Checking frontend dependencies and building..."
-if [ ! -d "frontend/node_modules" ] || [ "frontend/package.json" -nt "frontend/node_modules/.install-stamp" ] || [ "frontend/package-lock.json" -nt "frontend/node_modules/.install-stamp" ]; then
-    echo "      Frontend dependencies are missing or outdated. Installing..."
+
+# Улучшенная проверка зависимостей frontend
+FRONTEND_NEEDS_INSTALL=false
+
+# Проверяем существование node_modules
+if [ ! -d "frontend/node_modules" ]; then
+    echo "      Frontend node_modules not found."
+    FRONTEND_NEEDS_INSTALL=true
+fi
+
+# Проверяем наличие .install-stamp
+if [ ! -f "frontend/node_modules/.install-stamp" ]; then
+    echo "      Frontend install stamp missing."
+    FRONTEND_NEEDS_INSTALL=true
+fi
+
+# Проверяем актуальность package.json
+if [ -f "frontend/node_modules/.install-stamp" ] && [ "frontend/package.json" -nt "frontend/node_modules/.install-stamp" ]; then
+    echo "      Frontend package.json is newer than install stamp."
+    FRONTEND_NEEDS_INSTALL=true
+fi
+
+# Проверяем актуальность package-lock.json
+if [ -f "frontend/node_modules/.install-stamp" ] && [ "frontend/package-lock.json" -nt "frontend/node_modules/.install-stamp" ]; then
+    echo "      Frontend package-lock.json is newer than install stamp."
+    FRONTEND_NEEDS_INSTALL=true
+fi
+
+if [ "$FRONTEND_NEEDS_INSTALL" = true ]; then
+    echo "      Frontend dependencies need to be installed..."
     (cd frontend && npm install)
-    touch frontend/node_modules/.install-stamp # Создаем или обновляем файл-метку
-    echo "      Frontend dependencies installed."
+    # Создаем директорию если не существует и обновляем метку
+    mkdir -p frontend/node_modules
+    touch frontend/node_modules/.install-stamp
+    echo "      Frontend dependencies installed and stamp updated."
 else
     echo "      Frontend dependencies are up-to-date. Skipping."
 fi

@@ -403,7 +403,19 @@ router.post('/validate-vendista', async (req, res) => {
 });
 
 router.post('/complete-registration', async (req, res) => {
-    const { telegram_id, vendista_api_token_plain, setup_date, tax_system, acquiring } = req.body;
+    const { 
+        telegram_id, 
+        vendista_api_token_plain,
+        vendista_login,
+        vendista_password,
+        setup_date, 
+        tax_system, 
+        acquiring,
+        first_name,
+        firstName,
+        user_name,
+        username
+    } = req.body;
     // Handle both camelCase and snake_case for names to make the endpoint more robust against client-side changes.
     const final_first_name = req.body.first_name || req.body.firstName;
     const final_user_name = req.body.user_name || req.body.username;
@@ -435,27 +447,47 @@ router.post('/complete-registration', async (req, res) => {
     try {
         await client.query('BEGIN');
         
-        const encryptedToken = encrypt(vendista_api_token_plain);
-        if (!encryptedToken) {
+        const encrypted_token = encrypt(vendista_api_token_plain);
+        const encrypted_login = encrypt(vendista_login);
+        const encrypted_password = encrypt(vendista_password);
+
+        if (!encrypted_token) {
             await client.query('ROLLBACK');
-            return res.status(500).json({ success: false, error: 'Server encryption error.' });
+            return res.status(500).json({ success: false, error: 'Failed to encrypt token' });
+        }
+        if (!encrypted_login || !encrypted_password) {
+            await client.query('ROLLBACK');
+            return res.status(500).json({ success: false, error: 'Failed to encrypt credentials' });
         }
 
-        const userInsertQuery = `
-            INSERT INTO users (telegram_id, vendista_api_token, setup_date, tax_system, acquiring, first_name, user_name)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            ON CONFLICT (telegram_id) DO UPDATE SET
-                vendista_api_token = EXCLUDED.vendista_api_token,
-                setup_date = EXCLUDED.setup_date,
-                tax_system = EXCLUDED.tax_system,
-                acquiring = EXCLUDED.acquiring,
-                first_name = EXCLUDED.first_name,
-                user_name = EXCLUDED.user_name,
-                updated_at = NOW()
-            RETURNING id, setup_date, tax_system, acquiring, first_name, user_name;
+        const query = `
+            UPDATE users 
+            SET vendista_api_token = $1, 
+                setup_date = $2, 
+                tax_system = $3, 
+                acquiring = $4,
+                first_name = $5,
+                user_name = $6,
+                vendista_login = $7,
+                vendista_password = $8,
+                vendista_token_status = 'valid'
+            WHERE telegram_id = $9
+            RETURNING *;
         `;
-        const userResult = await client.query(userInsertQuery, [telegram_id, encryptedToken, setup_date, tax_system, acquiring, final_first_name, final_user_name]);
-        const user = userResult.rows[0];
+        const values = [
+            encrypted_token, 
+            setup_date, 
+            tax_system, 
+            acquiring,
+            final_first_name,
+            final_user_name,
+            encrypted_login,
+            encrypted_password,
+            telegram_id
+        ];
+
+        const { rows } = await client.query(query, values);
+        const user = rows[0];
         console.log(`[POST /api/auth/complete-registration] User registered/updated successfully! DB User ID: ${user.id}, TG ID: ${telegram_id}`);
 
         await client.query('COMMIT');

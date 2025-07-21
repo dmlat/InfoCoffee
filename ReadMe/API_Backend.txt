@@ -68,6 +68,8 @@ API Endpoints (Backend)
         - Назначение: Завершение процесса регистрации пользователя, сохранение токена Vendista и настроек.
         - Входные параметры (тело запроса):
             - telegram_id: Telegram ID пользователя.
+            - vendista_login: (Обязательно) Логин пользователя в Vendista.
+            - vendista_password: (Обязательно) Пароль пользователя в Vendista.
             - vendista_api_token_plain: Нешифрованный токен Vendista.
             - setup_date: Дата установки первой кофейни.
             - tax_system: (опционально) Выбранная система налогообложения.

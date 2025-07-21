@@ -255,8 +255,9 @@ bot.on('callback_query', async (query) => {
     if (data.startsWith('task_complete_')) {
         const taskId = data.split('_')[2];
         try {
+            // ИСПРАВЛЕНО: Изменена проверка согласно DB.txt схеме (assignee_id вместо assignee_ids)
             const { rows: taskRows } = await pool.query(
-                `SELECT id FROM service_tasks WHERE id = $1 AND $2 = ANY(assignee_ids)`,
+                `SELECT id FROM service_tasks WHERE id = $1 AND assignee_id = $2`,
                 [taskId, query.from.id]
             );
 

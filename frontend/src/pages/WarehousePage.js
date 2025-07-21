@@ -63,7 +63,7 @@ export default function WarehousePage() {
     const { user } = useAuth(); // <-- ПОЛУЧАЕМ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
-    const [notification, setNotification] = useState({ message: '', isError: false });
+    // const [notification, setNotification] = useState({ message: '', isError: false });  // Unused
     const [terminals, setTerminals] = useState([]);
     const [selectedTerminal, setSelectedTerminal] = useState(null);
     const [warehouseStock, setWarehouseStock] = useState({});
@@ -191,7 +191,7 @@ export default function WarehousePage() {
         } finally {
             setIsLoading(false);
         }
-    }, [fetchDataForTerminal, user]);
+    }, [fetchDataForTerminal, user, location.state?.taskContext]);
 
     useEffect(() => {
         if (!user) return; // Не начинаем загрузку, пока не определен пользователь
@@ -229,22 +229,22 @@ export default function WarehousePage() {
     //     setIsDirty(hasChanges);
     // }, [stockUpDeltas]);
     
-    const handleStockUpAdjust = (itemName, increment) => {
-        const step = parseFloat(activeStep);
-        setRowLoading(prev => ({ ...prev, [itemName]: true }));
-        setWarehouseStock(prev => {
-            const currentDelta = prev[itemName] || 0;
-            const newDelta = Math.max(0, currentDelta + (step * increment));
-            const finalValue = ITEMS_IN_PIECES.has(itemName) ? Math.round(newDelta) : parseFloat(newDelta.toFixed(3));
-            return { ...prev, [itemName]: finalValue };
-        });
-        setRowLoading(prev => ({ ...prev, [itemName]: false }));
-    };
+    // const handleStockUpAdjust = (itemName, increment) => {
+    //     const step = parseFloat(activeStep);
+    //     setRowLoading(prev => ({ ...prev, [itemName]: true }));
+    //     setWarehouseStock(prev => {
+    //         const currentDelta = prev[itemName] || 0;
+    //         const newDelta = Math.max(0, currentDelta + (step * increment));
+    //         const finalValue = ITEMS_IN_PIECES.has(itemName) ? Math.round(newDelta) : parseFloat(newDelta.toFixed(3));
+    //         return { ...prev, [itemName]: finalValue };
+    //     });
+    //     setRowLoading(prev => ({ ...prev, [itemName]: false }));
+    // };
 
-    const handleStockUpSubmit = async (e) => {
-        if (e) e.preventDefault();
-        // ... (логика отправки, скопированная из StockUpModal)
-    };
+    // const handleStockUpSubmit = async (e) => {
+    //     if (e) e.preventDefault();
+    //     // ... (логика отправки, скопированная из StockUpModal)
+    // };
 
     const handleWarehouseAdjust = async (itemName, increment) => {
         const step = parseFloat(activeStep);
@@ -323,7 +323,7 @@ export default function WarehousePage() {
             return; // Прерываем операцию, если перемещать нечего
         }
 
-        setRowLoading(prev => ({ ... prev, [itemName]: true }));
+        setRowLoading(prev => ({ ...prev, [itemName]: true }));
 
         // Формируем правильный payload для нового эндпоинта
         const fromPayload = { location: fromLoc };
