@@ -28,25 +28,43 @@ const COMMANDS = {
 };
 
 function parseArgs(args) {
-  const options = {
-    userIds: [],
-    allUsers: false,
-  };
-  for (let i = 1; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === '--user-id') {
-      const ids = args[++i].split(',').map(id => parseInt(id.trim(), 10));
-      options.userIds.push(...ids);
-    } else if (arg === '--days') {
-      options.days = parseInt(args[++i], 10);
-    } else if (arg === '--full-history') {
-      options.fullHistory = true;
-    } else if (arg === '--all') {
-      options.allUsers = true;
+    const options = {
+        userIds: [],
+        allUsers: false,
+    };
+    let i = 0;
+    while (i < args.length) {
+        const arg = args[i];
+        if (arg.startsWith('--')) {
+            const key = arg.slice(2);
+            // Handle flags without values
+            if (key === 'full-history' || key === 'all') {
+                const camelCaseKey = key.replace(/-([a-z])/g, g => g[1].toUpperCase());
+                options[camelCaseKey] = true;
+                i++;
+            } else { // Handle args with values
+                const value = args[i + 1];
+                if (value && !value.startsWith('--')) {
+                    const camelCaseKey = key.replace(/-([a-z])/g, g => g[1].toUpperCase());
+                    options[camelCaseKey] = value;
+                    i += 2;
+                } else {
+                    // It's a flag without a value, or something is wrong
+                    i++;
+                }
+            }
+        } else {
+            if (!options.command) {
+                options.command = arg;
+            }
+            i++;
+        }
     }
-  }
-  options.command = args[0];
-  return options;
+    // Specific handling for user-id as it can be a list
+    if (options.userId) {
+        options.userIds = String(options.userId).split(',').map(id => parseInt(id.trim(), 10));
+    }
+    return options;
 }
 
 async function testVendistaToken(userId, vendistaToken) {
