@@ -444,71 +444,109 @@ async function importTransactionsForPeriod(user, days, fullHistory = false) {
 // A new helper function to isolate the transaction processing logic
 async function processTransactions(ownerUserId, transactions, client, results) {
     for (const transaction of transactions) {
+        // Use a SAVEPOINT to isolate each transaction's processing
+        await client.query('SAVEPOINT process_transaction_sp');
         try {
-            const existingTransaction = await client.query(
-                `SELECT id FROM transactions 
-                 WHERE user_id = $1 AND coffee_shop_id = $2 AND amount = $3 
-                   AND transaction_time = $4 AND machine_item_id IS NOT DISTINCT FROM $5`,
-                [
-                    ownerUserId,
-                    transaction.coffee_shop_id || null,
-                    Math.round(parseFloat(transaction.price) * 100) || 0,
-                    new Date(transaction.date),
-                    transaction.machine_item_id || null
-                ]
-            );
+            // Logic to extract machine_item_id from the nested structure
+            let dbMachineItemId = null;
+            if (transaction.machine_item && Array.isArray(transaction.machine_item) && transaction.machine_item.length > 0) {
+                dbMachineItemId = transaction.machine_item[0]?.machine_item_id;
+            }
 
-            if (existingTransaction.rows.length === 0) {
-                await client.query(`
-                    INSERT INTO transactions (
-                        user_id, coffee_shop_id, machine_item_id, amount, transaction_time,
-                        result, reverse_id, terminal_comment, status
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                `, [
-                    ownerUserId,
-                    transaction.coffee_shop_id || null,
-                    transaction.machine_item_id || null,
-                    Math.round(parseFloat(transaction.price) * 100) || 0,
-                    new Date(transaction.date),
-                    transaction.result || '1',
-                    transaction.reverse_id || 0,
-                    transaction.name || 'Unknown',
-                    transaction.status || 'completed'
-                ]);
+            // Correctly use ON CONFLICT with the transaction ID from Vendista
+            const insertResult = await client.query(`
+                INSERT INTO transactions (
+                    id, user_id, coffee_shop_id, machine_item_id, amount, transaction_time,
+                    result, reverse_id, terminal_comment, status, card_number, bonus, left_sum, left_bonus
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                ON CONFLICT (id) DO UPDATE SET
+                    user_id = EXCLUDED.user_id,
+                    coffee_shop_id = EXCLUDED.coffee_shop_id,
+                    machine_item_id = EXCLUDED.machine_item_id,
+                    amount = EXCLUDED.amount,
+                    transaction_time = EXCLUDED.transaction_time,
+                    result = EXCLUDED.result,
+                    reverse_id = EXCLUDED.reverse_id,
+                    terminal_comment = EXCLUDED.terminal_comment,
+                    status = EXCLUDED.status,
+                    card_number = EXCLUDED.card_number,
+                    bonus = EXCLUDED.bonus,
+                    left_sum = EXCLUDED.left_sum,
+                    left_bonus = EXCLUDED.left_bonus,
+                    last_updated_at = NOW()
+                RETURNING xmax;
+            `, [
+                transaction.id, // Primary key from Vendista
+                ownerUserId,
+                transaction.term_id || null,
+                dbMachineItemId,
+                transaction.sum || 0,
+                new Date(transaction.time),
+                String(transaction.result || '0'),
+                transaction.reverse_id || 0,
+                transaction.terminal_comment || 'Unknown',
+                String(transaction.status || '0'),
+                transaction.card_number || null,
+                transaction.bonus || 0,
+                transaction.left_sum || 0,
+                transaction.left_bonus || 0
+            ]);
+
+            if (insertResult.rows[0].xmax === '0') {
                 results.added++;
-
-                if (transaction.coffee_shop_id) {
-                    const terminalRes = await client.query(
-                        'SELECT id FROM terminals WHERE vendista_terminal_id = $1 AND user_id = $2',
-                        [transaction.coffee_shop_id, ownerUserId]
-                    );
-
-                    if (terminalRes.rows.length > 0) {
-                        await client.query(
-                            'UPDATE terminals SET sales_since_cleaning = sales_since_cleaning + 1 WHERE id = $1',
-                            [terminalRes.rows[0].id]
-                        );
-                        await checkAndCreateTasks(ownerUserId, terminalRes.rows[0].id);
-                    }
-                }
             } else {
-                await client.query(`
-                    UPDATE transactions SET
-                        result = $1, reverse_id = $2, terminal_comment = $3, 
-                        status = $4, last_updated_at = NOW()
-                    WHERE id = $5
-                `, [
-                    transaction.result || '1',
-                    transaction.reverse_id || 0, 
-                    transaction.name || 'Unknown',
-                    transaction.status || 'completed',
-                    existingTransaction.rows[0].id
-                ]);
                 results.updated++;
             }
+
+            // --- REINSTATED LOGIC: Inventory Update & Task Creation on Sale ---
+            const isSale = String(transaction.result) === '1' && (transaction.reverse_id === 0 || transaction.reverse_id === null);
+            if (isSale && transaction.term_id && dbMachineItemId) {
+                const terminalRes = await client.query(
+                    'SELECT id FROM terminals WHERE vendista_terminal_id = $1 AND user_id = $2',
+                    [transaction.term_id, ownerUserId]
+                );
+
+                if (terminalRes.rows.length > 0) {
+                    const internalTerminalId = terminalRes.rows[0].id;
+                    
+                    // 1. Update sales count
+                    await client.query(
+                        'UPDATE terminals SET sales_since_cleaning = sales_since_cleaning + 1, sales_since_last_service = sales_since_last_service + 1 WHERE id = $1',
+                        [internalTerminalId]
+                    );
+
+                    // 2. Deduct ingredients based on recipe
+                    const recipeRes = await client.query(
+                        `SELECT ri.item_name, ri.quantity FROM recipes r 
+                         JOIN recipe_items ri ON r.id = ri.recipe_id 
+                         WHERE r.terminal_id = $1 AND r.machine_item_id = $2`,
+                        [internalTerminalId, dbMachineItemId]
+                    );
+
+                    if (recipeRes.rows.length > 0) {
+                        for (const item of recipeRes.rows) {
+                            if (item.quantity > 0) {
+                                await client.query(
+                                    `UPDATE inventories
+                                     SET current_stock = GREATEST(0, current_stock - $1), updated_at = NOW()
+                                     WHERE terminal_id = $2 AND item_name = $3 AND location = 'machine'`,
+                                    [item.quantity, internalTerminalId, item.item_name]
+                                );
+                            }
+                        }
+                    }
+                    
+                    // 3. Check if a new task needs to be created
+                    await checkAndCreateTasks(ownerUserId, internalTerminalId);
+                }
+            }
+            // --- END REINSTATED LOGIC ---
+
             results.processed++;
+            await client.query('RELEASE SAVEPOINT process_transaction_sp');
         } catch (transactionError) {
-            console.error(`[Import Worker] Error processing transaction ${transaction.id}:`, transactionError);
+            await client.query('ROLLBACK TO SAVEPOINT process_transaction_sp');
+            console.error(`[Import Worker] Error processing transaction ID (from Vendista): ${transaction.id}. Rolled back.`, transactionError);
             results.errors.push(`Transaction ${transaction.id}: ${transactionError.message}`);
         }
     }
