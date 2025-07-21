@@ -1,4 +1,16 @@
 // backend/worker/schedule_imports.js
+const path = require('path');
+
+// ВАЖНО: Загружаем переменные окружения ПЕРЕД всеми остальными импортами
+if (process.env.NODE_ENV === 'production') {
+    console.log('[ENV] Production mode detected. Loading .env');
+    require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+} else {
+    process.env.NODE_ENV = 'development'; // Принудительно устанавливаем для надежности
+    console.log('[ENV] Defaulting to development mode. Loading .env.development');
+    require('dotenv').config({ path: path.resolve(__dirname, '../.env.development') });
+}
+
 require('../utils/logger'); // <--- ГЛОБАЛЬНОЕ ПОДКЛЮЧЕНИЕ ЛОГГЕРА
 const cron = require('node-cron');
 const pool = require('../db');
