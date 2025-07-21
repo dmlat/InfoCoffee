@@ -49,9 +49,6 @@ ehthumbs_vista.db
 # Например, если ваш скрипт update_app_version.sh создает бэкапы:
 *.bak
 
-# Утилита для мока Telegram API
-frontend/src/utils/dev.js
-
 copytree.bat
 
 # Local development scripts and manuals
