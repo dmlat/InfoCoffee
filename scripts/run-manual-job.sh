@@ -32,6 +32,7 @@ if [ $# -eq 0 ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     echo ""
     echo "Quick examples:"
     echo "  ./scripts/run-manual-job.sh test-token --user-id 1"
+    echo "  ./scripts/run-manual-job.sh direct-import --user-id 1 --days 1     # Quick test"
     echo "  ./scripts/run-manual-job.sh direct-import --user-id 1 --full-history"
     echo "  ./scripts/run-manual-job.sh show-stats --user-id 1"
     echo "  ./scripts/run-manual-job.sh test-schedule --job 15min"

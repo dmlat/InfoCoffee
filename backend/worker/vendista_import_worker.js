@@ -398,8 +398,14 @@ async function importTransactionsForPeriod({
         let hasMore = true;
 
         while (hasMore) {
+            const pageStartTime = Date.now();
+            
             // ИСПРАВЛЕНИЕ: Передаем созданный 'api' объект, а не undefined
+            console.log(`${logPrefix}: 🌐 Requesting page ${currentPage}...`);
+            const apiStartTime = Date.now();
             const response = await fetchTransactionPage(api, currentPage);
+            const apiDuration = Date.now() - apiStartTime;
+            console.log(`${logPrefix}: ⏱️ API request took ${apiDuration}ms`);
 
             if (response.error === 'token_refresh_failed') {
                 console.error(`${logPrefix}: Halting import for user due to token refresh failure.`);
@@ -416,7 +422,11 @@ async function importTransactionsForPeriod({
                 continue;
             }
             
+            console.log(`${logPrefix}: 🔄 Processing ${transactions.length} transactions...`);
+            const processStartTime = Date.now();
             await processTransactions(ownerUserId, transactions, client, results);
+            const processDuration = Date.now() - processStartTime;
+            console.log(`${logPrefix}: ⏱️ Processing took ${processDuration}ms`);
 
             // ИСПРАВЛЕНО: Улучшенная логика пагинации
             // Проверяем есть ли еще страницы через metadata или через размер текущей страницы
@@ -433,6 +443,9 @@ async function importTransactionsForPeriod({
             
             currentPage++;
 
+            const pageTotalTime = Date.now() - pageStartTime;
+            console.log(`${logPrefix}: ✅ Page ${currentPage-1} completed in ${pageTotalTime}ms (API: ${apiDuration}ms, Processing: ${processDuration}ms)`);
+            
             if (hasMore) {
                 console.log(`${logPrefix}: Moving to page ${currentPage} after ${PAGE_FETCH_DELAY_MS}ms delay...`);
                 await delay(PAGE_FETCH_DELAY_MS);
@@ -467,8 +480,16 @@ async function importTransactionsForPeriod({
 
 // A new helper function to isolate the transaction processing logic
 async function processTransactions(ownerUserId, transactions, client, results) {
+    const batchStartTime = Date.now();
+    console.log(`🔄 Processing batch of ${transactions.length} transactions...`);
+    
+    let dbTime = 0;
+    let inventoryTime = 0;
+    let taskTime = 0;
+    
     for (const transaction of transactions) {
         // Use a SAVEPOINT to isolate each transaction's processing
+        const txStartTime = Date.now();
         await client.query('SAVEPOINT process_transaction_sp');
         try {
             // Logic to extract machine_item_id from the nested structure
@@ -478,6 +499,7 @@ async function processTransactions(ownerUserId, transactions, client, results) {
             }
 
             // Correctly use ON CONFLICT with the transaction ID from Vendista
+            const dbStartTime = Date.now();
             const insertResult = await client.query(`
                 INSERT INTO transactions (
                     id, user_id, coffee_shop_id, machine_item_id, amount, transaction_time,
@@ -521,10 +543,13 @@ async function processTransactions(ownerUserId, transactions, client, results) {
             } else {
                 results.updated++;
             }
+            
+            dbTime += Date.now() - dbStartTime;
 
             // --- REINSTATED LOGIC: Inventory Update & Task Creation on Sale ---
             const isSale = String(transaction.result) === '1' && (transaction.reverse_id === 0 || transaction.reverse_id === null);
             if (isSale && transaction.term_id && dbMachineItemId) {
+                const inventoryStartTime = Date.now();
                 const terminalRes = await client.query(
                     'SELECT id FROM terminals WHERE vendista_terminal_id = $1 AND user_id = $2',
                     [transaction.term_id, ownerUserId]
@@ -561,8 +586,12 @@ async function processTransactions(ownerUserId, transactions, client, results) {
                     }
                     
                     // 3. Check if a new task needs to be created
+                    const taskStartTime = Date.now();
                     await checkAndCreateTasks(ownerUserId, internalTerminalId);
+                    taskTime += Date.now() - taskStartTime;
                 }
+                
+                inventoryTime += Date.now() - inventoryStartTime;
             }
             // --- END REINSTATED LOGIC ---
 
@@ -574,6 +603,13 @@ async function processTransactions(ownerUserId, transactions, client, results) {
             results.errors.push(`Transaction ${transaction.id}: ${transactionError.message}`);
         }
     }
+    
+    const totalBatchTime = Date.now() - batchStartTime;
+    console.log(`✅ Batch processed in ${totalBatchTime}ms:`);
+    console.log(`   📊 DB operations: ${dbTime}ms (${Math.round(dbTime/totalBatchTime*100)}%)`);
+    console.log(`   🏪 Inventory updates: ${inventoryTime}ms (${Math.round(inventoryTime/totalBatchTime*100)}%)`);
+    console.log(`   📋 Task creation: ${taskTime}ms (${Math.round(taskTime/totalBatchTime*100)}%)`);
+    console.log(`   🔄 Processed/Added/Updated: ${results.processed}/${results.added}/${results.updated}`);
 }
 
 

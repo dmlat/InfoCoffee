@@ -170,11 +170,13 @@ if (require.main === module) {
 Commands:
   import <user-id> <days>           Import last N days
   import <user-id> full-history     Import full history  
+  test <user-id>                    Test import (1 day) with performance metrics
   stats <user-id>                   Show transaction stats
 
 Examples:
   node backend/worker/direct_import.js import 1 7
   node backend/worker/direct_import.js import 1 full-history
+  node backend/worker/direct_import.js test 1
   node backend/worker/direct_import.js stats 1
         `);
         process.exit(0);
@@ -201,6 +203,11 @@ Examples:
                 }
                 directImport(userId, days, false).then(() => process.exit(0));
             }
+            break;
+            
+        case 'test':
+            console.log('🧪 Running performance test (1 day import)...');
+            directImport(userId, 1, false).then(() => process.exit(0));
             break;
             
         case 'stats':

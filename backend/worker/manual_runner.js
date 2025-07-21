@@ -183,6 +183,7 @@ function printHelp() {
       # Direct import for debugging (bypasses queue)
       node backend/worker/manual_runner.js direct-import --user-id 1 --full-history
       node backend/worker/manual_runner.js direct-import --user-id 1 --days 7
+      node backend/worker/manual_runner.js direct-import --user-id 1 --days 1  # Quick test
 
       # Show transaction statistics
       node backend/worker/manual_runner.js show-stats --user-id 1
