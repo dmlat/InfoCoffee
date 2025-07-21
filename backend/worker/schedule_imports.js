@@ -141,13 +141,13 @@ async function runScheduledJob(jobName, dateSubtractArgs, isFullHistory) {
   }
 }
 
-async function manualImportLastNDays(days, targetUserId) {
+async function manualImportLastNDays(days, targetUserId, isFullHistory = false) {
     const jobName = `Manual Import (${days}d)`;
     const logTime = moment().tz(TIMEZONE).format();
     console.log(`[Cron ${logTime}] Запуск ручного импорта: ${jobName}...`);
 
     try {
-        let query = 'SELECT id, vendista_api_token, telegram_id, vendista_payment_status, first_name, user_name FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL';
+        let query = 'SELECT * FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL';
         const queryParams = [];
         if (targetUserId) {
             query += ' AND id = $1';
@@ -170,44 +170,9 @@ async function manualImportLastNDays(days, targetUserId) {
                 console.log(`[Cron ${logTime}] [${jobName}] Skipping user ${user.id} (${user.first_name || 'N/A'}) - payment required`);
                 continue;
             }
-
-            const encryptedToken = user.vendista_api_token;
-            let plainVendistaToken;
-
-            if (!encryptedToken) {
-                console.warn(`[Cron ${logTime}] [${jobName}] User ${user.id} не имеет vendista_api_token. Пропуск.`);
-                continue;
-            }
-
-            try {
-                plainVendistaToken = decrypt(encryptedToken);
-                if (!plainVendistaToken) {
-                    const decryptErrorMsg = 'Token decryption failed';
-                    console.error(`[Cron ${logTime}] [${jobName}] Не удалось дешифровать токен для User ${user.id}.`);
-                    await logJobStatus(user.id, jobName, 'failure', null, decryptErrorMsg);
-                    await sendErrorToAdmin({ userId: user.id, errorContext: `Token Decryption in ${jobName}`, errorMessage: decryptErrorMsg });
-                    continue;
-                }
-            } catch (decryptionError) {
-                console.error(`[Cron ${logTime}] [${jobName}] Ошибка дешифрования токена для User ${user.id}: ${decryptionError.message}.`);
-                await logJobStatus(user.id, jobName, 'failure', null, `Token decryption error: ${decryptionError.message}`);
-                continue;
-            }
-
-            const appToken = jwt.sign(
-                { userId: user.id, telegramId: user.telegram_id, accessLevel: 'owner' },
-                JWT_SECRET,
-                { expiresIn: '15m' }
-            );
-
-            addToImportQueue({
-                ownerUserId: user.id,
-                vendistaApiToken: plainVendistaToken,
-                appToken: appToken,
-                dateFrom,
-                dateTo,
-                fetchAllPages: true,
-            }, jobName);
+            
+            // Pass the entire user object to the queue
+            addToImportQueue(user, days, isFullHistory, jobName);
         }
     } catch (e) {
         console.error(`[Cron ${logTime}] [${jobName}] Глобальная ошибка: ${e.message}`);

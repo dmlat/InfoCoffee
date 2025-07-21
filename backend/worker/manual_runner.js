@@ -240,7 +240,9 @@ async function main() {
     switch(options.command) {
       case COMMANDS.IMPORT_TRANSACTIONS:
         let daysToImport = options.days;
-        if (options.fullHistory) {
+        const isFullHistory = !!options.fullHistory;
+
+        if (isFullHistory) {
           const setupDate = moment(user.setup_date);
           daysToImport = moment().diff(setupDate, 'days') + 1; // +1 to include today
           console.log(`  -> Full history import selected.`);
@@ -258,7 +260,7 @@ async function main() {
         console.log(`  -> Token length: ${plainToken.length} characters`);
         console.log(`  -> Vendista API URL: ${process.env.VENDISTA_API_BASE_URL || 'https://api.vendista.ru:99'}`);
         
-        await manualImportLastNDays(daysToImport, user.id);
+        await manualImportLastNDays(daysToImport, user.id, isFullHistory);
         break;
 
       case COMMANDS.SYNC_TERMINALS:
