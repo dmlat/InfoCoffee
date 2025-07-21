@@ -80,10 +80,12 @@ export default function WarehousePage() {
     // const [isDirty, setIsDirty] = useState(false);
     // const [showConfirm, setShowConfirm] = useState(false);
     
+    /*
     const showNotification = (message, isError = false) => {
         setNotification({ message, isError });
         setTimeout(() => setNotification({ message: '', isError: false }), 3500);
     };
+    */
 
     const fetchDataForTerminal = useCallback(async (terminal) => {
         if (!terminal?.id) {
@@ -261,10 +263,10 @@ export default function WarehousePage() {
             if (response.data.success) {
                 setWarehouseStock(prev => ({ ...prev, [itemName]: response.data.new_stock }));
             } else {
-                showNotification(response.data.error || 'Ошибка изменения остатка', true);
+                setError(response.data.error || 'Ошибка изменения остатка');
             }
         } catch (err) {
-            showNotification(err.response?.data?.error || 'Сетевая ошибка', true);
+            setError(err.response?.data?.error || 'Сетевая ошибка');
         } finally {
             setRowLoading(prev => ({ ...prev, [itemName]: false }));
         }
@@ -279,7 +281,7 @@ export default function WarehousePage() {
     const handleTransfer = async (fromLoc, toLoc, itemName, step) => {
         // Проверяем, нужна ли для операции выбранная стойка
         if ((fromLoc !== 'warehouse' || toLoc !== 'warehouse') && !selectedTerminal?.id) {
-            showNotification("Стойка не выбрана.", true);
+            setError("Стойка не выбрана.");
             return;
         }
 
@@ -318,7 +320,7 @@ export default function WarehousePage() {
         
         if (quantityToTransfer <= 0) {
             if (toLoc === 'machine') {
-                showNotification(`Контейнер "${itemName}" полон или не настроен.`, true);
+                setError(`Контейнер "${itemName}" полон или не настроен.`);
             }
             return; // Прерываем операцию, если перемещать нечего
         }
@@ -361,12 +363,12 @@ export default function WarehousePage() {
                 updateStockState(from, from.new_stock);
                 updateStockState(to, to.new_stock);
                 
-                showNotification(`Перемещено ${quantityToTransfer.toLocaleString('ru-RU')} ${getUnit(itemName)} '${itemName}'`);
+                // showNotification(`Перемещено ${quantityToTransfer.toLocaleString('ru-RU')} ${getUnit(itemName)} '${itemName}'`);
             } else {
-                showNotification(response.data.error || 'Ошибка перемещения', true);
+                setError(response.data.error || 'Ошибка перемещения');
             }
         } catch (error) {
-            showNotification(error.response?.data?.error || 'Сетевая ошибка', true);
+            setError(error.response?.data?.error || 'Сетевая ошибка');
         } finally {
             setRowLoading(prev => ({ ...prev, [itemName]: false }));
         }
