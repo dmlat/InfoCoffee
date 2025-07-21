@@ -6,7 +6,6 @@ const moment = require('moment-timezone');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 const { sendPriorityNotification } = require('../utils/botNotifier');
 const { sendBulkNotifications, getAdminsAndOwner } = require('../utils/botHelpers');
-const { sendTaskNotifications } = require('../utils/taskNotifier');
 const { decrypt } = require('../utils/security');
 const { getNewVendistaToken, refreshToken } = require('../utils/vendista');
 
