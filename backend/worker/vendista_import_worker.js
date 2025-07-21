@@ -400,7 +400,6 @@ async function importTransactionsForPeriod(user, days, fullHistory = false) {
             }
 
             const transactions = response.items;
-            const totalPages = response._meta ? response._meta.pageCount : currentPage;
 
             if (!transactions || transactions.length === 0) {
                 hasMore = false;
@@ -409,7 +408,9 @@ async function importTransactionsForPeriod(user, days, fullHistory = false) {
             
             await processTransactions(user.id, transactions, client, results);
 
-            hasMore = currentPage < totalPages;
+            // ИСПРАВЛЕНО: Правильная логика пагинации для Vendista API
+            // Продолжаем, пока получаем полную страницу (500 записей)
+            hasMore = transactions.length === 500; // ItemsOnPage из fetchTransactionPage
             currentPage++;
 
             if (hasMore) {

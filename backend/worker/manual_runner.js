@@ -102,12 +102,13 @@ async function testVendistaToken(userId, vendistaToken) {
     const today = moment().format('YYYY-MM-DD');
     const yesterday = moment().subtract(1, 'days').format('YYYY-MM-DD');
     
-    const transactionTestResponse = await axios.get(`${VENDISTA_API_URL}/transaction/report`, {
+    const transactionTestResponse = await axios.get(`${VENDISTA_API_URL}/transactions`, {
       params: {
         token: vendistaToken,
-        page: 1,
-        date_from: yesterday,
-        date_to: today,
+        PageNumber: 1,
+        ItemsOnPage: 10,
+        DateFrom: `${yesterday}T00:00:00`,
+        DateTo: `${today}T23:59:59`,
       },
       timeout: 15000,
     });
@@ -306,26 +307,10 @@ async function main() {
 
   console.log('\n[Manual Runner] All requested jobs have been queued or executed.');
   
-  // Для import-transactions ждем завершения обработки очереди
+  // Для import-transactions задачи уже переданы в очередь schedule_imports.js
   if (options.command === COMMANDS.IMPORT_TRANSACTIONS) {
-    console.log('[Manual Runner] Waiting for import queue to complete...');
-    
-    // Ждем пока очередь не опустеет (максимум 10 минут)
-    let waitTime = 0;
-    const maxWaitTime = 10 * 60 * 1000; // 10 минут
-    const checkInterval = 5000; // 5 секунд
-    
-    while (waitTime < maxWaitTime) {
-      await new Promise(resolve => setTimeout(resolve, checkInterval));
-      waitTime += checkInterval;
-      
-      // Проверяем статус импорта через логи или можно добавить проверку очереди
-      if (waitTime % 30000 === 0) { // Каждые 30 секунд
-        console.log(`[Manual Runner] Still waiting... (${Math.floor(waitTime/1000)}s elapsed)`);
-      }
-    }
-    
-    console.log('[Manual Runner] Import queue processing timeout reached or completed.');
+    console.log('[Manual Runner] Import jobs have been queued in schedule_imports worker.');
+    console.log('[Manual Runner] Check the logs or worker_logs table for import status.');
   }
   
   console.log('[Manual Runner] Exiting.');
