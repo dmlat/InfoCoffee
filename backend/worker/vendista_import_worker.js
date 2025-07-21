@@ -1,7 +1,7 @@
 // backend/worker/vendista_import_worker.js
 const path = require('path');
 const axios = require('axios');
-const pool = require('../db');
+const { pool } = require('../db');
 const moment = require('moment-timezone');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 const { sendPriorityNotification } = require('../utils/botNotifier');

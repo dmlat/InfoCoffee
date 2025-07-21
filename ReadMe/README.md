@@ -119,6 +119,7 @@ try {
     client.release(); // CRITICAL: Release client back to the pool
 }
 ```
+*Mistake to avoid*: `require('../db')` returns the module object, not the pool itself. To use transactions, you **must** destructure `pool`: `const { pool } = require('../db');`. Failure to do so will result in a `pool.connect is not a function` runtime error.
 
 ### 4.2. Background Workers and Scheduled Jobs
 
