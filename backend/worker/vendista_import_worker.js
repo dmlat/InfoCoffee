@@ -366,10 +366,11 @@ async function importTransactionsForPeriod({
     vendistaApiToken,
     dateFrom,
     dateTo,
-    fetchAllPages = true
+    fetchAllPages = true,
+    isHistoricalImport = false
 }) {
     const logPrefix = `[Import Worker] [User ${ownerUserId}] [${dateFrom} to ${dateTo}]`;
-    console.log(`${logPrefix}: Starting transaction import...`);
+    console.log(`${logPrefix}: Starting transaction import... (${isHistoricalImport ? 'HISTORICAL' : 'SCHEDULED'})`);
 
     if (!vendistaApiToken) {
         console.error(`${logPrefix}: Vendista API token is missing.`);
@@ -424,7 +425,7 @@ async function importTransactionsForPeriod({
             
             console.log(`${logPrefix}: 🔄 Processing ${transactions.length} transactions...`);
             const processStartTime = Date.now();
-            await processTransactions(ownerUserId, transactions, client, results);
+            await processTransactions(ownerUserId, transactions, client, results, isHistoricalImport);
             const processDuration = Date.now() - processStartTime;
             console.log(`${logPrefix}: ⏱️ Processing took ${processDuration}ms`);
 
@@ -479,13 +480,16 @@ async function importTransactionsForPeriod({
 }
 
 // A new helper function to isolate the transaction processing logic
-async function processTransactions(ownerUserId, transactions, client, results) {
+async function processTransactions(ownerUserId, transactions, client, results, isHistoricalImport = false) {
     const batchStartTime = Date.now();
-    console.log(`🔄 Processing batch of ${transactions.length} transactions...`);
+    console.log(`🔄 Processing batch of ${transactions.length} transactions${isHistoricalImport ? ' (HISTORICAL - inventory updates SKIPPED)' : ' (SCHEDULED - inventory updates ENABLED)'}...`);
     
     let dbTime = 0;
     let inventoryTime = 0;
     let taskTime = 0;
+    let salesWithInventoryUpdates = 0;
+    let newSalesCount = 0;
+    let updatedSalesCount = 0;
     
     for (const transaction of transactions) {
         // Use a SAVEPOINT to isolate each transaction's processing
@@ -538,7 +542,8 @@ async function processTransactions(ownerUserId, transactions, client, results) {
                 transaction.left_bonus || 0
             ]);
 
-            if (insertResult.rows[0].xmax === '0') {
+            const isNewTransaction = insertResult.rows[0].xmax === '0';
+            if (isNewTransaction) {
                 results.added++;
             } else {
                 results.updated++;
@@ -548,7 +553,20 @@ async function processTransactions(ownerUserId, transactions, client, results) {
 
             // --- REINSTATED LOGIC: Inventory Update & Task Creation on Sale ---
             const isSale = String(transaction.result) === '1' && (transaction.reverse_id === 0 || transaction.reverse_id === null);
-            if (isSale && transaction.term_id && dbMachineItemId) {
+            
+            // Считаем продажи для статистики
+            if (isSale) {
+                if (isNewTransaction) {
+                    newSalesCount++;
+                } else {
+                    updatedSalesCount++;
+                }
+            }
+            // КРИТИЧЕСКИ ВАЖНО: Списываем ингредиенты ТОЛЬКО для НОВЫХ транзакций
+            // При историческом импорте не обновляем инвентарь (ингредиенты уже списались в прошлом)
+            // При scheduled импорте списываем только для новых транзакций, чтобы избежать дублирования
+            if (isSale && transaction.term_id && dbMachineItemId && !isHistoricalImport && isNewTransaction) {
+                salesWithInventoryUpdates++;
                 const inventoryStartTime = Date.now();
                 const terminalRes = await client.query(
                     'SELECT id FROM terminals WHERE vendista_terminal_id = $1 AND user_id = $2',
@@ -607,13 +625,19 @@ async function processTransactions(ownerUserId, transactions, client, results) {
     const totalBatchTime = Date.now() - batchStartTime;
     console.log(`✅ Batch processed in ${totalBatchTime}ms:`);
     console.log(`   📊 DB operations: ${dbTime}ms (${Math.round(dbTime/totalBatchTime*100)}%)`);
-    console.log(`   🏪 Inventory updates: ${inventoryTime}ms (${Math.round(inventoryTime/totalBatchTime*100)}%)`);
+    console.log(`   🏪 Inventory updates: ${inventoryTime}ms (${Math.round(inventoryTime/totalBatchTime*100)}%) - ${salesWithInventoryUpdates} sales processed`);
     console.log(`   📋 Task creation: ${taskTime}ms (${Math.round(taskTime/totalBatchTime*100)}%)`);
     console.log(`   🔄 Processed/Added/Updated: ${results.processed}/${results.added}/${results.updated}`);
+    console.log(`   💰 Sales: ${newSalesCount + updatedSalesCount} total (${newSalesCount} new, ${updatedSalesCount} updated)`);
+    if (isHistoricalImport) {
+        console.log(`   🚫 Historical import: inventory updates skipped for better performance`);
+    } else {
+        console.log(`   ✅ Scheduled import: inventory updated ONLY for ${newSalesCount} new sales (duplicates avoided)`);
+    }
 }
 
 
-async function startImport({ ownerUserId, vendistaApiToken, appToken, dateFrom, dateTo }) {
+async function startImport({ ownerUserId, vendistaApiToken, appToken, dateFrom, dateTo, isHistoricalImport = true }) {
     console.log(`[Import Worker] Starting import for user ${ownerUserId}: ${dateFrom} to ${dateTo}`);
     
     try {
@@ -622,7 +646,8 @@ async function startImport({ ownerUserId, vendistaApiToken, appToken, dateFrom, 
             vendistaApiToken,
             dateFrom,
             dateTo,
-            fetchAllPages: true
+            fetchAllPages: true,
+            isHistoricalImport
         });
         
         console.log(`[Import Worker] Import completed for user ${ownerUserId}:`, result);

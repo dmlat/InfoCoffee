@@ -139,7 +139,8 @@ async function runScheduledJob(jobName, dateSubtractArgs, isFullHistory) {
             vendistaApiToken: plainToken,
             dateFrom,
             dateTo,
-            fetchAllPages: true
+            fetchAllPages: true,
+            isHistoricalImport: false // Scheduled импорты обрабатывают текущие продажи
         };
 
         addToImportQueue(importParams, jobName);
@@ -201,7 +202,8 @@ async function manualImportLastNDays(days, targetUserId, isFullHistory = false) 
                 vendistaApiToken: plainToken,
                 dateFrom,
                 dateTo,
-                fetchAllPages: true
+                fetchAllPages: true,
+                isHistoricalImport: isFullHistory // Исторический импорт если full-history
             };
             
             addToImportQueue(importParams, jobName);

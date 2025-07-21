@@ -127,6 +127,27 @@ try {
 -   **Inventory Notifier (`inventory_notifier_worker.js`)**: Runs hourly to scan for inventory changes, groups them by user, and sends a consolidated report to the business owner and admins, providing an audit trail of stock adjustments.
 -   **Task Cleanup (`task_cleanup_worker.js`)**: Runs daily at 23:59 (Moscow Time) to hide completed tasks from the main UI, keeping the active task list clean while preserving historical data for analytics.
 
+### 4.2.1. Transaction Import Logic
+
+The system distinguishes between two types of transaction imports:
+
+#### **Historical Import** (`isHistoricalImport: true`)
+-   Used for importing past transactions during initial setup or data recovery
+-   **Inventory updates SKIPPED** - ingredients were already consumed in the past
+-   Optimized for speed (~10x faster) as it only handles database operations
+-   Triggered by: `--full-history` flag, initial user registration
+
+#### **Scheduled Import** (`isHistoricalImport: false`) 
+-   Runs every 15 minutes to sync recent transactions (last 24 hours)
+-   **Inventory updates ENABLED** - ingredients are deducted for new sales only
+-   Updates ingredient levels and creates service tasks based on recipes
+-   **Critical**: Only processes inventory for NEW transactions (xmax === '0'), avoiding duplication
+
+**Key Features:**
+-   Uses PostgreSQL `ON CONFLICT` to distinguish new vs updated transactions
+-   Ingredient deduction only occurs for genuinely new sales
+-   Prevents duplicate inventory processing during overlapping import periods
+
 ### 4.3. Telegram Bot System (Queuing and Error Handling)
 
 -   **Safe Initialization (`backend/bot.js`)**: Bot initialization is handled by a controlled `startPolling` function that includes deliberate delays and a retry mechanism with exponential backoff to prevent 429 "Too Many Requests" errors on startup.
@@ -178,25 +199,51 @@ Manual PM2 commands can also be used for management:
 
 The `backend/worker/manual_runner.js` script provides a command-line interface for executing specific one-off tasks. It is essential for maintenance, debugging, and data backfilling.
 
-Run the script from the project root directory.
+Additionally, `backend/worker/direct_import.js` provides a direct import utility that bypasses the scheduling queue for faster debugging and historical imports.
+
+Run the scripts from the project root directory.
+
+### 7.1. Debugging and Performance Tools
+
+For performance analysis and debugging, the system includes several specialized tools:
+
+-   **Direct Import**: Bypasses the queue system for immediate execution and detailed performance metrics
+-   **Statistics Display**: Shows comprehensive transaction statistics and database status  
+-   **Schedule Testing**: Allows testing of cron jobs without waiting for scheduled execution
+-   **Performance Logging**: Detailed timing breakdown of API calls, database operations, and inventory updates
 
 ### Available Commands:
 
--   `import-transactions`: Manually trigger the transaction import for a specific user. Can fetch for a given number of days or the entire history since the user's setup date.
+-   `import-transactions`: Manually trigger the transaction import for a specific user (via queue). Can fetch for a given number of days or the entire history since the user's setup date.
+-   `direct-import`: Direct import without queue (for debugging and faster historical imports). Bypasses the scheduling system.
 -   `sync-terminals`: Synchronize the list of terminals from Vendista for a user.
 -   `update-creds`: Securely update the Vendista login and password for a user. The script will validate the new credentials before saving the encrypted versions.
 -   `test-token`: Test the validity of a user's current Vendista API token against the API endpoints.
+-   `show-stats`: Display transaction statistics and database status for a user.
+-   `test-schedule`: Test scheduled import jobs immediately without waiting for cron.
 
 ### Usage Examples:
 
--   **Import last 30 days of transactions for User 1:**
+-   **Queue import for User 1 (full history):**
     ```bash
-    node backend/worker/manual_runner.js import-transactions --user-id 1 --days 30
+    node backend/worker/manual_runner.js import-transactions --user-id 1 --full-history
     ```
 
--   **Import the full transaction history for User 2:**
+-   **Direct import for debugging or faster historical imports:**
     ```bash
-    node backend/worker/manual_runner.js import-transactions --user-id 2 --full-history
+    node backend/worker/manual_runner.js direct-import --user-id 1 --full-history
+    node backend/worker/manual_runner.js direct-import --user-id 1 --days 7
+    ```
+
+-   **Show transaction statistics:**
+    ```bash
+    node backend/worker/manual_runner.js show-stats --user-id 1
+    ```
+
+-   **Test scheduled jobs immediately:**
+    ```bash
+    node backend/worker/manual_runner.js test-schedule --job 15min
+    node backend/worker/manual_runner.js test-schedule --job daily
     ```
 
 -   **Update Vendista credentials for User 1:**
@@ -207,4 +254,22 @@ Run the script from the project root directory.
 -   **Test the API token for User 3:**
     ```bash
     node backend/worker/manual_runner.js test-token --user-id 3
+    ```
+
+### 7.2. Shell Wrapper (Convenience Commands)
+
+For easier access, use the shell wrapper `scripts/run-manual-job.sh`:
+
+-   **Quick debugging and statistics:**
+    ```bash
+    ./scripts/run-manual-job.sh show-stats --user-id 1
+    ./scripts/run-manual-job.sh direct-import --user-id 1 --days 1
+    ./scripts/run-manual-job.sh test-schedule --job 15min
+    ```
+
+-   **Direct alternative to manual_runner.js:**
+    ```bash
+    node backend/worker/direct_import.js stats 1
+    node backend/worker/direct_import.js import 1 7
+    node backend/worker/direct_import.js import 1 full-history
     ``` 

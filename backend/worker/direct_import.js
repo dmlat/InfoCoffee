@@ -69,7 +69,8 @@ async function directImport(userId, days, fullHistory = false) {
             vendistaApiToken: plainToken,
             dateFrom,
             dateTo,
-            fetchAllPages: true
+            fetchAllPages: true,
+            isHistoricalImport: fullHistory
         });
         
         const endTime = Date.now();
