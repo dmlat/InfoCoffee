@@ -14,7 +14,7 @@ const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL || '';
 const MAX_RETRIES = 5;
 const INITIAL_RETRY_DELAY_MS = 2000;
 // ИЗМЕНЕНО: Увеличиваем задержку между запросами страниц до 1.5 секунд
-const PAGE_FETCH_DELAY_MS = 1500;
+const PAGE_FETCH_DELAY_MS = 1100; // >1 сек для API rate limit
 // Новые константы для batch обработки
 const NOTIFICATION_BATCH_SIZE = 10; // Максимум уведомлений в одной группе
 const NOTIFICATION_BATCH_DELAY_MS = 2000; // Задержка между группами уведомлений
@@ -294,7 +294,7 @@ async function fetchTransactionPage(api, page, retries = 2) {
         PageNumber: page,
         DateFrom: api.dateFrom,
         DateTo: api.dateTo,
-        ItemsOnPage: 500 // Max items per page as per good practice
+                    ItemsOnPage: 1000 // Оптимизировано для быстрого импорта
     };
     
     if (page === 1) {
@@ -427,7 +427,7 @@ async function importTransactionsForPeriod({
                 console.log(`${logPrefix}: Using metadata - page ${currentPage}/${totalPages}, total items: ${response.items_count}`);
             } else {
                 // Fallback: продолжаем пока получаем полную страницу (500 записей)
-                hasMore = transactions.length === 500; // ItemsOnPage из fetchTransactionPage
+                hasMore = transactions.length === 1000; // ItemsOnPage из fetchTransactionPage
                 console.log(`${logPrefix}: Using transaction count logic - hasMore: ${hasMore} (received ${transactions.length} items)`);
             }
             

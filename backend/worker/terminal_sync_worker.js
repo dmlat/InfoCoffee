@@ -69,7 +69,7 @@ async function syncTerminalsForUser(userId, plainVendistaToken) {
         await client.query('BEGIN');
         
         const vendistaResponse = await axios.get(`${VENDISTA_API_URL}/terminals`, {
-            params: { token: plainVendistaToken, ItemsOnPage: 500 }
+            params: { token: plainVendistaToken, ItemsOnPage: 1000 }
         });
 
         const vendistaTerminals = vendistaResponse.data.items || [];
