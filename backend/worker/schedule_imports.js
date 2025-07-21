@@ -297,4 +297,4 @@ if (require.main === module) {
     runImmediateJobs();
 }
 
-module.exports = { scheduleAll, runImmediateJobs, manualImportLastNDays };
+module.exports = { scheduleAll, runImmediateJobs, manualImportLastNDays, runScheduledJob };

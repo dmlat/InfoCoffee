@@ -299,6 +299,9 @@ async function fetchTransactionPage(api, page, retries = 2) {
     
     if (page === 1) {
         console.log(`[Import Worker] Requesting page 1 for user ${api.user_id}`);
+        console.log(`[Import Worker] Request params:`, requestParams);
+    } else if (page % 10 === 0) {
+        console.log(`[Import Worker] Requesting page ${page} for user ${api.user_id}...`);
     }
 
     try {
@@ -306,6 +309,12 @@ async function fetchTransactionPage(api, page, retries = 2) {
             params: requestParams,
             timeout: 30000,
         });
+        
+        // Логируем информацию о ответе
+        if (page === 1 || page % 10 === 0) {
+            console.log(`[Import Worker] Page ${page} response - items: ${response.data.items?.length || 0}, total: ${response.data.items_count || 'N/A'}, success: ${response.data.success}`);
+        }
+        
         return response.data; // Success
     } catch (error) {
         if (!error.response) {
@@ -399,21 +408,36 @@ async function importTransactionsForPeriod({
             }
 
             const transactions = response.items;
+            console.log(`${logPrefix}: Page ${currentPage} - received ${transactions ? transactions.length : 0} transactions`);
 
             if (!transactions || transactions.length === 0) {
+                console.log(`${logPrefix}: No more transactions on page ${currentPage}. Stopping.`);
                 hasMore = false;
                 continue;
             }
             
             await processTransactions(ownerUserId, transactions, client, results);
 
-            // ИСПРАВЛЕНО: Правильная логика пагинации для Vendista API
-            // Продолжаем, пока получаем полную страницу (500 записей)
-            hasMore = transactions.length === 500; // ItemsOnPage из fetchTransactionPage
+            // ИСПРАВЛЕНО: Улучшенная логика пагинации
+            // Проверяем есть ли еще страницы через metadata или через размер текущей страницы
+            if (response.page_number && response.items_count && response.items_per_page) {
+                // Используем metadata если доступны
+                const totalPages = Math.ceil(response.items_count / response.items_per_page);
+                hasMore = currentPage < totalPages;
+                console.log(`${logPrefix}: Using metadata - page ${currentPage}/${totalPages}, total items: ${response.items_count}`);
+            } else {
+                // Fallback: продолжаем пока получаем полную страницу (500 записей)
+                hasMore = transactions.length === 500; // ItemsOnPage из fetchTransactionPage
+                console.log(`${logPrefix}: Using transaction count logic - hasMore: ${hasMore} (received ${transactions.length} items)`);
+            }
+            
             currentPage++;
 
             if (hasMore) {
+                console.log(`${logPrefix}: Moving to page ${currentPage} after ${PAGE_FETCH_DELAY_MS}ms delay...`);
                 await delay(PAGE_FETCH_DELAY_MS);
+            } else {
+                console.log(`${logPrefix}: No more pages to fetch.`);
             }
         }
         

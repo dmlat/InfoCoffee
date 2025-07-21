@@ -15,8 +15,9 @@ require('../utils/logger'); // Глобальное подключение ло�
 const { pool } = require('../db');
 const { decrypt, encrypt } = require('../utils/security');
 const { getNewVendistaToken } = require('../utils/vendista');
-const { manualImportLastNDays } = require('./schedule_imports');
+const { manualImportLastNDays, runScheduledJob } = require('./schedule_imports');
 const { syncTerminalsForUser } = require('./terminal_sync_worker');
+const { directImport, showStats } = require('./direct_import');
 const moment = require('moment');
 const axios = require('axios');
 
@@ -24,7 +25,10 @@ const COMMANDS = {
   IMPORT_TRANSACTIONS: 'import-transactions',
   SYNC_TERMINALS: 'sync-terminals',
   UPDATE_CREDS: 'update-creds',
-  TEST_TOKEN: 'test-token'
+  TEST_TOKEN: 'test-token',
+  DIRECT_IMPORT: 'direct-import',
+  SHOW_STATS: 'show-stats',
+  TEST_SCHEDULE: 'test-schedule'
 };
 
 function parseArgs(args) {
@@ -157,32 +161,38 @@ function printHelp() {
       node backend/worker/manual_runner.js <command> [options]
 
     Commands:
-      import-transactions   Imports transactions for users.
+      import-transactions   Imports transactions for users (via queue).
+      direct-import         Direct import without queue (for debugging).
       sync-terminals        Syncs terminal lists for users.
       update-creds          Updates Vendista login and password for a user.
       test-token           Tests Vendista token validity.
+      show-stats           Shows transaction statistics for a user.
+      test-schedule        Tests scheduled import jobs immediately.
 
     Options:
       --user-id <id1,id2,...>  (Required unless --all) Comma-separated list of user IDs from the 'users' table.
       --all                    Run the job for all active users.
-      --days <number>          (For import-transactions) Number of past days to import.
-      --full-history           (For import-transactions) Import all history since the user's setup_date. Overrides --days.
+      --days <number>          Number of past days to import.
+      --full-history           Import all history since the user's setup_date. Overrides --days.
+      --job <name>             (For test-schedule) Job name: '15min', 'daily', 'weekly'.
 
     Examples:
-      # Import last 7 days of transactions for user 1
-      node backend/worker/manual_runner.js import-transactions --user-id 1 --days 7
+      # Queue import for user 1 (full history)
+      node backend/worker/manual_runner.js import-transactions --user-id 1 --full-history
 
-      # Import full history from setup_date for user 10
-      node backend/worker/manual_runner.js import-transactions --user-id 10 --full-history
+      # Direct import for debugging (bypasses queue)
+      node backend/worker/manual_runner.js direct-import --user-id 1 --full-history
+      node backend/worker/manual_runner.js direct-import --user-id 1 --days 7
 
-      # Import last 30 days for multiple users
-      node backend/worker/manual_runner.js import-transactions --user-id 1,2,3 --days 30
+      # Show transaction statistics
+      node backend/worker/manual_runner.js show-stats --user-id 1
+
+      # Test scheduled jobs immediately
+      node backend/worker/manual_runner.js test-schedule --job 15min
+      node backend/worker/manual_runner.js test-schedule --job daily
 
       # Sync terminals for users 5 and 8
       node backend/worker/manual_runner.js sync-terminals --user-id 5,8
-
-      # Sync terminals for ALL users
-      node backend/worker/manual_runner.js sync-terminals --all
 
       # Test Vendista token validity for user 1
       node backend/worker/manual_runner.js test-token --user-id 1
@@ -202,6 +212,32 @@ async function main() {
     console.error(`Error: Unknown command "${options.command}".`);
     printHelp();
     process.exit(1);
+  }
+
+  // Команды, которые не требуют пользователей
+  if (options.command === COMMANDS.TEST_SCHEDULE) {
+    console.log(`[Manual Runner] Testing scheduled job...`);
+    const jobName = options.job || '15min';
+    
+    switch (jobName) {
+      case '15min':
+        console.log('Testing 15-minute import job...');
+        await runScheduledJob('Test 15-Min Import', [1, 'days'], false);
+        break;
+      case 'daily':
+        console.log('Testing daily import job...');
+        await runScheduledJob('Test Daily Import', [3, 'days'], true);
+        break;
+      case 'weekly':
+        console.log('Testing weekly import job...');
+        await runScheduledJob('Test Weekly Import', [8, 'days'], true);
+        break;
+      default:
+        console.error(`Unknown job type: ${jobName}. Use: 15min, daily, or weekly`);
+        process.exit(1);
+    }
+    console.log('[Manual Runner] Test completed.');
+    process.exit(0);
   }
 
   if (options.userIds.length === 0 && !options.allUsers) {
@@ -301,6 +337,28 @@ async function main() {
       case COMMANDS.TEST_TOKEN:
         console.log('  -> Testing Vendista token validity.');
         await testVendistaToken(user.id, plainToken);
+        break;
+
+      case COMMANDS.DIRECT_IMPORT:
+        let directDays = options.days;
+        const directIsFullHistory = !!options.fullHistory;
+
+        if (directIsFullHistory) {
+          const setupDate = moment(user.setup_date);
+          directDays = moment().diff(setupDate, 'days') + 1;
+          console.log('  -> Direct import: full history selected.');
+        } else if (!directDays || directDays <= 0) {
+          console.error('  -> Error: For direct import, you must specify --days <number> or --full-history.');
+          continue;
+        }
+        
+        console.log(`  -> Starting direct import for ${directDays} days.`);
+        await directImport(user.id, directDays, directIsFullHistory);
+        break;
+
+      case COMMANDS.SHOW_STATS:
+        console.log('  -> Showing transaction statistics.');
+        await showStats(user.id);
         break;
     }
   }
