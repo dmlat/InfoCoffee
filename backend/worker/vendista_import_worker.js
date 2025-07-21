@@ -296,6 +296,15 @@ async function fetchTransactionPage(api, page, retries = 2) {
         date_to: api.dateTo,
     };
     
+    // --- DEBUG LOGGING ---
+    console.log(`\n[DEBUG] Making Vendista Request:`);
+    console.log(`  - URL: ${requestUrl}`);
+    console.log(`  - Page: ${requestParams.page}`);
+    console.log(`  - Date From: ${requestParams.date_from}`);
+    console.log(`  - Date To: ${requestParams.date_to}`);
+    console.log(`  - Token (first 8 chars): ${requestParams.token.substring(0, 8)}...`);
+    // --- END DEBUG LOGGING ---
+    
     if (page === 1) {
         console.log(`[Import Worker] Requesting page 1 for user ${api.user_id}`);
     }
