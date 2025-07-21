@@ -275,25 +275,51 @@ async function sendNotificationsBatch(notifications, priority = false, context =
 }
 
 async function fetchTransactionPage(vendistaToken, page, dateFrom, dateTo, coffeeShopFilter, maxRetries) {
+    const requestUrl = `${VENDISTA_API_URL}/transaction/report`;
+    const requestParams = {
+        token: vendistaToken,
+        page,
+        date_from: dateFrom,
+        date_to: dateTo,
+        coffee_shop: coffeeShopFilter || undefined,
+    };
+    
+    // Логируем детали запроса только для первой страницы или при ошибках
+    if (page === 1) {
+        console.log(`[Import Worker] Request URL: ${requestUrl}`);
+        console.log(`[Import Worker] Request params:`, {
+            ...requestParams,
+            token: `${vendistaToken.substring(0, 8)}...` // Маскируем токен
+        });
+    }
+    
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            const response = await axios.get(`${VENDISTA_API_URL}/transaction/report`, {
-                params: {
-                    token: vendistaToken,
-                    page,
-                    date_from: dateFrom,
-                    date_to: dateTo,
-                    coffee_shop: coffeeShopFilter || undefined,
-                },
+            const response = await axios.get(requestUrl, {
+                params: requestParams,
                 timeout: 30000,
             });
 
             return response.data;
         } catch (error) {
             console.error(`[Import Worker] Error on page ${page}, attempt ${attempt}:`, error.message);
+            
+            // Дополнительная информация об ошибке
+            if (error.response) {
+                console.error(`[Import Worker] Response status: ${error.response.status}`);
+                console.error(`[Import Worker] Response data:`, error.response.data);
+            }
 
             if (error.response?.status === 402) {
                 throw new Error('VENDISTA_PAYMENT_REQUIRED');
+            }
+
+            if (error.response?.status === 404) {
+                console.error(`[Import Worker] 404 Error Details:`);
+                console.error(`  - URL: ${requestUrl}`);
+                console.error(`  - Token (first 8 chars): ${vendistaToken.substring(0, 8)}...`);
+                console.error(`  - Date range: ${dateFrom} to ${dateTo}`);
+                throw new Error(`VENDISTA_404: Invalid token or endpoint. Check token validity and API endpoint.`);
             }
 
             if (attempt === maxRetries) {
