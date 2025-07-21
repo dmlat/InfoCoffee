@@ -287,7 +287,7 @@ async function fetchTransactionPage(api, page, retries = 2) {
     
     // We need to extract the plain token for the request params,
     // but the api object holds the full 'Bearer <token>' header.
-    const currentToken = api.defaults.headers.common['Authorization'].split(' ')[1];
+    const currentToken = api.defaults.headers.Authorization.split(' ')[1];
 
     const requestParams = {
         token: currentToken,

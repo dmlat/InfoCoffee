@@ -1,7 +1,7 @@
 // backend/worker/task_cleanup_worker.js
 require('../utils/logger');
 const cron = require('node-cron');
-const pool = require('../db');
+const { pool } = require('../db');
 const moment = require('moment-timezone');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
 
