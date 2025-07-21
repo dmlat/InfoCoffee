@@ -5,7 +5,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import './RightsPage.css';
 import '../styles/tables.css';
 
-export default function RightsPage() {
+export default function RightsPage({ user }) {
     const [accessList, setAccessList] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -24,7 +24,7 @@ export default function RightsPage() {
         confirmText: 'Да',
     });
 
-    const currentUserTelegramId = localStorage.getItem('telegramId');
+    // const currentUserTelegramId = localStorage.getItem('telegramId'); // Not used, can be removed.
 
     const fetchAccessList = useCallback(async () => {
         setIsLoading(true);
@@ -159,7 +159,7 @@ export default function RightsPage() {
                                     placeholder="Имя пользователя"
                                     className="form-input"
                                 />
-                                <button type="submit" className="action-btn" disabled={isAdding || !newTelegramId || !newUserName}>
+                                <button type="submit" className="rights-form-add-button" disabled={isAdding || !newTelegramId || !newUserName}>
                                     {isAdding ? '...' : 'Добавить'}
                                 </button>
                             </div>
@@ -181,8 +181,8 @@ export default function RightsPage() {
                                 <thead>
                                     <tr>
                                         <th>Имя</th>
-                                        <th>Telegram ID</th>
-                                        <th className="access-level-header">Уровень доступа</th>
+                                        <th>ID</th>
+                                        <th className="access-level-header">Доступ</th>
                                         <th className="td-action"></th>
                                     </tr>
                                 </thead>
@@ -209,7 +209,7 @@ export default function RightsPage() {
                                                         <button 
                                                             className={`access-btn ${item.access_level === 'service' ? 'active' : ''}`}
                                                             onClick={() => openConfirmationModal('updateAccess', item.id, 'service')}>
-                                                            Обслуживание
+                                                            Сервис
                                                         </button>
                                                     </div>
                                                   )}

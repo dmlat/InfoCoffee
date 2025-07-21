@@ -151,8 +151,31 @@ router.delete('/:accessId', authMiddleware, async (req, res) => {
     }
 
     try {
+        // Сначала получаем информацию о записи, которую пытаются удалить
+        const accessRecordRes = await db.query('SELECT uar.shared_with_telegram_id, u.telegram_id as owner_telegram_id FROM user_access_rights uar JOIN users u ON uar.owner_user_id = u.id WHERE uar.id = $1 AND uar.owner_user_id = $2', [accessId, ownerUserId]);
+
+        if (accessRecordRes.rowCount === 0) {
+            return res.status(404).json({ success: false, error: 'Запись о доступе не найдена или у вас нет прав на её изменение.' });
+        }
+
+        const accessRecord = accessRecordRes.rows[0];
+
+        // Ключевая проверка: админ не может удалить владельца.
+        // Мы считаем "владельцем" того, чей telegram_id совпадает с telegram_id основного пользователя (owner).
+        // В нашей системе владелец не имеет записи в user_access_rights на самого себя,
+        // но эта проверка - дополнительный уровень защиты на случай, если такая запись появится.
+        // Основная логика - админ не может удалить запись, которая принадлежит владельцу.
+        // Так как в списке доступов владелец не отображается, эта проверка защищает от прямого вызова API.
+        const ownerRes = await db.query('SELECT telegram_id FROM users WHERE id = $1', [ownerUserId]);
+        const ownerTelegramId = ownerRes.rows[0].telegram_id;
+
+        if (accessLevel === 'admin' && String(accessRecord.shared_with_telegram_id) === String(ownerTelegramId)) {
+            console.warn(`[DELETE /api/access/:id] Forbidden: Admin TG:${telegramId} attempted to delete Owner TG:${ownerTelegramId}.`);
+            return res.status(403).json({ success: false, error: 'Администратор не может удалить владельца.' });
+        }
+        
         const deleteResult = await db.query(
-            'DELETE FROM user_access_rights WHERE id = $1 AND owner_user_id = $2 RETURNING id',
+            'DELETE FROM user_access_rights WHERE id = $1 AND owner_user_id = $2 RETURNING id, shared_with_telegram_id',
             [accessId, ownerUserId]
         );
 

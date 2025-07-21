@@ -1,73 +1,91 @@
-.service-page-container {
+.service-task-container {
     padding: 20px;
-    background-color: #1a1d21;
+    background-color: var(--tg-theme-bg-color);
+    color: var(--tg-theme-text-color);
     min-height: 100vh;
-    color: #e0e0e0;
-    box-sizing: border-box;
 }
 
-.service-page-container h2 {
+.error-container {
     text-align: center;
-    color: #fff;
+    padding-top: 50px;
+    color: var(--tg-theme-destructive-text-color);
 }
 
 .task-card {
-    background-color: #282c34;
+    background-color: var(--tg-theme-secondary-bg-color);
     border-radius: 12px;
-    padding: 20px;
+    padding: 16px;
+    margin: 0 auto;
     max-width: 400px;
-    margin: 20px auto;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.task-header {
-    font-size: 1.4em;
+.task-card-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
     font-weight: 600;
-    color: #8ae6ff;
-    border-bottom: 1px solid #3a3e47;
+    color: var(--tg-theme-text-color);
+    text-align: center;
+    border-bottom: 1px solid var(--tg-theme-hint-color);
     padding-bottom: 10px;
     margin-bottom: 15px;
 }
 
-.task-body p {
-    margin: 8px 0;
-    font-size: 1.1em;
-    line-height: 1.5;
-}
-
-.task-body strong {
-    color: #a0b0c8;
-    margin-right: 8px;
-}
-
-.task-footer {
-    margin-top: 25px;
+.task-card-body p {
+    margin: 0 0 15px 0;
+    font-size: 1rem;
+    line-height: 1.4;
     text-align: center;
 }
 
-.complete-btn {
-    background-color: #4CAF50;
-    color: white;
-    padding: 12px 24px;
-    border: none;
+.terminal-name-highlight {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--tg-theme-link-color);
+    margin: 10px 0 20px 0;
+    text-align: center;
+}
+
+.task-comment {
+    font-size: 0.9rem;
+    color: var(--tg-theme-hint-color);
+    background-color: var(--tg-theme-bg-color);
+    padding: 10px;
     border-radius: 8px;
-    font-size: 1.1em;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s;
+    margin-top: 15px;
+}
+
+.action-btn {
     width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    background-color: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+    transition: background-color 0.2s ease;
 }
 
-.complete-btn:hover {
-    background-color: #45a049;
-}
-
-.complete-btn:disabled {
-    background-color: #555;
+.action-btn:disabled {
+    background-color: #a3a3a3;
     cursor: not-allowed;
 }
 
 .error-message {
-    color: #e57373;
+    color: var(--tg-theme-destructive-text-color);
+    margin-top: 15px;
     text-align: center;
+}
+
+.restock-task-header {
+    background-color: var(--tg-theme-secondary-bg-color);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.restock-task-header p {
+    margin: 0 0 10px 0;
 } 

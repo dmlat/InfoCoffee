@@ -278,7 +278,7 @@
     line-height: 1; 
 }
 
-/* ДОБАВЛЯЕМ стили для нового прогресс-бара из StandStockTab.css */
+/* ДОБАВЛЕНО: стили для нового прогресс-бара из StandStockTab.css */
 .machine-progress-bar-container {
     position: relative;
     height: 24px;

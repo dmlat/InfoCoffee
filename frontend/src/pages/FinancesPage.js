@@ -1,11 +1,13 @@
 // src/pages/FinancesPage.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { useStatsPolling } from './useStatsPolling'; 
+import { useAuth } from '../App'; // Импортируем useAuth
+import useStatsPolling from './useStatsPolling'; 
 import { PERIODS, formatDateForInput } from '../constants'; 
 import './FinancesPage.css';
 import '../styles/tables.css'; // Импортируем общие стили для таблиц
 
-export default function FinancesPage() {
+export default function FinancesPage() { // Удаляем user из пропсов
+  const { user, token } = useAuth(); // Получаем user и token из контекста
   const pageKey = 'financesPage_v7_custom_persist'; 
 
   const getTodayRange = useCallback(() => {
@@ -55,30 +57,22 @@ export default function FinancesPage() {
     return { dateFrom: formatDateForInput(range[0]), dateTo: formatDateForInput(range[1]) };
   });
 
-  const [taxSystem, setTaxSystem] = useState(localStorage.getItem('user_tax_system') || '');
-  const [acquiringRate, setAcquiringRate] = useState(localStorage.getItem('user_acquiring_rate') || '0');
-
-  useEffect(() => {
-    const updateRatesFromStorage = () => {
-      setTaxSystem(localStorage.getItem('user_tax_system') || '');
-      setAcquiringRate(localStorage.getItem('user_acquiring_rate') || '0');
-    };
-    updateRatesFromStorage();
-    window.addEventListener('storage', updateRatesFromStorage);
-    window.addEventListener('profileSettingsUpdated', updateRatesFromStorage);
-    return () => {
-      window.removeEventListener('storage', updateRatesFromStorage);
-      window.removeEventListener('profileSettingsUpdated', updateRatesFromStorage);
-    };
-  }, []);
+  // Добавляем проверку на user перед доступом к business_profile
+  const taxSystem = user?.business_profile?.tax_system || '';
+  const acquiringRate = user?.business_profile?.acquiring_rate || '0';
 
   useEffect(() => {
     localStorage.setItem(`${pageKey}_periodLabel`, currentPeriodPreset.label);
     localStorage.setItem(`${pageKey}_userCustomFrom`, userCustomPeriodSelection.from);
     localStorage.setItem(`${pageKey}_userCustomTo`, userCustomPeriodSelection.to);
+    // console.log('[FinancesPage] Period state saved to localStorage.');
   }, [currentPeriodPreset, userCustomPeriodSelection, pageKey]);
   
-  const { stats, statsLoading, coffeeStats, coffeeLoading, error: statsError } = useStatsPolling(apiPeriod);
+  const { isLoading: isAuthLoading } = useAuth();
+
+  // console.log('[FinancesPage] Rendering. Auth loading:', isAuthLoading, 'Token available:', !!token, 'API Period:', apiPeriod);
+  
+  const { stats, statsLoading, coffeeStats, coffeeLoading, error: statsError } = useStatsPolling(apiPeriod, isAuthLoading ? null : token);
 
   const handlePeriodPresetChange = (p) => {
     setCurrentPeriodPreset(p);
@@ -106,6 +100,7 @@ export default function FinancesPage() {
     }
     setDisplayDatesInInputs(newDisplayDates);
     setApiPeriod(newApiDates);
+    // console.log('[FinancesPage] Period changed. New API Period:', newApiDates);
   };
 
   const handleCustomDateChange = (field, value) => {
@@ -116,7 +111,9 @@ export default function FinancesPage() {
 
       if (updatedSelection.from && updatedSelection.to &&
           new Date(updatedSelection.from).getTime() && new Date(updatedSelection.to).getTime()) {
-        setApiPeriod({ dateFrom: updatedSelection.from, dateTo: updatedSelection.to });
+        const newApiDates = { dateFrom: updatedSelection.from, dateTo: updatedSelection.to };
+        setApiPeriod(newApiDates);
+        // console.log('[FinancesPage] Custom date changed. New API Period:', newApiDates);
       }
     }
   };
@@ -151,6 +148,19 @@ export default function FinancesPage() {
   const formattedAcquiringRateDisplay = userAcquiringRatePercent > 0 
     ? `${userAcquiringRatePercent.toLocaleString('ru-RU', {minimumFractionDigits: 1, maximumFractionDigits: 1})}%` 
     : 'не задан';
+
+  // -- НОВОЕ: Показываем заглушку во время проверки авторизации --
+  if (isAuthLoading) {
+    return (
+        <div className="page-container finances-page">
+            <div className="main-content-area">
+                <div className="summary-card">
+                    <p className="loading-message">Проверка авторизации...</p>
+                </div>
+            </div>
+        </div>
+    );
+  }
 
   return (
     <div className="page-container finances-page"> 

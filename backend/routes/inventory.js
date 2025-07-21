@@ -4,6 +4,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const { pool } = require('../db');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
+const { logInventoryChange } = require('../utils/inventoryLogger');
 
 // Перемещение остатков
 router.post('/move', authMiddleware, async (req, res) => {
@@ -22,24 +23,35 @@ router.post('/move', authMiddleware, async (req, res) => {
 
         const fromTerminalId = from.location === 'warehouse' ? null : from.terminal_id;
         const toTerminalId = to.location === 'warehouse' ? null : to.terminal_id;
-
-        // 1. УМЕНЬШАЕМ остаток в источнике
-        const fromUpdateRes = await client.query(
-            `UPDATE inventories
-             SET current_stock = current_stock - $1, updated_at = NOW()
-             WHERE user_id = $2 AND location = $3 AND item_name = $4 AND terminal_id IS NOT DISTINCT FROM $5
-             AND current_stock >= $1
-             RETURNING current_stock`,
-            [quantity, ownerUserId, from.location, item_name, fromTerminalId]
-        );
         
-        if (fromUpdateRes.rowCount === 0) {
+        // --- 1. Получаем текущие остатки и блокируем строки ---
+        const fromStockRes = await client.query(
+            `SELECT current_stock FROM inventories WHERE user_id = $1 AND location = $2 AND item_name = $3 AND terminal_id IS NOT DISTINCT FROM $4 FOR UPDATE`,
+            [ownerUserId, from.location, item_name, fromTerminalId]
+        );
+        const fromStockBefore = fromStockRes.rows.length > 0 ? parseFloat(fromStockRes.rows[0].current_stock) : 0;
+        
+        if (fromStockBefore < quantity) {
             await client.query('ROLLBACK');
             const sourceName = from.location === 'warehouse' ? 'на складе' : `в локации "${from.location}"`;
             return res.status(400).json({ success: false, error: `Недостаточно остатков "${item_name}" ${sourceName}.` });
         }
 
-        // 2. УВЕЛИЧИВАЕМ остаток в назначении
+        const toStockRes = await client.query(
+            `SELECT current_stock FROM inventories WHERE user_id = $1 AND location = $2 AND item_name = $3 AND terminal_id IS NOT DISTINCT FROM $4 FOR UPDATE`,
+            [ownerUserId, to.location, item_name, toTerminalId]
+        );
+        const toStockBefore = toStockRes.rows.length > 0 ? parseFloat(toStockRes.rows[0].current_stock) : 0;
+
+        // --- 2. УМЕНЬШАЕМ остаток в источнике ---
+        const fromUpdateRes = await client.query(
+            `UPDATE inventories SET current_stock = current_stock - $1, updated_at = NOW()
+             WHERE user_id = $2 AND location = $3 AND item_name = $4 AND terminal_id IS NOT DISTINCT FROM $5
+             RETURNING current_stock`,
+            [quantity, ownerUserId, from.location, item_name, fromTerminalId]
+        );
+        
+        // --- 3. УВЕЛИЧИВАЕМ остаток в назначении ---
         let toUpdateRes;
         if (to.location === 'warehouse') {
             // Отдельная обработка для склада (terminal_id IS NULL)
@@ -73,34 +85,90 @@ router.post('/move', authMiddleware, async (req, res) => {
             );
         }
 
-        // 3. АВТОМАТИЧЕСКОЕ ЗАКРЫТИЕ ЗАДАЧ
-        // Если перемещение было в стойку (на машину)
+        // --- 4. Логируем оба изменения ---
+        const fromStockAfter = parseFloat(fromUpdateRes.rows[0].current_stock);
+        const toStockAfter = parseFloat(toUpdateRes.rows[0].current_stock);
+
+        await logInventoryChange({
+            owner_user_id: ownerUserId, changed_by_telegram_id: telegramId,
+            change_source: 'transfer_out', terminal_id: fromTerminalId,
+            item_name, quantity_before: fromStockBefore, quantity_after: fromStockAfter
+        }, client);
+
+        await logInventoryChange({
+            owner_user_id: ownerUserId, changed_by_telegram_id: telegramId,
+            change_source: 'transfer_in', terminal_id: toTerminalId,
+            item_name, quantity_before: toStockBefore, quantity_after: toStockAfter
+        }, client);
+
+
+        // --- 5. АВТОМАТИЧЕСКОЕ ЗАКРЫТИЕ ЗАДАЧ ---
+        // Если перемещение было в кофемашину (из стойки), проверяем, можно ли закрыть задачи на пополнение
         if (to.location === 'machine' && toTerminalId) {
-            const newStock = toUpdateRes.rows[0].current_stock;
-            const itemInfoRes = await client.query(
-                'SELECT critical_stock FROM inventories WHERE user_id = $1 AND terminal_id = $2 AND item_name = $3 AND location = $4',
-                [ownerUserId, toTerminalId, item_name, 'machine']
+            // Ищем все активные задачи на пополнение для данного терминала
+            const pendingTasksRes = await client.query(
+               `SELECT id, details FROM service_tasks WHERE terminal_id = $1 AND task_type = 'restock' AND status = 'pending'`,
+               [toTerminalId]
             );
 
-            if (itemInfoRes.rowCount > 0 && itemInfoRes.rows[0].critical_stock !== null) {
-                const criticalStock = itemInfoRes.rows[0].critical_stock;
-                // Если новый остаток стал больше критического
-                if (newStock > criticalStock) {
+                    for (const task of pendingTasksRes.rows) {
+            const isManualTask = task.details?.is_manual === true;
+            
+            if (isManualTask) {
+                // Для ручных задач: автоматически завершаем при любом пополнении в кофемашину
+                const updateTasksRes = await client.query(
+                   `UPDATE service_tasks SET status = 'completed', completed_at = NOW() WHERE id = $1`,
+                   [task.id]
+                );
+                if (updateTasksRes.rowCount > 0) {
+                    console.log(`[POST /api/inventory/move] OwnerID: ${ownerUserId} - Auto-closed manual restock task ${task.id} for terminal ${toTerminalId} after replenishment.`);
+                }
+            } else {
+                // Для автоматических задач: проверяем список ингредиентов
+                const requiredItems = task.details?.items;
+
+                // Пропускаем, если в задаче нет списка ингредиентов
+                if (!requiredItems || !Array.isArray(requiredItems) || requiredItems.length === 0) {
+                    continue;
+                }
+                
+                // Получаем текущие и критические остатки для всех нужных ингредиентов
+                const stockCheckRes = await client.query(
+                    `SELECT item_name, current_stock, critical_stock 
+                     FROM inventories 
+                     WHERE terminal_id = $1 AND location = 'machine' AND item_name = ANY($2::text[])`,
+                    [toTerminalId, requiredItems]
+                );
+
+                const itemStockMap = stockCheckRes.rows.reduce((acc, row) => {
+                    acc[row.item_name] = { current: parseFloat(row.current_stock), critical: parseFloat(row.critical_stock) };
+                    return acc;
+                }, {});
+
+                let allItemsOk = true;
+                for (const itemName of requiredItems) {
+                    const stock = itemStockMap[itemName];
+                    // Если хоть один ингредиент не найден, не имеет крит. остатка, или его текущий остаток не выше крит., то задача не завершена
+                    if (!stock || isNaN(stock.critical) || stock.current <= stock.critical) {
+                        allItemsOk = false;
+                        break;
+                    }
+                }
+
+                if (allItemsOk) {
+                    // Если все ингредиенты пополнены, завершаем задачу
                     const updateTasksRes = await client.query(
-                       `UPDATE service_tasks
-                        SET status = 'completed', completed_at = NOW()
-                        WHERE terminal_id = $1
-                          AND task_type = 'restock'
-                          AND status = 'pending'
-                          AND details->>'items' ILIKE $2`,
-                       [toTerminalId, `%${item_name}%`]
+                       `UPDATE service_tasks SET status = 'completed', completed_at = NOW() WHERE id = $1`,
+                       [task.id]
                     );
                     if (updateTasksRes.rowCount > 0) {
-                        console.log(`[POST /api/inventory/move] OwnerID: ${ownerUserId} - Auto-closed ${updateTasksRes.rowCount} restock task(s) for terminal ${toTerminalId} involving ${item_name}.`);
+                        console.log(`[POST /api/inventory/move] OwnerID: ${ownerUserId} - Auto-closed automatic restock task ${task.id} for terminal ${toTerminalId} as all items are above critical stock.`);
                     }
                 }
             }
         }
+        }
+
 
         await client.query('COMMIT');
         
@@ -108,8 +176,8 @@ router.post('/move', authMiddleware, async (req, res) => {
             success: true, 
             message: `"${item_name}" успешно перемещен.`,
             updatedStock: {
-                from: { location: from.location, terminal_id: fromTerminalId, new_stock: fromUpdateRes.rows[0].current_stock },
-                to: { location: to.location, terminal_id: toTerminalId, new_stock: toUpdateRes.rows[0].current_stock }
+                from: { location: from.location, terminal_id: fromTerminalId, new_stock: fromStockAfter },
+                to: { location: to.location, terminal_id: toTerminalId, new_stock: toStockAfter }
             }
         });
 
@@ -198,6 +266,89 @@ router.post('/process-sale', authMiddleware, async (req, res) => {
         client.release();
     }
     */
+});
+
+// Получить остатки (универсальный)
+router.get('/', authMiddleware, async (req, res) => {
+    const { ownerUserId, telegramId } = req.user;
+    const { location, terminal_id } = req.query; // 'warehouse' или 'stand'
+
+    console.log(`[GET /api/inventory] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching inventory for location: ${location}, terminal_id: ${terminal_id}`);
+
+    if (!location) {
+        return res.status(400).json({ success: false, error: "Параметр 'location' обязателен." });
+    }
+
+    try {
+        let query;
+        let params;
+
+        if (location === 'warehouse') {
+            query = "SELECT item_name, current_stock FROM inventories WHERE user_id = $1 AND location = 'warehouse'";
+            params = [ownerUserId];
+        } else if (location === 'stand' && terminal_id) {
+            query = "SELECT item_name, current_stock, max_stock, critical_stock FROM inventories WHERE user_id = $1 AND terminal_id = $2 AND location = 'stand'";
+            params = [ownerUserId, terminal_id];
+        } else {
+             return res.status(400).json({ success: false, error: "Для локации 'stand' требуется 'terminal_id'." });
+        }
+        
+        const result = await pool.query(query, params);
+
+        // Для склада мы возвращаем просто 'warehouseStock'
+        const responseKey = location === 'warehouse' ? 'warehouseStock' : 'inventory';
+        
+        res.json({ success: true, [responseKey]: result.rows });
+
+    } catch (err) {
+        console.error(`[GET /api/inventory] OwnerID: ${ownerUserId} - Error fetching for location ${location}:`, err);
+        sendErrorToAdmin({
+            userId: ownerUserId,
+            errorContext: `GET /api/inventory?location=${location}`,
+            errorMessage: err.message,
+            errorStack: err.stack
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при получении остатков.' });
+    }
+});
+
+// NEW: Получить остатки для конкретного терминала
+router.get('/terminal/:terminalId', authMiddleware, async (req, res) => {
+    const { ownerUserId, telegramId } = req.user;
+    const { terminalId } = req.params;
+
+    console.log(`[GET /api/inventory/terminal/:terminalId] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching inventory for TerminalID: ${terminalId}.`);
+    
+    try {
+        // Проверка, что терминал принадлежит пользователю
+        const ownerCheck = await pool.query(
+            'SELECT id FROM terminals WHERE id = $1 AND user_id = $2',
+            [terminalId, ownerUserId]
+        );
+        if (ownerCheck.rowCount === 0) {
+            return res.status(403).json({ success: false, error: 'Доступ к терминалу запрещен.' });
+        }
+
+        const inventoryRes = await pool.query(
+            `SELECT item_name, current_stock, max_stock, critical_stock 
+             FROM inventories
+             WHERE user_id = $1 AND terminal_id = $2 AND location = 'machine'
+             ORDER BY item_name`,
+            [ownerUserId, terminalId]
+        );
+
+        res.json({ success: true, inventory: inventoryRes.rows });
+        
+    } catch (err) {
+        console.error(`[GET /api/inventory/terminal/:terminalId] OwnerID: ${ownerUserId} - Error:`, err);
+        sendErrorToAdmin({
+            userId: ownerUserId,
+            errorContext: `GET /api/inventory/terminal/${terminalId}`,
+            errorMessage: err.message,
+            errorStack: err.stack
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при получении остатков.' });
+    }
 });
 
 

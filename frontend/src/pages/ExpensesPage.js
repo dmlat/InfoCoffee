@@ -25,7 +25,7 @@ const formatDateForTableDisplay = (isoOrYyyyMmDdDateString) => {
   }
 };
 
-export default function ExpensesPage() {
+export default function ExpensesPage({ user }) {
   const todayISO = formatDateForInput(new Date());
 
   const [expenses, setExpenses] = useState([]);
@@ -176,7 +176,7 @@ export default function ExpensesPage() {
               />
             </div>
             
-            <button type="submit" className="action-btn expense-form-submit-button">
+            <button type="submit" className="expense-form-submit-button">
               Добавить
             </button>
             {submitError && <div className="expense-form-error">{submitError}</div>}

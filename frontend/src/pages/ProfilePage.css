@@ -72,22 +72,22 @@
 }
 
 .profile-save-button {
-  background: #3e67e0;
+  background: #4f81c7;
   color: #fff;
-  border: 1px solid #3e67e0;
-  font-weight: 600;
+  font-weight: 400;
   font-size: 0.95em;
   height: 38px;
-  padding: 8px 22px;
-  width: auto; 
-  align-self: flex-start;
+  padding: 10px 20px;
+  width: 100%;
   margin-top: 10px;
   border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .profile-save-button:hover {
-  background: #4a75f0;
-  border-color: #4a75f0;
+  background: #5a9ee6;
 }
 .profile-save-button:disabled {
   background-color: #2e3340;

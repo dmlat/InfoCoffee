@@ -1,6 +1,6 @@
 // frontend/src/pages/WarehousePage.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../api';
 import './WarehousePage.css';
 import StandDetailModal from '../components/StandDetail/StandDetailModal';
@@ -8,6 +8,7 @@ import StandNavigator from '../components/StandDetail/StandNavigator';
 import TerminalListModal from '../components/TerminalListModal'; // ИМПОРТ
 import { ALL_ITEMS } from '../constants';
 import '../components/StandDetail/StandNavigator.css';
+import { useAuth } from '../App'; // <-- ИМПОРТИРУЕМ useAuth
 
 const UNIFIED_STEPS = ['38000', '19000', '5000', '1000', '100', '10'];
 const ITEMS_IN_PIECES = new Set(ALL_ITEMS.filter(i => i.unit === 'шт').map(i => i.name));
@@ -58,6 +59,8 @@ const MachineProgressDisplay = ({ data, unit, onConfigureClick }) => {
 // --- Основной Компонент ---
 export default function WarehousePage() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const { user } = useAuth(); // <-- ПОЛУЧАЕМ ДАННЫЕ ПОЛЬЗОВАТЕЛЯ
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [notification, setNotification] = useState({ message: '', isError: false });
@@ -126,20 +129,45 @@ export default function WarehousePage() {
         setIsLoading(true);
         setError('');
         try {
-            const [terminalsRes, warehouseRes] = await Promise.all([
-                apiClient.get('/terminals'),
-                apiClient.get('/warehouse'),
-            ]);
+            let fetchedTerminals = [];
 
-            if (!terminalsRes.data.success) throw new Error('Не удалось загрузить стойки');
-            const fetchedTerminals = terminalsRes.data.terminals || [];
+            if (user && (user.accessLevel === 'owner' || user.accessLevel === 'admin')) {
+                const terminalsRes = await apiClient.get('/terminals');
+                if (!terminalsRes.data.success) throw new Error('Не удалось загрузить стойки');
+                fetchedTerminals = terminalsRes.data.terminals || [];
+            } else if (user && user.accessLevel === 'service') {
+                const myTasksRes = await apiClient.get('/tasks/my');
+                if (myTasksRes.data.success) {
+                    const activeRestockTasks = myTasksRes.data.tasks.filter(
+                        t => t.task_type === 'restock' && t.status === 'pending'
+                    );
+                    const terminalsFromTasks = activeRestockTasks.reduce((acc, task) => {
+                        if (!acc.some(t => t.id === task.terminal_id)) {
+                            acc.push({ id: task.terminal_id, name: task.terminal_name, vendista_terminal_id: task.vendista_terminal_id });
+                        }
+                        return acc;
+                    }, []);
+                    fetchedTerminals = terminalsFromTasks;
+                } else {
+                    throw new Error('Не удалось загрузить задачи для техника');
+                }
+            }
+            
             setTerminals(fetchedTerminals);
-
+            
+            const warehouseRes = await apiClient.get('/warehouse');
             if (warehouseRes.data.success) {
                 setWarehouseStock((warehouseRes.data.warehouseStock || []).reduce((acc, item) => ({...acc, [item.item_name]: Math.round(parseFloat(item.current_stock || 0))}), {}));
             }
 
             let terminalForDetails = terminalToSelect;
+            
+            // Если есть taskContext, приоритетно выбираем терминал из задачи
+            const taskContext = location.state?.taskContext;
+            if (taskContext?.terminalId && !terminalForDetails) {
+                terminalForDetails = fetchedTerminals.find(t => t.id === taskContext.terminalId);
+            }
+            
             if (!terminalForDetails) {
                 const savedState = JSON.parse(localStorage.getItem(WAREHOUSE_STATE_KEY));
                 if (savedState?.selectedTerminalId) {
@@ -163,16 +191,27 @@ export default function WarehousePage() {
         } finally {
             setIsLoading(false);
         }
-    }, [fetchDataForTerminal]);
+    }, [fetchDataForTerminal, user]);
 
     useEffect(() => {
+        if (!user) return; // Не начинаем загрузку, пока не определен пользователь
+        
+        // Проверяем, есть ли taskContext для автоматического выбора терминала
+        const taskContext = location.state?.taskContext;
+        
         const savedState = JSON.parse(localStorage.getItem(WAREHOUSE_STATE_KEY));
         if (savedState) {
             setActiveStep(savedState.activeStep || '1000');
             setTransferMode(savedState.transferMode || 'stand');
         }
+        
+        // Если пришли из задачи, принудительно устанавливаем режим "stand"
+        if (taskContext) {
+            setTransferMode('stand');
+        }
+        
         fetchInitialData();
-    }, [fetchInitialData]);
+    }, [fetchInitialData, user, location.state]);
 
     useEffect(() => {
         if (!isLoading) {
@@ -517,7 +556,11 @@ export default function WarehousePage() {
                             />
                         ) : (
                             <div className="stand-navigator-placeholder" onClick={() => setIsTerminalListModalOpen(true)}>
-                                <span>{terminals.length === 0 ? 'Нет доступных стоек' : 'Нажмите, чтобы выбрать'}</span>
+                                <span>{
+                                    terminals.length === 0 
+                                    ? (user?.accessLevel === 'service' ? 'Нет стоек для пополнения' : 'Нет доступных стоек') 
+                                    : 'Нажмите, чтобы выбрать'
+                                }</span>
                             </div>
                         )}
                     </div>
@@ -532,6 +575,7 @@ export default function WarehousePage() {
             {/* РЕНДЕРИМ НОВУЮ МОДАЛКУ СПИСКА */}
             {isTerminalListModalOpen && (
                 <TerminalListModal
+                    isOpen={isTerminalListModalOpen}
                     terminals={terminals}
                     onSelect={handleTerminalSelect}
                     onClose={() => setIsTerminalListModalOpen(false)}

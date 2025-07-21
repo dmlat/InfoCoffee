@@ -1,0 +1,112 @@
+/* frontend/src/components/CommentTaskModal.css */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.comment-task-modal-content {
+    background: #282c34;
+    padding: 16px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    border: 1px solid #4a4f58;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #3a3e47;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.0em;
+    font-weight: 600;
+    color: #e0e0e0;
+    line-height: 1.4;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #a0b0c8;
+    font-size: 1.8em;
+    line-height: 1;
+    padding: 0 4px;
+    cursor: pointer;
+    align-self: flex-start;
+}
+.close-btn:hover {
+    color: #fff;
+}
+
+
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.modal-body textarea {
+    min-height: 80px;
+    resize: vertical;
+    background-color: #1e2128;
+    border: 1px solid #3a3e47;
+    color: #e0e0e0;
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 1em;
+    line-height: 1.5;
+}
+
+.modal-body textarea:focus {
+    outline: none;
+    border-color: #4f81c7;
+}
+
+
+.modal-footer {
+    display: flex; /* Центрируем кнопку */
+    justify-content: center;
+    gap: 12px;
+    padding-top: 8px;
+    border-top: 1px solid #3a3e47;
+}
+
+.modal-footer .action-btn {
+    background-color: #4f81c7; /* Голубой фон */
+    color: white;
+    text-transform: none;
+    font-size: 0.95em;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 400;
+}
+
+.modal-footer .action-btn:hover {
+    background-color: #5a9ee6;
+}
+
+.modal-footer .secondary-btn {
+    background-color: #3a3e47;
+    color: #e0e0e0;
+}
+.modal-footer .secondary-btn:hover {
+    background-color: #4a4f58;
+} 

@@ -71,10 +71,27 @@ input[type="date"].expense-form-input::-webkit-calendar-picker-indicator {
 }
 
 .expense-form-submit-button {
+  background-color: #4f81c7;
+  color: white;
+  font-weight: 400;
+  text-transform: none;
+  font-size: 0.95em;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  height: 38px;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: background-color 0.2s;
   margin-top: 5px;
   width: auto;
   align-self: flex-start;
 }
+
+.expense-form-submit-button:hover {
+  background-color: #5a9ee6;
+}
+
 .expense-form-submit-button:disabled {
   background-color: #2e3340;
   border-color: #303548;

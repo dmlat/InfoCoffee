@@ -1,6 +1,6 @@
 // frontend/src/api.js
 import axios from 'axios';
-import { saveUserDataToLocalStorage, clearUserDataFromLocalStorage } from './utils/user'; // <-- ИМПОРТ
+import { clearUserDataFromLocalStorage, saveUserDataToLocalStorage } from './utils/user';
 
 let isRefreshing = false;
 let failedQueue = [];
@@ -21,6 +21,18 @@ const apiClient = axios.create({
         ? 'https://infocoffee.ru/api' 
         : process.env.REACT_APP_API_BASE_URL || '/api'
 });
+
+// Новый перехватчик для эмуляции роли
+apiClient.interceptors.request.use(config => {
+  if (process.env.NODE_ENV === 'development') {
+    const urlParams = new URLSearchParams(window.location.search);
+    const emulatedRole = urlParams.get('role');
+    if (emulatedRole) {
+      config.headers['X-Emulated-Role'] = emulatedRole;
+    }
+  }
+  return config;
+}, error => Promise.reject(error));
 
 apiClient.interceptors.request.use(
     (config) => {

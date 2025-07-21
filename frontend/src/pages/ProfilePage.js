@@ -28,8 +28,7 @@ function formatSyncTimestamp(timestamp) {
   }
 }
 
-export default function ProfilePage() {
-  const [isLoading, setIsLoading] = useState(true);
+export default function ProfilePage({ user, updateUser }) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -37,8 +36,7 @@ export default function ProfilePage() {
   const [setupDate, setSetupDate] = useState('');
   const [currentTaxSystem, setCurrentTaxSystem] = useState('');
   const [currentAcquiringRate, setCurrentAcquiringRate] = useState('');
-  const [initialSettings, setInitialSettings] = useState(null);
-
+  
   const [syncStatus, setSyncStatus] = useState({
     lastTransactionsUpdate: null,
     lastReturnsUpdate: null,
@@ -47,29 +45,18 @@ export default function ProfilePage() {
   const [syncStatusLoading, setSyncStatusLoading] = useState(true);
   const [syncStatusError, setSyncStatusError] = useState('');
 
-  const fetchProfileData = useCallback(async () => {
-    setIsLoading(true);
-    setSyncStatusLoading(true);
-    setError('');
-    setSyncStatusError('');
-
-    try {
-      const settingsResponse = await apiClient.get('/profile/settings');
-      if (settingsResponse.data.success && settingsResponse.data.settings) {
-        const settings = settingsResponse.data.settings;
-        setInitialSettings(settings);
-        setSetupDate(settings.setup_date ? formatDateForInput(new Date(settings.setup_date)) : '');
-        setCurrentTaxSystem(settings.tax_system || '');
-        setCurrentAcquiringRate(settings.acquiring !== null ? String(settings.acquiring) : '');
-      } else {
-        setError(settingsResponse.data.error || 'Не удалось загрузить настройки профиля.');
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || 'Ошибка сети при загрузке профиля.');
-    } finally {
-      setIsLoading(false);
+  useEffect(() => {
+    if (user && user.business_profile) {
+      const { setup_date, tax_system, acquiring } = user.business_profile;
+      setSetupDate(setup_date ? formatDateForInput(new Date(setup_date)) : '');
+      setCurrentTaxSystem(tax_system || '');
+      setCurrentAcquiringRate(acquiring !== null ? String(acquiring) : '');
     }
+  }, [user]);
 
+  const fetchSyncStatus = useCallback(async () => {
+    setSyncStatusLoading(true);
+    setSyncStatusError('');
     try {
       const syncResponse = await apiClient.get('/profile/sync-status');
       if (syncResponse.data.success && syncResponse.data.syncStatus) {
@@ -85,8 +72,8 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    fetchProfileData();
-  }, [fetchProfileData]);
+    fetchSyncStatus();
+  }, [fetchSyncStatus]);
 
   const handleSaveChanges = async (e) => {
     e.preventDefault();
@@ -116,17 +103,8 @@ export default function ProfilePage() {
       const response = await apiClient.post('/profile/settings', payload);
       if (response.data.success && response.data.settings) {
         setSuccessMessage('Настройки успешно обновлены!');
-        const newSettings = response.data.settings;
-        localStorage.setItem('user_tax_system', newSettings.tax_system || '');
-        localStorage.setItem('user_acquiring_rate', String(newSettings.acquiring || '0'));
-        localStorage.setItem('user_setup_date', newSettings.setup_date || '');
-        
-        setInitialSettings(newSettings);
-        setCurrentTaxSystem(newSettings.tax_system || '');
-        setCurrentAcquiringRate(newSettings.acquiring !== null ? String(newSettings.acquiring) : '');
-        setSetupDate(newSettings.setup_date ? formatDateForInput(new Date(newSettings.setup_date)) : '');
-
-        window.dispatchEvent(new CustomEvent('profileSettingsUpdated'));
+        updateUser(response.data.settings);
+        // The local state will be updated by the useEffect that depends on `user` prop.
       } else {
         setError(response.data.error || 'Не удалось сохранить настройки.');
       }
@@ -139,18 +117,19 @@ export default function ProfilePage() {
   };
   
   const isChanged = () => {
-    if (!initialSettings) return false; 
-    const initialAcquiring = initialSettings.acquiring !== null ? String(initialSettings.acquiring) : '';
-    const initialSetup = initialSettings.setup_date ? formatDateForInput(new Date(initialSettings.setup_date)) : '';
+    if (!user || !user.business_profile) return false; 
+    const { setup_date, tax_system, acquiring } = user.business_profile;
+    const initialAcquiring = acquiring !== null ? String(acquiring) : '';
+    const initialSetup = setup_date ? formatDateForInput(new Date(setup_date)) : '';
 
     return (
       setupDate !== initialSetup ||
-      currentTaxSystem !== (initialSettings.tax_system || '') ||
+      currentTaxSystem !== (tax_system || '') ||
       normalizeCommissionInput(currentAcquiringRate) !== normalizeCommissionInput(initialAcquiring)
     );
   };
 
-  if (isLoading) {
+  if (!user) {
     return <div className="page-container page-loading-container"><span>Загрузка профиля...</span></div>;
   }
   
@@ -200,7 +179,7 @@ export default function ProfilePage() {
           </div>
           
           <button 
-            type="submit" className="action-btn profile-save-button" 
+            type="submit" className="profile-save-button" 
             disabled={isSaving || !isChanged()}
           >
             {isSaving ? 'Сохранение...' : 'Сохранить изменения'}

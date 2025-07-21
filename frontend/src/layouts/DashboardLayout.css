@@ -66,6 +66,7 @@
   flex-basis: 0;
   min-width: 0;
   box-sizing: border-box;
+  text-decoration: none; /* Убираем подчеркивание у ссылок */
 }
 
 .tabs-row .tab-btn:last-child {
@@ -81,6 +82,37 @@
   color: #8ae6ff;
   border-bottom-color: #8ae6ff;
   background-color: #282c34;
+}
+
+.active-page-container {
+  flex-grow: 1;
+  overflow-y: auto; /* Позволяет прокручивать только эту область */
+  /* padding: 20px; */
+  /* background-color: #ffffff; */ /* <--- УБИРАЕМ ИЗМЕНЕНИЕ ФОНА */
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  display: flex; /* Добавлено для управления вложенными элементами */
+  flex-direction: column; /* Добавлено для управления вложенными элементами */
+}
+
+.dev-logout-button {
+  position: fixed;
+  bottom: 15px;
+  right: 15px;
+  background-color: #ff4d4f;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  transition: background-color 0.3s;
+}
+
+.dev-logout-button:hover {
+  background-color: #d63436;
 }
 
 @media (max-width: 767px) {

@@ -26,9 +26,9 @@ body, #root {
 
 /* Общие стили для кнопок и других элементов */
 .action-btn {
-  background: #3e67e0;
+  background: #4f81c7;
   color: #fff;
-  font-weight: 500;
+  font-weight: 400;
   border: none;
   border-radius: 8px;
   padding: 8px 22px;
@@ -39,7 +39,7 @@ body, #root {
   font-size: 0.95em;
 }
 .action-btn:hover {
-  background: #4a75f0;
+  background: #5a9ee6;
 }
 .action-btn:disabled {
   background-color: #2e3340;

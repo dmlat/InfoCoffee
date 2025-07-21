@@ -1,116 +1,88 @@
 // backend/bot.js
 require('./utils/logger'); // <--- ГЛОБАЛЬНОЕ ПОДКЛЮЧЕНИЕ ЛОГГЕРА
 const path = require('path');
-const TelegramBot = require('node-telegram-bot-api');
+const bot = require('./utils/botInstance'); // <-- ИМПОРТ ИНСТАНСА
 const pool = require('./db');
 const moment = require('moment-timezone');
 const { getFinancialSummary } = require('./utils/financials');
 const { EXPENSE_INSTRUCTION, parseExpenseMessage } = require('./utils/botHelpers');
 
 const IS_DEV = process.env.NODE_ENV === 'development';
-const TOKEN = IS_DEV ? process.env.DEV_TELEGRAM_BOT_TOKEN : process.env.TELEGRAM_BOT_TOKEN;
 const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL;
 const TIMEZONE = 'Europe/Moscow';
 
-if (!TOKEN || !WEB_APP_URL) {
-  console.error('FATAL ERROR: Bot Token or Web App URL is not set in .env file.');
+if (!WEB_APP_URL) {
+  console.error('FATAL ERROR: Web App URL is not set in .env file.');
   process.exit(1);
 }
 
-const bot = new TelegramBot(TOKEN, { polling: false }); // Устанавливаем polling в false
-
 let BOT_USERNAME = '';
 let keyboards = {};
+let isPollingStarted = false;
+let isInitialized = false; // <-- НОВЫЙ ФЛАГ
 
-// --- Инициализация и регистрация команд ---
-(async () => {
-    try {
-        const me = await bot.getMe();
-        BOT_USERNAME = me.username;
-        console.log(`Bot @${BOT_USERNAME} started.`);
+// === СИСТЕМА УПРАВЛЕНИЯ ИНИЦИАЛИЗАЦИЕЙ ===
+const INITIALIZATION_DELAY = 5000; // 5 секунд задержка для предотвращения rate limiting
+const COMMAND_SETUP_DELAY = 3000; // 3 секунды между вызовами setMyCommands
 
-        // --- Клавиатуры ---
-        keyboards = {
-            authorized: {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
-                        [{ text: '💰 Финансы Сегодня', callback_data: 'get_finances_today' }],
-                        [{ text: '💸 Записать расходы', callback_data: 'enter_expense_mode' }, { text: '📊 Все финансы', callback_data: 'show_finances_menu' }],
-                        [{ text: '🆔 Мой ID', callback_data: 'show_my_id' }, { text: '🙋‍♂️ Пригласить', switch_inline_query: '' }]
-                    ]
-                }
-            },
-            unauthorized: {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
-                        [{ text: '🆔 Мой ID', callback_data: 'show_my_id' }, { text: '🙋‍♂️ Пригласить', switch_inline_query: '' }]
-                    ]
-                }
-            },
-            finances: {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: '📅 Сегодня', callback_data: 'get_finances_today' }, { text: '🕰️ Вчера', callback_data: 'get_finances_yesterday' }],
-                        [{ text: '📈 С начала недели', callback_data: 'get_finances_week' }, { text: '📉 С начала месяца', callback_data: 'get_finances_month' }],
-                        [{ text: '7️⃣ За 7 дней', callback_data: 'get_finances_7_days' }, { text: '3️⃣0️⃣ За 30 дней', callback_data: 'get_finances_30_days' }],
-                        [{ text: '🏁 С начала года', callback_data: 'get_finances_year' }],
-                        [{ text: '🔙 В меню', callback_data: 'main_menu' }]
-                    ]
-                }
-            },
-            afterReport: {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
-                        [{ text: '📊 Другой период', callback_data: 'show_finances_menu' }, { text: '🔙 В меню', callback_data: 'main_menu' }]
-                    ]
-                }
-            },
-            afterAction: {
-                 reply_markup: {
-                    inline_keyboard: [
-                        [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
-                        [{ text: '🔙 В меню', callback_data: 'main_menu' }]
-                    ]
-                }
-            },
-            expenseMode: { // <--- НОВАЯ КЛАВИАТУРА
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
-                        [{ text: '🔙 Назад', callback_data: 'main_menu' }]
-                    ]
-                }
+// Клавиатуры инициализируются только после успешного получения информации о боте
+const initializeKeyboards = () => {
+    keyboards = {
+        authorized: {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
+                    [{ text: '💰 Финансы Сегодня', callback_data: 'get_finances_today' }],
+                    [{ text: '💸 Записать расходы', callback_data: 'enter_expense_mode' }, { text: '📊 Все финансы', callback_data: 'show_finances_menu' }],
+                    [{ text: '🆔 Мой ID', callback_data: 'show_my_id' }, { text: '🙋‍♂️ Пригласить', switch_inline_query: '' }]
+                ]
             }
-        };
-
-        await bot.setMyCommands([
-            { command: '/start', description: '🚀 Запустить/Перезапустить бота' },
-            { command: '/menu', description: '📋 Показать главное меню' },
-            { command: '/app', description: '📱 Открыть веб-приложение' },
-            { command: '/myid', description: '🆔 Показать мой Telegram ID' },
-            { command: '/finances', description: '📊 Открыть меню финансов' },
-            { command: '/expenses', description: '💸 Быстро записать расходы' },
-        ]);
-
-        if (IS_DEV) {
-            const devCommands = [
-                { command: '/dev_reset_db', description: '⚠️ DEV: Сбросить локальную БД' },
-            ];
-            await bot.setMyCommands([
-                ...await bot.getMyCommands(),
-                ...devCommands
-            ]);
+        },
+        unauthorized: {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
+                    [{ text: '🆔 Мой ID', callback_data: 'show_my_id' }, { text: '🙋‍♂️ Пригласить', switch_inline_query: '' }]
+                ]
+            }
+        },
+        finances: {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '📅 Сегодня', callback_data: 'get_finances_today' }, { text: '🕰️ Вчера', callback_data: 'get_finances_yesterday' }],
+                    [{ text: '📈 С начала недели', callback_data: 'get_finances_week' }, { text: '📉 С начала месяца', callback_data: 'get_finances_month' }],
+                    [{ text: '7️⃣ За 7 дней', callback_data: 'get_finances_7_days' }, { text: '3️⃣0️⃣ За 30 дней', callback_data: 'get_finances_30_days' }],
+                    [{ text: '🏁 С начала года', callback_data: 'get_finances_year' }],
+                    [{ text: '🔙 В меню', callback_data: 'main_menu' }]
+                ]
+            }
+        },
+        afterReport: {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
+                    [{ text: '📊 Другой период', callback_data: 'show_finances_menu' }, { text: '🔙 В меню', callback_data: 'main_menu' }]
+                ]
+            }
+        },
+        afterAction: {
+             reply_markup: {
+                inline_keyboard: [
+                    [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
+                    [{ text: '🔙 В меню', callback_data: 'main_menu' }]
+                ]
+            }
+        },
+        expenseMode: {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '🚀 Открыть приложение', web_app: { url: WEB_APP_URL } }],
+                    [{ text: '🔙 Назад', callback_data: 'main_menu' }]
+                ]
+            }
         }
-
-        console.log(`Bot commands are set.`);
-
-    } catch (e) {
-        console.error("Failed to set bot commands or get bot info:", e);
-    }
-})();
+    };
+};
 
 const userState = {};
 
@@ -280,27 +252,6 @@ bot.on('callback_query', async (query) => {
     const messageId = query.message.message_id;
     const data = query.data;
 
-    if (IS_DEV && data === 'dev_confirm_db_reset') {
-        const TABLES_TO_TRUNCATE = [
-            "users", "user_access_rights", "terminals", "transactions", "expenses",
-            "inventories", "recipes", "recipe_items", "stand_service_settings",
-            "maintenance_tasks", "service_tasks", "worker_logs"
-        ];
-        const truncateQuery = `TRUNCATE TABLE ${TABLES_TO_TRUNCATE.join(', ')} RESTART IDENTITY CASCADE;`;
-
-        try {
-            await pool.query(truncateQuery);
-            await bot.editMessageText('✅ База данных успешно очищена.', { chat_id: chatId, message_id: messageId });
-            console.log(`[DEV] Database has been reset by user ${query.from.id}.`);
-            await bot.answerCallbackQuery(query.id, { text: 'База данных очищена!', show_alert: true });
-        } catch (err) {
-            console.error('[DEV] DB Reset failed:', err);
-            await bot.editMessageText(`❌ Ошибка при очистке базы данных:\n\n<pre><code>${err.message}</code></pre>`, { chat_id: chatId, message_id: messageId, parse_mode: 'HTML' });
-            await bot.answerCallbackQuery(query.id, { text: 'Ошибка при сбросе БД.', show_alert: true });
-        }
-        return;
-    }
-
     if (data.startsWith('task_complete_')) {
         const taskId = data.split('_')[2];
         try {
@@ -403,41 +354,142 @@ bot.on('callback_query', async (query) => {
     }
 });
 
+// === ЗАЩИЩЕННАЯ ИНИЦИАЛИЗАЦИЯ БОТА ===
+async function initializeBotSafely() {
+    if (isInitialized) {
+        console.log('[Bot] Already initialized, skipping...');
+        return true;
+    }
 
-if (IS_DEV) {
-    bot.onText(/\/dev_reset_db/, (msg) => {
-        const chatId = msg.chat.id;
-        bot.sendMessage(chatId, 
-            '⚠️ *Вы уверены, что хотите полностью очистить локальную базу данных?*\n\nЭто действие необратимо и удалит всех пользователей, транзакции, инвентарь и т.д.', 
-            {
-                parse_mode: 'Markdown',
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: '🔴 Да, я уверен, удалить всё', callback_data: 'dev_confirm_db_reset' }],
-                        [{ text: '🟢 Отмена', callback_data: 'main_menu' }]
-                    ]
-                }
-            }
-        );
-    });
+    console.log('[Bot] Starting safe initialization...');
+    
+    try {
+        // Добавляем задержку перед первым API вызовом для предотвращения rate limiting
+        console.log(`[Bot] Waiting ${INITIALIZATION_DELAY}ms before initialization...`);
+        await new Promise(resolve => setTimeout(resolve, INITIALIZATION_DELAY));
+
+        console.log('[Bot] Getting bot info...');
+        const me = await bot.getMe();
+        BOT_USERNAME = me.username;
+        console.log(`[Bot] Got username: @${BOT_USERNAME}`);
+
+        // Инициализируем клавиатуры
+        initializeKeyboards();
+        console.log('[Bot] Keyboards initialized.');
+
+        // Устанавливаем команды с задержкой для предотвращения rate limiting
+        console.log('[Bot] Setting up basic commands...');
+        
+        const baseCommands = [
+            { command: '/start', description: '🚀 Запустить/Перезапустить бота' },
+            { command: '/menu', description: '📋 Показать главное меню' },
+            { command: '/app', description: '📱 Открыть веб-приложение' },
+            { command: '/myid', description: '🆔 Показать мой Telegram ID' },
+            { command: '/finances', description: '📊 Открыть меню финансов' },
+            { command: '/expenses', description: '💸 Быстро записать расходы' },
+        ];
+
+        await bot.setMyCommands(baseCommands);
+        console.log('[Bot] Basic commands set.');
+
+        // Дополнительные команды для development с задержкой
+        if (IS_DEV) {
+            console.log(`[Bot] Waiting ${COMMAND_SETUP_DELAY}ms before setting dev commands...`);
+            await new Promise(resolve => setTimeout(resolve, COMMAND_SETUP_DELAY));
+            
+            const devCommands = [
+                { command: '/dev_reset_db', description: '⚠️ DEV: Сбросить локальную БД' },
+                { command: '/dev_help', description: '📜 DEV: Показать шпаргалку' },
+            ];
+            
+            const allCommands = [...baseCommands, ...devCommands];
+            await bot.setMyCommands(allCommands);
+            console.log('[Bot] Development commands added.');
+        }
+
+        console.log('[Bot] All commands configured successfully.');
+        isInitialized = true;
+        return true;
+
+    } catch (error) {
+        console.error('[Bot] Initialization failed:', error.code || 'NO_CODE', error.message);
+        
+        // Если это ошибка rate limiting, ждем и пытаемся снова
+        if (error.code === 429 || (error.response && error.response.statusCode === 429)) {
+            const retryAfter = error.parameters?.retry_after || 30;
+            console.log(`[Bot] Rate limited. Waiting ${retryAfter} seconds before retry...`);
+            await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+            return false; // Вернем false, чтобы startPolling мог повторить попытку
+        }
+        
+        throw error; // Для других ошибок выбрасываем исключение
+    }
 }
 
-const startPolling = () => {
-    if (bot.isPolling()) {
-        console.log('[Bot] Polling is already active.');
-        return;
+// === ИСПРАВЛЕННАЯ ФУНКЦИЯ startPolling ===
+const startPolling = async () => {
+    console.log('[Bot] Starting polling process...');
+    
+    // Инициализация бота происходит только один раз
+    let initAttempts = 0;
+    const maxInitAttempts = 3;
+    
+    while (!isInitialized && initAttempts < maxInitAttempts) {
+        initAttempts++;
+        console.log(`[Bot] Initialization attempt ${initAttempts}/${maxInitAttempts}...`);
+        
+        try {
+            const success = await initializeBotSafely();
+            if (success) {
+                break;
+            }
+        } catch (error) {
+            console.error(`[Bot] Initialization attempt ${initAttempts} failed:`, error.message);
+            if (initAttempts === maxInitAttempts) {
+                console.error('[Bot] Max initialization attempts reached. Bot will not function properly.');
+                return; // Выходим, если не удалось инициализировать
+            }
+            // Ждем перед следующей попыткой
+            await new Promise(resolve => setTimeout(resolve, INITIALIZATION_DELAY));
+        }
     }
-    bot.startPolling({ restart: true }).then(() => {
-        console.log('[Bot] Polling started successfully.');
-    }).catch(err => {
-        console.error('[Bot] Failed to start polling:', err);
-    });
+
+    // Подключаем dev handlers если нужно
+    if (IS_DEV && isInitialized) {
+        require('./devBotHandlers')(bot);
+        console.log('[Bot] DEV handlers attached.');
+    }
+
+    // Запускаем polling только если еще не запущен
+    if (!isPollingStarted) {
+        try {
+            await bot.startPolling();
+            isPollingStarted = true;
+            console.log('[Bot] Polling started successfully.');
+        } catch (pollError) {
+            console.error('[Bot] Polling start failed:', pollError.message);
+            throw pollError;
+        }
+    } else {
+        console.log('[Bot] Polling already started.');
+    }
 };
 
-bot.on('polling_error', (error) => console.error('[Bot Polling Error]', error.code, error.message));
+// Обработчик ошибок polling
+bot.on('polling_error', (error) => {
+    console.error('[Bot Polling Error]', error.code, error.message);
+    
+    // Логируем детали для 429 ошибок
+    if (error.code === 429) {
+        const retryAfter = error.parameters?.retry_after || 'unknown';
+        console.error(`[Bot] Rate limit exceeded. Retry after: ${retryAfter}s`);
+    }
+});
 
-
-module.exports = {
-    bot,
+module.exports = { 
     startPolling,
+    // Экспортируем функции для тестирования
+    getBotUsername: () => BOT_USERNAME,
+    isInitialized: () => isInitialized,
+    isPollingStarted: () => isPollingStarted
 };

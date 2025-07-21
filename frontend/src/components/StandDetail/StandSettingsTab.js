@@ -37,7 +37,7 @@ export default function StandSettingsTab({ terminal, allTerminals, internalTermi
         }));
 
         try {
-            const response = await apiClient.post(`/terminals/vendista/${terminal.id}/settings`, { inventorySettings });
+            const response = await apiClient.post(`/terminals/${internalTerminalId}/settings`, { inventorySettings });
             if (response.data.success) {
                 showSaveStatus('Настройки успешно сохранены!', 'success');
                 onSave();

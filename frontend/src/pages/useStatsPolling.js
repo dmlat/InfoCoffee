@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import apiClient from '../api';
 
-export function useStatsPolling(apiPeriod) { // apiPeriod is { dateFrom: 'YYYY-MM-DD', dateTo: 'YYYY-MM-DD' }
+export default function useStatsPolling(apiPeriod, token) { // token уже добавлен
   const [stats, setStats] = useState({ revenue: 0, salesCount: 0, expensesSum: 0 });
   const [coffeeStats, setCoffeeStats] = useState([]);
   const [statsLoading, setStatsLoading] = useState(true);
@@ -13,9 +13,7 @@ export function useStatsPolling(apiPeriod) { // apiPeriod is { dateFrom: 'YYYY-M
   const initialFetchDoneRef = useRef(false); 
 
   const fetchAll = useCallback(async (isBackgroundUpdate = false) => {
-    const token = localStorage.getItem('app_token'); // Используем 'app_token' как в api.js
     if (!apiPeriod || !apiPeriod.dateFrom || !apiPeriod.dateTo) {
-      console.warn('useStatsPolling: apiPeriod is incomplete, skipping fetch.', apiPeriod);
       setStats({ revenue: 0, salesCount: 0, expensesSum: 0 });
       setCoffeeStats([]);
       if (!isBackgroundUpdate) {
@@ -26,8 +24,7 @@ export function useStatsPolling(apiPeriod) { // apiPeriod is { dateFrom: 'YYYY-M
       return;
     }
     if (!token) {
-      console.warn('useStatsPolling: token is missing.');
-       if (!isBackgroundUpdate) {
+      if (!isBackgroundUpdate) {
           setStatsLoading(false);
           setCoffeeLoading(false);
           setError('Отсутствует токен авторизации.');
@@ -43,7 +40,6 @@ export function useStatsPolling(apiPeriod) { // apiPeriod is { dateFrom: 'YYYY-M
 
     let currentError = '';
     try {
-      // dateFrom и dateTo уже должны быть в формате YYYY-MM-DD
       const statsRes = await apiClient.get('/transactions/stats', {
         params: { from: apiPeriod.dateFrom, to: apiPeriod.dateTo } 
       });
@@ -71,14 +67,11 @@ export function useStatsPolling(apiPeriod) { // apiPeriod is { dateFrom: 'YYYY-M
 
     if (currentError.trim()) {
         setError(currentError.trim());
-        if (isBackgroundUpdate) {
-            console.warn("Фоновое обновление статистики с ошибками:", currentError.trim());
-        }
     } else if (!isBackgroundUpdate) { 
         setError('');
     }
 
-  }, [apiPeriod]);
+  }, [apiPeriod, token]); // <--- ИСПРАВЛЕНИЕ: Добавляем token в массив зависимостей
 
   useEffect(() => {
     initialFetchDoneRef.current = false;
@@ -87,19 +80,16 @@ export function useStatsPolling(apiPeriod) { // apiPeriod is { dateFrom: 'YYYY-M
     fetchAll(false).then(() => {
       initialFetchDoneRef.current = true;
     });
-  }, [fetchAll]); // Убрали apiPeriod отсюда, т.к. fetchAll уже зависит от него и вызовет перезапуск
+  }, [fetchAll]);
 
   useEffect(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
     
-    // Получаем токен внутри эффекта, чтобы условие было актуальным
-    const currentToken = localStorage.getItem('app_token'); 
-
-    if (currentToken && apiPeriod && apiPeriod.dateFrom && apiPeriod.dateTo && initialFetchDoneRef.current) {
+    // <--- ИСПРАВЛЕНИЕ: Используем token из пропсов, а не из localStorage
+    if (token && apiPeriod && apiPeriod.dateFrom && apiPeriod.dateTo && initialFetchDoneRef.current) {
       timerRef.current = setInterval(() => {
-        console.log('Polling for stats update...', apiPeriod);
         fetchAll(true); 
       }, 30 * 1000); 
     }
@@ -109,9 +99,7 @@ export function useStatsPolling(apiPeriod) { // apiPeriod is { dateFrom: 'YYYY-M
         clearInterval(timerRef.current);
       }
     };
-  // Зависимость от fetchAll и apiPeriod корректна, т.к. они определяют, как и когда должен работать поллинг.
-  // currentToken проверяется внутри, поэтому его нет в зависимостях.
-  }, [apiPeriod, fetchAll]); 
+  }, [apiPeriod, fetchAll, token]); // <--- ИСПРАВЛЕНИЕ: Добавляем token в массив зависимостей
 
   return { stats, statsLoading, coffeeStats, coffeeLoading, error };
 }

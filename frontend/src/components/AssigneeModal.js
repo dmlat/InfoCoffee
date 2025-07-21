@@ -2,37 +2,65 @@
 import React, { useState, useEffect } from 'react';
 import './AssigneeModal.css';
 
-export default function AssigneeModal({ users, selectedTelegramIds = [], onClose, onSave, title = "Выберите ответственных" }) {
-    const [selectedIds, setSelectedIds] = useState(new Set(selectedTelegramIds));
+const AssigneeModal = ({ isOpen, onClose, onSave, users, isMultiSelect = true, preSelectedAssignees = [] }) => {
+    const [selectedIds, setSelectedIds] = useState(new Set());
 
     useEffect(() => {
-        setSelectedIds(new Set(selectedTelegramIds));
-    }, [selectedTelegramIds]);
+        // This effect now correctly handles both single (number/string) and multi-select (array) pre-selection.
+        // It runs only when the modal is opened or the initial set of assignees changes.
+        if (isOpen) {
+            const initialSelected = isMultiSelect
+                ? new Set(Array.isArray(preSelectedAssignees) ? preSelectedAssignees : [])
+                : new Set(preSelectedAssignees ? [preSelectedAssignees] : []);
+            setSelectedIds(initialSelected);
+        }
+    }, [isOpen, preSelectedAssignees, isMultiSelect]);
 
-    const handleToggle = (telegramId) => {
+    const handleToggleUser = (telegramId) => {
         setSelectedIds(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(telegramId)) {
-                newSet.delete(telegramId);
+            const newSelected = new Set(prev);
+            if (isMultiSelect) {
+                if (newSelected.has(telegramId)) {
+                    newSelected.delete(telegramId);
+                } else {
+                    newSelected.add(telegramId);
+                }
             } else {
-                newSet.add(telegramId);
+                // For single select, clicking toggles that one user.
+                // If it's already selected, unselect it. Otherwise, select it.
+                if (newSelected.has(telegramId)) {
+                    newSelected.clear();
+                } else {
+                    newSelected.clear();
+                    newSelected.add(telegramId);
+                }
             }
-            return newSet;
+            return newSelected;
         });
     };
 
     const handleSave = () => {
-        onSave(Array.from(selectedIds));
+        if (isMultiSelect) {
+            onSave(Array.from(selectedIds));
+        } else {
+            // For single select, save the single ID or null if none is selected.
+            const singleId = selectedIds.size > 0 ? selectedIds.values().next().value : null;
+            onSave(singleId);
+        }
         onClose();
     };
+
+    if (!isOpen) {
+        return null;
+    }
 
     return (
         <div className="confirm-modal-overlay" onClick={onClose}>
             <div className="confirm-modal-content assignee-modal-content" onClick={e => e.stopPropagation()}>
-                <h3 className="confirm-modal-title">{title}</h3>
+                <h3 className="confirm-modal-title">Выберите ответственных</h3>
                 <ul className="users-list">
                     {users.map(user => (
-                        <li key={user.telegram_id} onClick={() => handleToggle(user.telegram_id)}>
+                        <li key={user.telegram_id} onClick={() => handleToggleUser(user.telegram_id)}>
                             <input
                                 type="checkbox"
                                 checked={selectedIds.has(user.telegram_id)}
@@ -53,4 +81,6 @@ export default function AssigneeModal({ users, selectedTelegramIds = [], onClose
             </div>
         </div>
     );
-} 
+}
+
+export default AssigneeModal; 

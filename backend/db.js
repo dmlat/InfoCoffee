@@ -2,11 +2,11 @@
 const path = require('path');
 
 // Определяем, какой .env файл использовать
-const envPath = process.env.NODE_ENV === 'development'
-  ? path.resolve(__dirname, '.env.development')
-  : path.resolve(__dirname, '.env');
+// const envPath = process.env.NODE_ENV === 'development'
+//   ? path.resolve(__dirname, '.env.development')
+//   : path.resolve(__dirname, '.env');
   
-require('dotenv').config({ path: envPath });
+// require('dotenv').config({ path: envPath }); // <-- УДАЛЯЕМ ЭТУ СТРОКУ
 
 const { Pool } = require('pg');
 

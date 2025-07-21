@@ -6,6 +6,7 @@ This document describes the current PostgreSQL database schema used in the InfoC
 - **Ownership**: Most data is tied to a `user_id`, representing the business owner.
 - **Delegated Access**: The `user_access_rights` table allows users to grant access to their data to other Telegram users (admins, service staff).
 - **Centralized Stock**: The `inventories` table acts as the source of truth for all stock, both at the central warehouse and in individual coffee stands.
+- **Payment Status Tracking**: The `vendista_payment_status` field in the `users` table tracks Vendista service payment status to prevent spam notifications when payment is required.
 
 ### Table of Contents
 1.  [`users`](#users-table)
@@ -17,9 +18,8 @@ This document describes the current PostgreSQL database schema used in the InfoC
 7.  [`recipes`](#recipes-table)
 8.  [`recipe_items`](#recipe_items-table)
 9.  [`stand_service_settings`](#stand_service_settings-table)
-10. [`maintenance_tasks`](#maintenance_tasks-table)
-11. [`service_tasks`](#service_tasks-table)
-12. [`worker_logs`](#worker_logs-table)
+10. [`service_tasks`](#service_tasks-table)
+11. [`worker_logs`](#worker_logs-table)
 
 ---
 
@@ -36,6 +36,8 @@ Stores primary information about application users. These records represent the 
 | `setup_date`         | `DATE`         | NULL     | **Crucial field**: The date of the first coffee machine installation. Entered by the user during registration step 2 and used as the `Date From` for the initial full history import. |
 | `tax_system`         | `VARCHAR(32)`  | NULL     | User's selected tax system (e.g., 'income_6'). Set during registration.                                                                                                |
 | `acquiring`          | `NUMERIC`      | NULL     | Acquiring commission rate as a percentage (e.g., 1.9). Set during registration.                                                                                        |
+| `vendista_payment_status` | `VARCHAR(20)` | NULL   | **Payment tracking**: Status of Vendista service payment. Values: 'active' (default), 'payment_required', 'notified'. Used to prevent spam notifications when payment is required. |
+| `vendista_payment_notified_at` | `TIMESTAMPTZ` | NULL | Timestamp of when the user was last notified about payment issues. Used to track notification history.                                                                |
 | `created_at`         | `TIMESTAMP`    | NOT NULL | Timestamp when the user record was created. Defaults to `now()`.                                                                                                       |
 | `updated_at`         | `TIMESTAMP`    | NULL     | Timestamp of the last record update. Automatically updated by a trigger.                                                                                               |
 
@@ -49,6 +51,9 @@ CREATE TABLE IF NOT EXISTS public.users (
     setup_date DATE,
     tax_system VARCHAR(32),
     acquiring NUMERIC,
+    vendista_payment_status VARCHAR(20) DEFAULT 'active' 
+        CHECK (vendista_payment_status IN ('active', 'payment_required', 'notified')),
+    vendista_payment_notified_at TIMESTAMPTZ,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
     updated_at TIMESTAMP DEFAULT now()
 );
@@ -66,6 +71,9 @@ CREATE TRIGGER set_timestamp_users
 BEFORE UPDATE ON users
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
+
+-- Index for efficient payment status queries
+CREATE INDEX idx_users_payment_status ON users(vendista_payment_status);
 ```
 
 ---
@@ -286,52 +294,23 @@ CREATE TABLE IF NOT EXISTS public.recipe_items (
 ## `stand_service_settings` Table
 Stores maintenance settings for each coffee stand, such as cleaning frequency and restock thresholds.
 
-| Column             | Type        | Nullable | Description                                                                          |
-| ------------------ | ----------- | -------- | ------------------------------------------------------------------------------------ |
-| `id` (PK)          | `SERIAL`    | NOT NULL | Unique identifier for the settings record.                                           |
-| `terminal_id` (FK, UQ)| `INTEGER` | NOT NULL | References `terminals.id`. Each terminal has only one settings record.               |
-| `cleaning_frequency`| `INTEGER`   | NULL     | The number of sales after which a cleaning task should be generated.                 |
-| `restock_thresholds`| `JSONB`     | NULL     | (Not currently in use) A JSON object defining specific restock thresholds per item.  |
-| `assignee_ids`     | `BIGINT[]`  | NULL     | An array of `telegram_id`s of users assigned to service this terminal.               |
+| Column                  | Type        | Nullable | Description                                                                          |
+| ----------------------- | ----------- | -------- | ------------------------------------------------------------------------------------ |
+| `id` (PK)               | `SERIAL`    | NOT NULL | Unique identifier for the settings record.                                           |
+| `terminal_id` (FK, UQ)  | `INTEGER`   | NOT NULL | References `terminals.id`. Each terminal has only one settings record.               |
+| `cleaning_frequency`    | `INTEGER`   | NULL     | The number of sales after which a cleaning task should be generated.                 |
+| `assignee_id_cleaning`  | `BIGINT`    | NULL     | The `telegram_id` of the user assigned to perform cleaning tasks on this terminal.   |
+| `assignee_id_restock`   | `BIGINT`    | NULL     | The `telegram_id` of the user assigned to perform restock tasks on this terminal.    |
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.stand_service_settings (
     id SERIAL PRIMARY KEY,
     terminal_id INTEGER NOT NULL UNIQUE REFERENCES terminals(id) ON DELETE CASCADE,
     cleaning_frequency INTEGER CHECK (cleaning_frequency > 0),
-    restock_thresholds JSONB,
-    assignee_ids BIGINT[],
+    assignee_id_cleaning BIGINT,
+    assignee_id_restock BIGINT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-```
-
----
-
-## `maintenance_tasks` Table
-A log of system-generated maintenance tasks. This table appears to be a legacy or a more generic task system. The more specific `service_tasks` is currently used for cleaning and restocking.
-
-| Column        | Type        | Nullable | Description                                                     |
-| ------------- | ----------- | -------- | --------------------------------------------------------------- |
-| `id` (PK)     | `SERIAL`    | NOT NULL | Unique identifier.                                              |
-| `terminal_id` (FK)| `INTEGER` | NOT NULL | The associated terminal.                                        |
-| `user_id` (FK)  | `INTEGER`   | NULL     | The owner of the terminal.                                      |
-| `task_type`   | `VARCHAR`   | NOT NULL | The type of task (e.g., 'system_check').                        |
-| `status`      | `VARCHAR`   | NOT NULL | The status of the task (e.g., 'new', 'completed'). `DEFAULT 'new'` |
-| `description` | `TEXT`      | NULL     | A detailed description of the task.                             |
-| `created_at`  | `TIMESTAMPTZ`| NOT NULL | When the task was created.                                      |
-| `completed_at`| `TIMESTAMPTZ`| NULL     | When the task was completed.                                    |
-
-```sql
-CREATE TABLE IF NOT EXISTS public.maintenance_tasks (
-    id SERIAL PRIMARY KEY,
-    terminal_id INTEGER NOT NULL REFERENCES terminals(id) ON DELETE CASCADE,
-    user_id INTEGER REFERENCES users(id),
-    task_type VARCHAR(50) NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'new',
-    description TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    completed_at TIMESTAMPTZ
 );
 ```
 
@@ -340,16 +319,17 @@ CREATE TABLE IF NOT EXISTS public.maintenance_tasks (
 ## `service_tasks` Table
 A log of user-facing service tasks, specifically for **cleaning** and **restocking**. These tasks are generated both automatically (based on sales count) and manually by users.
 
-| Column        | Type        | Nullable | Description                                                               |
-| ------------- | ----------- | -------- | ------------------------------------------------------------------------- |
-| `id` (PK)     | `SERIAL`    | NOT NULL | Unique identifier for the service task.                                   |
+| Column         | Type        | Nullable | Description                                                               |
+| -------------- | ----------- | -------- | ------------------------------------------------------------------------- |
+| `id` (PK)      | `SERIAL`    | NOT NULL | Unique identifier for the service task.                                   |
 | `terminal_id` (FK)| `INTEGER` | NOT NULL | The terminal that requires service.                                       |
-| `task_type`   | `VARCHAR`   | NOT NULL | `'cleaning'` or `'restock'`.                                              |
-| `status`      | `VARCHAR`   | NOT NULL | `'pending'` or `'completed'`. `DEFAULT 'pending'`.                        |
-| `details`     | `JSONB`     | NULL     | A JSON object for extra details (e.g., which items need restocking).      |
-| `assignee_ids`| `BIGINT[]`  | NULL     | An array of `telegram_id`s of users assigned to this specific task.       |
-| `created_at`  | `TIMESTAMPTZ`| NOT NULL | When the task was created.                                                |
-| `completed_at`| `TIMESTAMPTZ`| NULL     | When the task was completed.                                              |
+| `task_type`    | `VARCHAR`   | NOT NULL | `'cleaning'` or `'restock'`.                                              |
+| `status`       | `VARCHAR`   | NOT NULL | `'pending'` or `'completed'`. `DEFAULT 'pending'`.                        |
+| `details`      | `JSONB`     | NULL     | A JSON object for extra details (e.g., which items need restocking, or if the task was `is_manual: true`).      |
+| `comment`      | `TEXT`      | NULL     | A user-provided comment for manually created tasks.                       |
+| `assignee_id`  | `BIGINT`    | NULL     | The `telegram_id` of the user assigned to this specific task.             |
+| `created_at`   | `TIMESTAMPTZ`| NOT NULL | When the task was created.                                                |
+| `completed_at` | `TIMESTAMPTZ`| NULL     | When the task was completed.                                              |
 
 ```sql
 CREATE TABLE IF NOT EXISTS public.service_tasks (
@@ -358,7 +338,8 @@ CREATE TABLE IF NOT EXISTS public.service_tasks (
     task_type VARCHAR(20) NOT NULL CHECK (task_type IN ('cleaning','restock')),
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','completed')),
     details JSONB,
-    assignee_ids BIGINT[],
+    comment TEXT,
+    assignee_id BIGINT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at TIMESTAMPTZ
 );
@@ -367,13 +348,13 @@ CREATE TABLE IF NOT EXISTS public.service_tasks (
 ---
 
 ## `worker_logs` Table
-Logs the execution of background processes (workers), such as data imports from Vendista. Essential for debugging synchronization issues.
+Logs the execution of background processes (workers), such as data imports from Vendista and task cleanup operations. Essential for debugging synchronization issues and monitoring automated processes.
 
 | Column          | Type        | Nullable | Description                                                             |
 | --------------- | ----------- | -------- | ----------------------------------------------------------------------- |
 | `id` (PK)       | `SERIAL`    | NOT NULL | Unique identifier for the log entry.                                    |
 | `user_id` (FK)  | `INTEGER`   | NULL     | The user for whom the job was running.                                  |
-| `job_name`      | `VARCHAR`   | NOT NULL | The name of the background job (e.g., '15-Min Import', 'Daily Update'). |
+| `job_name`      | `VARCHAR`   | NOT NULL | The name of the background job (e.g., '15-Min Import', 'Daily Update', 'task_cleanup'). |
 | `last_run_at`   | `TIMESTAMPTZ`| NULL     | When the job started.                                                   |
 | `status`        | `VARCHAR`   | NULL     | The final status of the job run ('success', 'failure').                 |
 | `processed_items`| `INTEGER`   | NULL     | Number of items the job attempted to process.                         |
@@ -394,4 +375,101 @@ CREATE TABLE IF NOT EXISTS public.worker_logs (
     error_message TEXT,
     details TEXT
 );
+```
+
+---
+
+## `inventory_change_log` Table
+A log of inventory changes made by users. This table is primarily intended to track adjustments made by users with 'service' or other limited roles, allowing business owners to be notified of stock level modifications.
+
+| Column                   | Type        | Nullable | Description                                                                        |
+| ------------------------ | ----------- | -------- | ---------------------------------------------------------------------------------- |
+| `id` (PK)                | `SERIAL`    | NOT NULL | Unique identifier for the log entry.                                               |
+| `owner_user_id` (FK)     | `INTEGER`   | NOT NULL | References `users.id`, the owner of the business.                                  |
+| `changed_by_telegram_id` | `BIGINT`    | NOT NULL | The Telegram ID of the user who made the change.                                   |
+| `change_timestamp`       | `TIMESTAMPTZ`| NOT NULL | Timestamp when the change occurred. `DEFAULT NOW()`                                |
+| `change_source`          | `VARCHAR`   | NOT NULL | The source of the change, e.g., 'restock_task', 'warehouse_adjust'.                |
+| `terminal_id` (FK)       | `INTEGER`   | NULL     | References `terminals.id` if the change occurred at a stand. `NULL` for warehouse. |
+| `item_name`              | `VARCHAR`   | NOT NULL | The name of the item that was changed.                                             |
+| `quantity_before`        | `NUMERIC`   | NOT NULL | The stock quantity before the change.                                              |
+| `quantity_after`         | `NUMERIC`   | NOT NULL | The stock quantity after the change.                                               |
+| `is_notified`            | `BOOLEAN`   | NOT NULL | Flag indicating if a notification for this change has been sent. `DEFAULT FALSE`.    |
+
+```sql
+-- Таблица для логирования изменений в инвентаре, сделанных пользователями с ограниченным доступом
+-- Используется воркером для отправки сводных уведомлений администраторам.
+CREATE TABLE inventory_change_log (
+    id SERIAL PRIMARY KEY,
+    owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    changed_by_telegram_id BIGINT NOT NULL,
+    change_timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    change_source VARCHAR(20) NOT NULL, -- 'restock_task', 'warehouse_adjust' etc.
+    terminal_id INTEGER REFERENCES terminals(id) ON DELETE SET NULL, -- Может быть NULL, если изменение на главном складе
+    item_name VARCHAR(100) NOT NULL,
+    quantity_before NUMERIC(10, 3) NOT NULL,
+    quantity_after NUMERIC(10, 3) NOT NULL,
+    is_notified BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE INDEX idx_inventory_change_log_notified ON inventory_change_log (is_notified, change_timestamp);
+```
+
+### Worker Logs Examples
+
+**Task Cleanup Worker:**
+```sql
+-- Пример записи воркера task_cleanup_worker
+INSERT INTO worker_logs (user_id, job_name, last_run_at, status, processed_items, added_items, updated_items, error_message)
+VALUES (NULL, 'task_cleanup', NOW(), 'success', 8, 0, 0, 'Скрыто выполненных задач: 8');
+
+-- Запрос для мониторинга работы воркера
+SELECT * FROM worker_logs 
+WHERE job_name = 'task_cleanup' 
+ORDER BY last_run_at DESC 
+LIMIT 10;
+```
+
+---
+
+## Vendista Payment Status Tracking System
+
+The system includes a mechanism to track the payment status of Vendista services and prevent spam notifications when users have unpaid accounts.
+
+### Key Fields in `users` Table:
+- `vendista_payment_status`: Current payment status ('active', 'payment_required', 'notified')
+- `vendista_payment_notified_at`: Timestamp of the last payment notification
+
+### How It Works:
+
+1. **Normal Operation**: Users have `vendista_payment_status = 'active'` by default
+2. **Payment Required**: When a 402 error is received from Vendista API:
+   - Status changes to `'payment_required'`
+   - One notification is sent to administrators
+   - User is skipped in subsequent worker runs
+3. **Payment Restored**: When API calls succeed again:
+   - Status automatically resets to `'active'`
+   - Normal processing resumes
+
+### Worker Behavior:
+- `terminal_sync_worker.js`: Skips users with `payment_required` status
+- `schedule_imports.js`: Skips users with `payment_required` status  
+- `vendista_import_worker.js`: Handles 402 errors and updates status
+
+### Manual Management:
+```sql
+-- Reset payment status manually
+UPDATE users 
+SET vendista_payment_status = 'active', 
+    vendista_payment_notified_at = NULL 
+WHERE id = <user_id>;
+
+-- Check users with payment issues
+SELECT id, telegram_id, first_name, vendista_payment_status, vendista_payment_notified_at 
+FROM users 
+WHERE vendista_payment_status != 'active';
+```
+
+### API Endpoint:
+`POST /api/auth/reset-payment-status` - Allows manual reset of payment status for administrators.
+
 ```

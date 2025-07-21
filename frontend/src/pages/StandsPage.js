@@ -5,43 +5,86 @@ import apiClient from '../api';
 import StandDetailModal from '../components/StandDetail/StandDetailModal'; 
 import './StandsPage.css';
 import { ALL_ITEMS } from '../constants';
+import { useLocation } from 'react-router-dom'; // Импортируем useLocation
 
 const ITEM_UNITS = ALL_ITEMS.reduce((acc, item) => {
     acc[item.name] = item.unit;
     return acc;
 }, {});
 
-const formatStock = (stockSummary) => {
-    if (!stockSummary) return [];
+const formatStock = (machineInventory) => {
+    if (!machineInventory || machineInventory.length === 0) return [];
 
-    const formatPart = (category, label) => {
-        const level = stockSummary[category]?.level;
-        if (level === null || level === undefined) return null;
-        
-        const percentage = level * 100;
+    const formattedItems = machineInventory.map(item => {
+        const current = parseFloat(item.current_stock || 0);
+        const max = parseFloat(item.max_stock || 0);
+        const critical = parseFloat(item.critical_stock || 0);
+        const unit = ITEM_UNITS[item.item_name] || 'г'; // Default to 'г' if unit not found
+
+        if (max <= 0) return null; // Skip items without max capacity configured
+
+        const percentage = (current / max) * 100;
         let valueClassName = '';
-        if (percentage < 15) valueClassName = 'stock-low';
-        else if (percentage > 90) valueClassName = 'stock-high';
-        
-        return {
-            label,
-            value: `${Math.round(percentage)}%`,
-            className: valueClassName
-        };
-    };
+        if (critical > 0) {
+            if (current <= critical) {
+                valueClassName = 'critical'; // Was stock-low
+            } else if (current <= critical * 2) {
+                valueClassName = 'warning'; // Was stock-mid
+            } else {
+                valueClassName = 'normal'; // Was stock-high
+            }
+        } else {
+            // If critical_stock is not defined or 0, we assume 'green' by default if not low or mid.
+            // This is a design choice, adjust if needed based on UX requirements.
+            valueClassName = 'normal'; // Was stock-high
+        }
 
-    return [
-        formatPart('water', 'Вода'),
-        formatPart('grams', 'Ингр.'),
-        formatPart('pieces', 'Расходн.')
-    ].filter(Boolean);
+        return {
+            name: item.item_name,
+            percentage: percentage,
+            value: `${Math.round(percentage)}%`,
+            className: valueClassName,
+            unit: unit
+        };
+    }).filter(Boolean);
+
+    // Sort by percentage (ascending), Water first
+    formattedItems.sort((a, b) => {
+        if (a.name === 'Вода') return -1;
+        if (b.name === 'Вода') return 1;
+        return a.percentage - b.percentage;
+    });
+
+    const waterItem = formattedItems.find(item => item.name === 'Вода');
+    let top7Items = formattedItems.filter(item => item.name !== 'Вода').slice(0, 7);
+
+    if (waterItem) {
+        top7Items = [waterItem, ...top7Items];
+    }
+
+    // Take up to 8 items (Water + top 7 least filled)
+    return top7Items.slice(0, 8).map(item => ({
+        label: item.name.length > 6 ? item.name.substring(0, 6) + '.' : item.name,
+        value: item.value,
+        className: item.className
+    }));
 };
 
-export default function StandsPage() {
+export default function StandsPage({ user }) {
+    const location = useLocation(); // Получаем location
     const [terminals, setTerminals] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [selectedTerminal, setSelectedTerminal] = useState(null);
+    const [isMobileView, setIsMobileView] = useState(window.innerWidth < 425);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobileView(window.innerWidth < 425);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     const fetchTerminals = useCallback(async () => {
         setIsLoading(true);
@@ -63,6 +106,16 @@ export default function StandsPage() {
     useEffect(() => {
         fetchTerminals();
     }, [fetchTerminals]);
+
+    useEffect(() => {
+        // Проверяем, что location.state существует и предназначен для этой страницы
+        if (location.state && (location.state.terminalId || location.state.stand)) {
+            const standToOpen = terminals.find(s => s.id === location.state.terminalId || s.id === location.state.stand?.id);
+            if (standToOpen) {
+                setSelectedTerminal(standToOpen);
+            }
+        }
+    }, [location.state, terminals]);
 
     useEffect(() => {
         if (selectedTerminal) {
@@ -99,17 +152,37 @@ export default function StandsPage() {
                     ) : (
                         terminals.map(terminal => {
                             const isOnline = terminal.is_online;
-                            const { stock_summary, needs_containers_config, needs_recipes_config } = terminal;
+                            const { stock_summary, needs_containers_config, needs_recipes_config, machine_inventory } = terminal;
                             
-                            const stockParts = formatStock(stock_summary);
+                            const stockParts = formatStock(machine_inventory);
 
-                            const stockWarning = stockParts.map((part, index) => (
-                                <React.Fragment key={index}>
-                                    {part.label}: <span className={part.className}>{part.value}</span>
-                                    {index < stockParts.length - 1 && ' | '}
-                                </React.Fragment>
-                            ));
-                            
+                            // const stockWarning = stockParts.map((part, index) => (
+                            //     <React.Fragment key={index}>
+                            //         {part.label}: <span className={part.className}>{part.value}</span>
+                            //         {index < stockParts.length - 1 && ' | '}
+                            //     </React.Fragment>
+                            // ));
+
+                            const firstRowItems = isMobileView
+                                ? [stockParts.find(part => part.label === 'Вода'), ...stockParts.filter(part => part.label !== 'Вода').slice(0, 2)].filter(Boolean)
+                                : stockParts.slice(0, 4);
+
+                            const secondRowItems = isMobileView
+                                ? [] // No second row for mobile view with 3 items
+                                : stockParts.slice(4, 8);
+
+                            const allItemsForMobile = isMobileView ? firstRowItems : []; // Combine all items for single row on mobile
+
+                            const renderStockRow = (items) => (
+                                <div className="stand-stock-pills-container">
+                                    {items.map((part, index) => (
+                                        <span key={index} className={`ingredient-pill ${part.className}`}>
+                                            {part.label}: {part.value}
+                                        </span>
+                                    ))}
+                                </div>
+                            );
+
                             let configWarning = null;
                             if (needs_containers_config || needs_recipes_config) {
                                 const messages = [];
@@ -128,7 +201,14 @@ export default function StandsPage() {
                                             <h3 className="stand-name">{terminal.name || `Терминал #${terminal.id}`}</h3>
                                         </div>
                                         {configWarning && <p className="stand-config-warning pending-red">{configWarning}</p>}
-                                        {stockParts.length > 0 && <p className="stand-stock-warning">{stockWarning}</p>}
+                                        {isMobileView ? (
+                                            allItemsForMobile.length > 0 && renderStockRow(allItemsForMobile)
+                                        ) : (
+                                            <>
+                                                {firstRowItems.length > 0 && renderStockRow(firstRowItems)}
+                                                {secondRowItems.length > 0 && renderStockRow(secondRowItems)}
+                                            </>
+                                        )}
                                     </div>
                                     <div className={`stand-details-arrow ${isPending ? 'pending-red' : 'pending-blue'}`}>
                                         &gt;

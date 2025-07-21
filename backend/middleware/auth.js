@@ -30,12 +30,36 @@ async function auth(req, res, next) { // <-- ИЗМЕНЕНИЕ: функция 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = decoded; 
 
-        // --- НОВАЯ ЛОГИКА ОПРЕДЕЛЕНИЯ ID ВЛАДЕЛЬЦА ---
+        // Если accessLevel не установлен (например, для владельца), по умолчанию ставим 'owner'
+        if (!req.user.accessLevel) {
+            req.user.accessLevel = 'owner';
+        }
+
+        // --- DEV MODE ROLE EMULATION ---
+        if (process.env.NODE_ENV === 'development') {
+            const emulatedRole = req.headers['x-emulated-role'];
+            if (emulatedRole && ['owner', 'admin', 'service'].includes(emulatedRole)) {
+                req.user.accessLevel = emulatedRole;
+                
+                // Для ролей 'admin' и 'service' подменяем telegramId на тестовые значения,
+                // чтобы бэкенд мог корректно найти назначенные им задачи.
+                // Эти ID должны совпадать с теми, на которые назначаются задачи в dev-среде.
+                if (emulatedRole === 'admin') {
+                    req.user.telegramId = parseInt(process.env.DEV_ADMIN_TELEGRAM_ID, 10); // Тестовый ID для админа
+                } else if (emulatedRole === 'service') {
+                    req.user.telegramId = parseInt(process.env.DEV_SERVICE_TELEGRAM_ID, 10); // Тестовый ID для сервисника
+                }
+                // Для 'owner' оставляем его реальный telegramId из токена.
+            }
+        }
+        // --- END DEV MODE ROLE EMULATION ---
+
+        // --- НОВАЯ ЛОГИКА ОПРЕДЕЛЕНИЯ ID ВЛАДЕЛЬЦA ---
         if (req.user.accessLevel === 'owner') {
             // Если это владелец, его ID и есть ID владельца
             req.user.ownerUserId = req.user.userId;
         } else {
-            // Если это админ или сервис, ищем ID владельца в таблице доступов
+            // Для админа или сервисника ищем ID владельца в таблице доступов
             const accessRightRes = await pool.query(
                 'SELECT owner_user_id FROM user_access_rights WHERE shared_with_telegram_id = $1',
                 [req.user.telegramId]

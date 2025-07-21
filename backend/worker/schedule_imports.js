@@ -91,8 +91,12 @@ async function runScheduledJob(jobName, dateSubtractArgs, fetchAllPages) {
   const logTime = moment().tz(TIMEZONE).format();
   console.log(`[Cron ${logTime}] Запуск джоба: ${jobName}...`);
   try {
-    // ИСПРАВЛЕНИЕ: Убираем is_active из запроса к таблице users
-    const usersRes = await pool.query('SELECT id, vendista_api_token, telegram_id FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL');
+    // Получаем только пользователей с активным статусом оплаты
+    const usersRes = await pool.query(`
+        SELECT id, vendista_api_token, telegram_id, vendista_payment_status, first_name, user_name 
+        FROM users 
+        WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL
+    `);
     if (usersRes.rows.length === 0) {
       console.log(`[Cron ${logTime}] [${jobName}] Нет пользователей для импорта.`);
       return;
@@ -104,6 +108,13 @@ async function runScheduledJob(jobName, dateSubtractArgs, fetchAllPages) {
     const sortedUsers = usersRes.rows.sort((a, b) => a.id - b.id);
 
     for (const user of sortedUsers) {
+      // Пропускаем пользователей с неоплаченным статусом
+      if (user.vendista_payment_status === 'payment_required') {
+          console.log(`[Cron ${logTime}] [${jobName}] Skipping user ${user.id} (${user.first_name || 'N/A'}) - payment required`);
+          await logJobStatus(user.id, jobName, 'skipped_payment_required', null, 'User has payment_required status - Vendista payment needed');
+          continue;
+      }
+
       const encryptedToken = user.vendista_api_token;
       let plainVendistaToken;
 
@@ -166,7 +177,7 @@ async function manualImportLastNDays(days, targetUserId) {
     console.log(`[Cron ${logTime}] Запуск ручного импорта: ${jobName}...`);
 
     try {
-        let query = 'SELECT id, vendista_api_token, telegram_id FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL';
+        let query = 'SELECT id, vendista_api_token, telegram_id, vendista_payment_status, first_name, user_name FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL';
         const queryParams = [];
         if (targetUserId) {
             query += ' AND id = $1';
@@ -184,6 +195,12 @@ async function manualImportLastNDays(days, targetUserId) {
         const dateFrom = moment().tz(TIMEZONE).subtract(days, 'days').format('YYYY-MM-DD');
 
         for (const user of usersRes.rows) {
+            // Пропускаем пользователей с неоплаченным статусом
+            if (user.vendista_payment_status === 'payment_required') {
+                console.log(`[Cron ${logTime}] [${jobName}] Skipping user ${user.id} (${user.first_name || 'N/A'}) - payment required`);
+                continue;
+            }
+
             const encryptedToken = user.vendista_api_token;
             let plainVendistaToken;
 

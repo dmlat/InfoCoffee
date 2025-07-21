@@ -10,6 +10,58 @@ const SYNC_DELAY_MS = 1100; // Пауза 1.1 секунды между запр
 // Утилита для создания паузы
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Функция для обработки ошибки оплаты Vendista
+async function handleVendistaPaymentError(userId, errorMessage) {
+    const client = await pool.connect();
+    try {
+        // Проверяем текущий статус пользователя
+        const userResult = await client.query(
+            `SELECT vendista_payment_status, vendista_payment_notified_at, telegram_id, first_name, user_name 
+             FROM users WHERE id = $1`,
+            [userId]
+        );
+
+        if (userResult.rows.length === 0) {
+            console.warn(`[Terminal Sync] User ${userId} not found in database`);
+            return;
+        }
+
+        const user = userResult.rows[0];
+        const now = new Date();
+
+        // Если пользователь еще не уведомлен об ошибке оплаты
+        if (user.vendista_payment_status === 'active') {
+            // Обновляем статус на 'payment_required' и отправляем уведомление
+            await client.query(
+                `UPDATE users SET 
+                    vendista_payment_status = 'payment_required',
+                    vendista_payment_notified_at = NOW(),
+                    updated_at = NOW()
+                 WHERE id = $1`,
+                [userId]
+            );
+
+            // Отправляем уведомление администратору ОДИН раз
+            await sendErrorToAdmin({
+                userId: userId,
+                errorContext: `Vendista Payment Required for User ${userId}`,
+                errorMessage: `⚠️ ТРЕБУЕТСЯ ОПЛАТА VENDISTA ⚠️\n\nПользователь: ${user.first_name || 'N/A'} (@${user.user_name || 'N/A'})\nTelegram ID: ${user.telegram_id}\nОшибка: ${errorMessage}\n\nСинхронизация данных будет приостановлена до оплаты услуг Vendista.`,
+                errorStack: null
+            });
+
+            console.log(`[Terminal Sync] User ${userId} marked as payment_required. Notification sent.`);
+        } else {
+            // Если пользователь уже уведомлен, просто логируем
+            console.log(`[Terminal Sync] User ${userId} already marked as payment_required. Skipping notification.`);
+        }
+
+    } catch (error) {
+        console.error(`[Terminal Sync] Error handling payment error for user ${userId}:`, error);
+    } finally {
+        client.release();
+    }
+}
+
 async function syncTerminalsForUser(userId, plainVendistaToken) {
     console.log(`[Terminal Sync] Starting terminal sync for user ${userId}...`);
     const client = await pool.connect();
@@ -61,6 +113,16 @@ async function syncTerminalsForUser(userId, plainVendistaToken) {
             );
         }
 
+        // Если синхронизация прошла успешно, сбрасываем статус оплаты на active
+        await client.query(
+            `UPDATE users SET 
+                vendista_payment_status = 'active', 
+                vendista_payment_notified_at = NULL,
+                updated_at = NOW()
+             WHERE id = $1 AND vendista_payment_status != 'active'`,
+            [userId]
+        );
+
         await client.query('COMMIT');
         console.log(`[Terminal Sync] Successfully synced terminals for user ${userId}. Found ${vendistaTerminals.length} terminals.`);
         return { success: true, count: vendistaTerminals.length };
@@ -69,6 +131,13 @@ async function syncTerminalsForUser(userId, plainVendistaToken) {
         await client.query('ROLLBACK');
         const errorMessage = error.response ? JSON.stringify(error.response.data) : error.message;
         console.error(`[Terminal Sync] Failed to sync terminals for user ${userId}:`, errorMessage);
+        
+        // Специальная обработка ошибки 402 "Требуется оплата"
+        if (error.response && error.response.status === 402) {
+            await handleVendistaPaymentError(userId, errorMessage);
+            return { success: false, error: errorMessage, paymentRequired: true };
+        }
+
         sendErrorToAdmin({ userId: userId, errorContext: `Terminal Sync for User ${userId}`, errorMessage: errorMessage, errorStack: error.stack });
         return { success: false, error: errorMessage };
     } finally {
@@ -81,9 +150,24 @@ async function syncAllTerminals() {
     console.log('[Terminal Sync Worker] Starting synchronization job...');
     const client = await pool.connect();
     try {
-        const usersRes = await client.query('SELECT id, vendista_api_token FROM users WHERE vendista_api_token IS NOT NULL');
+        // Получаем только пользователей с активным статусом оплаты
+        const usersRes = await client.query(`
+            SELECT id, vendista_api_token, vendista_payment_status, first_name, user_name 
+            FROM users 
+            WHERE vendista_api_token IS NOT NULL
+        `);
+
+        let activeUsers = 0;
+        let skippedUsers = 0;
 
         for (const user of usersRes.rows) {
+            // Пропускаем пользователей с неоплаченным статусом
+            if (user.vendista_payment_status === 'payment_required') {
+                console.log(`[Terminal Sync Worker] Skipping user ${user.id} (${user.first_name || 'N/A'}) - payment required`);
+                skippedUsers++;
+                continue;
+            }
+
             try {
                 const token = decrypt(user.vendista_api_token);
                 if (!token) {
@@ -92,7 +176,13 @@ async function syncAllTerminals() {
                 }
                 
                 // Используем новую функцию для конкретного пользователя
-                await syncTerminalsForUser(user.id, token);
+                const result = await syncTerminalsForUser(user.id, token);
+                
+                if (result.success) {
+                    activeUsers++;
+                } else if (result.paymentRequired) {
+                    skippedUsers++;
+                }
 
             } catch (userSyncError) {
                 const errorMessage = userSyncError.message;
@@ -103,6 +193,8 @@ async function syncAllTerminals() {
             // Пауза после обработки каждого пользователя, чтобы не превысить лимиты API
             await sleep(SYNC_DELAY_MS);
         }
+
+        console.log(`[Terminal Sync Worker] Processed ${activeUsers} active users, skipped ${skippedUsers} users with payment issues`);
     } catch (e) {
         console.error('[Terminal Sync Worker] Critical error:', e);
         sendErrorToAdmin({ errorContext: 'Terminal Sync Worker - Global', errorMessage: e.message, errorStack: e.stack });

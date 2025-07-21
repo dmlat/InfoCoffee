@@ -1,7 +1,7 @@
 // frontend/src/pages/AnalyticsPage.js
 import React from 'react';
 
-export default function AnalyticsPage() {
+export default function AnalyticsPage({ user }) {
   return (
     <div className="page-container" style={{flexDirection: 'column'}}>
       <div className="main-content-area" style={{width: '100%'}}>

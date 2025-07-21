@@ -1,5 +1,11 @@
 /* frontend/src/pages/TasksPage.css */
 
+.tasks-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
 .tasks-page-layout {
     display: flex;
     flex-direction: column;
@@ -25,11 +31,13 @@
 .container-header {
     display: flex;
     justify-content: space-between;
-    align-items: baseline; /* Align by text baseline */
+    align-items: center;
     border-bottom: 1px solid #3a3e47;
-    padding: 6px 12px;
+    padding: 8px 12px; /* Adjusted vertical padding for better centering */
     cursor: pointer;
     user-select: none;
+    min-height: 38px;
+    box-sizing: border-box;
 }
 
 .container-title {
@@ -41,6 +49,11 @@
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+/* Override global h2 margin for TasksPage headers */
+.container-header .container-title {
+    margin-bottom: 0 !important;
 }
 
 .toggle-arrow {
@@ -115,66 +128,138 @@
     color: #8ae6ff;
     font-weight: 500;
 }
+.settings-hint .hint-yellow {
+    color: #ffb74d;
+    font-weight: 500;
+}
 
+/* --- Shared Settings Table Styles --- */
+.restock-table,
+.cleaning-table {
+    table-layout: fixed;
+    width: 100%;
+}
 
-/* --- Cleaning Settings Table Specific Styles --- */
+.restock-table td,
+.cleaning-table td {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    vertical-align: middle;
+}
+
+/* Column widths for restock and cleaning tables */
+.restock-table th:first-child,
+.restock-table td:first-child,
 .cleaning-table th:first-child,
 .cleaning-table td:first-child {
-    width: 60%;
-    white-space: normal;
-    word-break: break-word;
+    width: calc(100% - 125px);
 }
 
-.cleaning-table input[type="number"] {
-    width: 45px;
-    background-color: #1e2128;
-    border: 1px solid #3a3e47;
-    color: #e0e0e0;
-    border-radius: 6px;
-    padding: 3px;
-    font-size: 0.8em;
-    text-align: center;
+.restock-table th:last-child,
+.restock-table td:last-child,
+.cleaning-table th:last-child,
+.cleaning-table td:last-child {
+    width: 125px;
 }
 
-.cleaning-table input[type="number"]:focus {
-    outline: none;
-    border-color: #4f81c7;
+.restock-terminal-row td,
+.cleaning-terminal-row td {
+    padding-bottom: 4px;
+    border-bottom: none;
 }
 
-/* --- Restock Table Specific Styles --- */
-.restock-table .terminal-name-row td {
-    font-weight: 600;
-    color: #e0e0e0;
-    background-color: rgba(79, 129, 199, 0.1);
+.restock-ingredients-row td,
+.cleaning-frequency-row td {
+    padding-top: 4px;
+}
+
+.restock-ingredients-row,
+.cleaning-frequency-row {
     border-bottom: 1px solid #3a3e47;
-    padding-left: 18px;
 }
 
-.restock-table .ingredients-row td {
-    padding-top: 6px;
-    padding-bottom: 6px;
+.restock-ingredients-row.last-terminal,
+.cleaning-frequency-row.last-terminal {
+    border-bottom: none;
 }
 
-.restock-table .assignee-cell {
-    vertical-align: middle;
-    text-align: right;
+.restock-terminal-name,
+.cleaning-terminal-name {
+    font-weight: 500;
+    color: #e0e0e0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.ingredients-cell-content {
+.ingredients-container {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     align-items: center;
 }
 
+.cleaning-frequency-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.action-cell {
+    width: 125px;
+    text-align: right;
+    vertical-align: middle;
+}
+
+.action-cell > button {
+    margin-left: auto;
+}
+
+.cleaning-frequency-input {
+    width: 60px;
+    background-color: #1e2128;
+    border: 1px solid #3a3e47;
+    color: #e0e0e0;
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-size: 0.9em;
+    text-align: center;
+    -moz-appearance: textfield;
+    transition: all 0.3s ease;
+}
+
+.cleaning-frequency-input.glowing-placeholder {
+    animation: input-glow 2s infinite ease-in-out;
+    border-color: #4f81c7;
+}
+
+.cleaning-frequency-input::-webkit-outer-spin-button,
+.cleaning-frequency-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.cleaning-frequency-input:focus {
+    outline: none;
+    border-color: #4f81c7;
+    animation: none;
+}
+
+.sales-count-display {
+    font-size: 0.95em !important; /* Set to match cleaning-terminal-name font size on desktop, added !important */
+    color: #a0b0c8 !important; /* Reverted color, added !important */
+    font-weight: normal !important; /* Ensure it's not bold, added !important */
+    white-space: nowrap;
+}
+
+/* --- Ingredient Pills --- */
 .ingredient-pill {
-    font-size: 0.85em;
+    font-size: 0.7em;
     font-weight: 500;
     padding: 3px 8px;
     border-radius: 6px;
     white-space: nowrap;
 }
-
 .ingredient-pill.critical {
     background-color: rgba(229, 115, 115, 0.2);
     color: #e57373;
@@ -188,63 +273,174 @@
     color: #a0b0c8;
 }
 
+.ingredient-pill.show-more-pills {
+    background-color: transparent;
+    color: #8ae6ff;
+    cursor: pointer;
+    font-weight: 600;
+    padding: 3px 8px; /* Adjusted padding to accommodate border */
+    margin-left: 6px;
+    border: 1px solid #4f81c7; /* Added border */
+    border-radius: 6px; /* Keep existing border-radius */
+    box-sizing: border-box; /* Ensure padding and border are included in width/height */
+}
+.ingredient-pill.show-more-pills:hover {
+    text-decoration: underline;
+}
+
+/* New hint-white-bold class */
+.hint-white-bold {
+    color: white;
+    font-weight: bold;
+}
+
+/* --- Buttons & Inputs --- */
 .assignee-button {
+    background: linear-gradient(135deg, #2e3340 0%, #3a3e47 100%);
+    border: 1px solid #4f81c7;
+    color: #e0e0e0;
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    white-space: nowrap;
     display: flex;
     align-items: center;
     gap: 6px;
-    background: #2e3340;
-    border: 1px solid #3a3e47;
-    color: #a0b0c8;
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 0.85em;
+    font-size: 0.9em;
     font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: left;
-    white-space: nowrap;
+    min-height: 32px;
+    box-sizing: border-box;
+    min-width: 100px;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
-.assignee-button:hover { border-color: #8ae6ff; }
-
+.assignee-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, #3a3e47 0%, #4f81c7 100%);
+    border-color: #8ae6ff;
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+.assignee-button:disabled {
+    background: linear-gradient(135deg, #20232a 0%, #2e3340 100%);
+    border-color: #2e3340;
+    color: #7a8b98;
+    cursor: not-allowed;
+    box-shadow: none;
+}
 .assignee-icon {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
     background-color: #4f81c7;
     border-radius: 50%;
     flex-shrink: 0;
 }
-
-.manual-task-container {
-    margin-bottom: -12px; /* Pulls the next element up */
-}
-
-.action-btn-filled {
-    width: 100%;
-    padding: 10px 12px;
-    font-size: 1em;
-    font-weight: 500;
-    color: #ffffff;
-    background-color: #4f81c7;
-    border: none;
+.create-task-button-inline {
+    background: linear-gradient(135deg, #4f81c7 0%, #5a9ee6 100%);
+    color: white;
+    border: 1px solid #4f81c7;
     border-radius: 8px;
+    padding: 6px 12px;
     cursor: pointer;
-    transition: background-color 0.2s ease;
-    text-transform: none;
+    font-size: 0.9em;
+    font-weight: 500;
+    min-height: 32px;
+    box-sizing: border-box;
+    white-space: nowrap;
+    min-width: 100px;
+    max-width: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
-
-.action-btn-filled:hover {
-    background-color: #5a91d8;
+.create-task-button-inline:hover:not(:disabled) {
+    background: linear-gradient(135deg, #5a9ee6 0%, #6bb6ff 100%);
+    border-color: #8ae6ff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(79, 129, 199, 0.3);
 }
-
-.action-btn-filled:disabled {
-    background-color: #3a3e47;
-    color: #a0b0c8;
+.create-task-button-inline:disabled {
+    background: linear-gradient(135deg, #3a3e47 0%, #2e3340 100%);
+    color: #7a8b98;
     cursor: not-allowed;
+    border-color: #3a3e47;
+    box-shadow: none;
+}
+.delete-btn {
+    background: none;
+    border: none;
+    color: #b0b8c8;
+    font-size: 1.5em;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    vertical-align: middle;
+}
+.delete-btn:hover {
+    color: white;
+}
+.complete-task-button {
+    background-color: #4f81c7;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.9em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    white-space: nowrap;
+}
+.complete-task-button:hover {
+    background-color: #5a9ee6;
 }
 
-/* --- Tasks Log Table Specific Styles --- */
+/* --- Your Tasks & Tasks Log Tables --- */
+.tasks-table {
+    table-layout: fixed;
+    width: 100%;
+}
+/* Your Tasks Block */
+.tasks-table th:nth-child(1), .tasks-table td:nth-child(1) { width: 70%; }
+.tasks-table th:nth-child(2), .tasks-table td:nh-child(2) { width: 30%; text-align: center; }
+
+/* Tasks Log Block */
+.tasks-log-table {
+    table-layout: auto; /* Changed to auto to allow flexible column sizing */
+    width: 100%;
+}
+.tasks-log-table th:nth-child(1), .tasks-log-table td:nth-child(1) { width: auto; /* Allow first column to shrink */ }
+.tasks-log-table th:nth-child(2), .tasks-log-table td:nth-child(2) {
+    /* Removed fixed width to allow content-based sizing */
+    white-space: nowrap;
+    text-align: center;
+    padding: 0 2px !important; /* 2px padding on each side */
+}
+.tasks-log-table th:nth-child(3), .tasks-log-table td:nth-child(3) {
+    width: 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+    white-space: nowrap;
+    text-align: center;
+    padding: 0 !important;
+    box-sizing: border-box;
+}
+
 .tasks-table .task-cell {
     line-height: 1.3;
+}
+.tasks-table .task-cell > div {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .task-terminal-name {
     font-weight: 500;
@@ -257,63 +453,291 @@
 .task-details {
     font-size: 0.8em;
     color: #a0b0c8;
-    max-width: 250px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
 }
-
-
-.delete-btn {
-    background: none;
-    border: none;
-    color: #b0b8c8;
-    font-size: 1.5em;
-    cursor: pointer;
-    padding: 0 4px;
-    line-height: 1;
+.task-assignee-text-small {
+    font-size: 0.8em;
+    color: #ffb74d;
+    margin-top: 2px;
+    display: block;
 }
-.delete-btn:hover {
-    color: white;
-}
-
-/* --- General & Shared Styles --- */
-.container-header .action-btn {
-    padding: 4px 12px;
-    font-size: 0.9em;
-    text-transform: none;
-}
-
-.task-status {
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-weight: 500;
-    font-size: 0.9em;
-    display: inline-block;
+.tasks-table-empty-row {
     text-align: center;
-    min-width: 80px;
+    padding: 10px 12px;
+    color: #a0b0c8;
+    font-size: 0.9em;
 }
-.status-completed {
+
+.task-ingredients-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.configure-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    margin-top: 4px;
+}
+
+.configure-notice:hover .hint-red {
+    text-decoration: underline;
+}
+
+.configure-notice .arrow-icon {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 5px solid #e57373;
+    transition: transform 0.2s ease-in-out;
+    animation: bounce-horizontal 1.5s infinite;
+}
+
+@keyframes bounce-horizontal {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    50% {
+        transform: translateX(4px);
+    }
+}
+
+
+/* --- Status Icons & Hints --- */
+.status-hint {
+    font-size: 0.7em; /* Match settings-hint */
+    color: #a0b0c8;
+    padding: 6px 6px; /* Even more reduced padding */
+    margin: 0;
+    display: flex;
+    flex-wrap: nowrap; /* Prevent wrapping */
+    align-items: center;
+    gap: 2px; /* Even more reduced gap */
+    justify-content: center; /* Align to start */
+    white-space: nowrap; /* Ensure text stays on one line */
+    overflow: hidden; /* Hide overflow */
+    text-overflow: ellipsis; /* Add ellipsis if overflow */
+}
+.status-hint span {
+    display: flex;
+    align-items: center;
+    gap: 2px; /* Even smaller gap for icons */
+    flex-shrink: 0;
+}
+.status-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px; /* Smaller icon size */
+    height: 16px; /* Smaller icon size */
+    border-radius: 50%;
+    font-weight: bold;
+    font-size: 0.7em; /* Smaller font inside icon */
+    line-height: 1;
+    flex-shrink: 0;
+}
+.status-icon-completed {
     background-color: rgba(76, 175, 80, 0.2);
     color: #81c784;
 }
-.status-overdue {
+.status-icon-pending {
+    background-color: rgba(255, 152, 0, 0.2);
+    color: #ffb74d;
+    line-height: 1;
+    padding-bottom: 2px;
+    box-sizing: border-box;
+}
+.status-icon-overdue {
     background-color: rgba(244, 67, 54, 0.2);
     color: #e57373;
 }
-.status-pending {
-    background-color: rgba(255, 152, 0, 0.2);
-    color: #ffb74d;
+
+/* --- Keyframe Animations --- */
+@keyframes input-glow {
+    0% {
+        border-color: #4f81c7;
+        box-shadow: none;
+    }
+    50% {
+        border-color: #8ae6ff;
+        box-shadow: 0 0 8px rgba(138, 230, 255, 0.4);
+    }
+    100% {
+        border-color: #4f81c7;
+        box-shadow: none;
+    }
 }
 
+/* Ensure the hint-blue color is applied strongly */
+.sales-count-display .hint-blue {
+    color: #8ae6ff !important;
+}
+
+/* --- Media Queries --- */
 @media (max-width: 768px) {
     .data-table th,
     .data-table td {
-        padding: 4px 8px;
-        font-size: 0.85em;
+        padding: 6px 8px;
+        font-size: 0.9em;
     }
 
     .cleaning-table input[type="number"] {
         width: 40px;
     }
-} 
+
+    .tasks-table,
+    .restock-table,
+    .cleaning-table {
+        table-layout: auto;
+    }
+
+    /* Column widths for mobile */
+    .restock-table th:first-child,
+    .restock-table td:first-child,
+    .cleaning-table th:first-child,
+    .cleaning-table td:first-child {
+        width: auto; /* Let it shrink */
+    }
+
+    .restock-table th:last-child,
+    .restock-table td:last-child,
+    .cleaning-table th:last-child,
+    .cleaning-table td:last-child {
+        width: 70px; /* Fixed width for action column on mobile */
+    }
+
+    .action-cell {
+        width: 70px !important;
+        min-width: 70px !important;
+        max-width: 70px !important;
+        padding: 8px 1px !important;
+        box-sizing: border-box;
+        text-align: center;
+        overflow: hidden;
+    }
+
+    .assignee-button,
+    .create-task-button-inline {
+        min-width: unset;
+        max-width: unset;
+        width: 100%;
+        padding: 1px; /* Reduced padding for small screens */
+        font-size: 0.65em; /* Smaller font size */
+        min-height: 24px;
+        max-height: 24px;
+        line-height: 1;
+        box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    }
+
+    /* Override specific styles for table cells to allow shrinking */
+    .restock-table td,
+    .cleaning-table td {
+        white-space: normal; /* Allow text to wrap */
+        word-break: break-word; /* Break long words */
+    }
+
+    /* Adjust sales count display for very small screens */
+    .sales-count-display {
+        font-size: 0.9em !important; /* Set to match cleaning-terminal-name on mobile, added !important */
+        flex-shrink: 1; /* Allow to shrink */
+    }
+
+    /* Specific adjustments for very small screens */
+    @media (max-width: 375px) {
+        .restock-table th:first-child,
+        .restock-table td:first-child,
+        .cleaning-table th:first-child,
+        .cleaning-table td:first-child {
+            width: calc(100% - 90px); /* Calculate width to ensure space for action column */
+        }
+
+        .restock-table th:last-child,
+        .restock-table td:last-child,
+        .cleaning-table th:last-child,
+        .cleaning-table td:last-child {
+            width: 90px; /* Ensure action column has sufficient width */
+        }
+
+        .action-cell {
+            width: 90px !important;
+            min-width: 90px !important;
+            max-width: 90px !important;
+            padding: 8px 1px !important;
+            box-sizing: border-box;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        .assignee-button,
+        .create-task-button-inline {
+            padding: 1px; /* Reduce button padding even more */
+            font-size: 0.65em; /* Smaller font size */
+            min-height: 24px; /* Ensure buttons are not too short */
+            max-height: 24px;
+            line-height: 1;
+        }
+    }
+
+    .assignee-button,
+    .create-task-button-inline {
+        width: 100%;
+        box-sizing: border-box;
+        min-width: 0;
+        padding: 4px; /* Default padding for mobile */
+        font-size: 0.8em;
+    }
+
+    .ingredients-container {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .tasks-table th:nth-child(1),
+    .tasks-table td:nth-child(1) {
+        width: 100%;
+        white-space: normal;
+        word-break: break-word;
+    }
+    .tasks-table .task-terminal-name {
+        white-space: normal;
+        word-break: break-word;
+    }
+    .tasks-table th:nth-child(2),
+    .tasks-table td:nth-child(2) {
+        width: auto;
+        white-space: nowrap;
+    }
+
+    .restock-terminal-name,
+    .cleaning-terminal-name {
+        white-space: normal;
+        word-break: break-word;
+    }
+}
+
+/* Ensure the hint-blue color is applied strongly for glowing placeholder */
+.cleaning-frequency-input.glowing-placeholder {
+    animation: input-glow 2s infinite ease-in-out;
+    border-color: #4f81c7;
+    box-shadow: 0 0 8px rgba(138, 230, 255, 0.4) !important; /* Ensure glow is visible */
+}
+
+@keyframes input-glow {
+    0% {
+        border-color: #4f81c7;
+        box-shadow: none;
+    }
+    50% {
+        border-color: #8ae6ff;
+        box-shadow: 0 0 8px rgba(138, 230, 255, 0.4);
+    }
+    100% {
+        border-color: #4f81c7;
+        box-shadow: none;
+    }
+}

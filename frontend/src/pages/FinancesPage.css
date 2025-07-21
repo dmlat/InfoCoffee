@@ -219,4 +219,34 @@ input[type="date"].period-date-input:disabled {
     font-size: 1.1em !important; 
     margin-bottom: 12px !important;
   }
+
+  /* Стили для таблицы статистики кофеен */
+  .coffee-stats-table {
+    width: 100%; /* Растягиваем таблицу на всю ширину контейнера */
+  }
+
+  .coffee-stats-table th,
+  .coffee-stats-table td {
+    padding: 8px 4px; /* Уменьшаем отступы для всех ячеек */
+  }
+
+  .coffee-stats-table th:first-child, 
+  .coffee-stats-table td:first-child { /* Колонка "Кофейня" */
+    white-space: normal; /* Разрешаем перенос текста */
+    word-break: break-word;
+    min-width: 100px; /* Минимальная ширина, чтобы не схлопнулась совсем */
+  }
+
+  .coffee-stats-table th:nth-child(2), 
+  .coffee-stats-table td:nth-child(2) { /* Колонка "Выручка" */
+    white-space: nowrap; /* Запрещаем перенос содержимого */
+    min-width: 80px; /* Минимальная ширина по заголовку */
+  }
+
+  .coffee-stats-table th:nth-child(3), 
+  .coffee-stats-table td:nth-child(3) { /* Колонка "Продажи" */
+    white-space: nowrap; /* Запрещаем перенос содержимого */
+    min-width: 60px; /* Минимальная ширина по заголовку */
+    padding-left: 4px; /* Уменьшаем отступ слева */
+  }
 }

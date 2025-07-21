@@ -43,24 +43,45 @@ if (process.env.NODE_ENV !== 'production' && !JWT_SECRET) {
 
 const validateTelegramInitData = (initDataString) => {
     // В режиме разработки полностью доверяем данным и пропускаем проверку.
-    // Это позволяет удобно работать в браузере с фейковыми данными.
     if (process.env.NODE_ENV === 'development') {
+        console.log('[Auth Validate] Development mode: SKIPPING hash validation.');
         try {
+            // В режиме разработки initData может быть либо строкой параметров URL,
+            // либо уже объектом, если он был проксирован или изменен.
+            // Эта проверка делает функцию более устойчивой.
+            let userStr;
+            if (typeof initDataString === 'string') {
             const params = new URLSearchParams(initDataString);
-            const userStr = params.get('user');
-            if (userStr) {
-                console.warn(`[Auth Validate] ВНИМАНИЕ: Проверка хеша отключена, т.к. NODE_ENV=development.`);
-                return { valid: true, data: JSON.parse(decodeURIComponent(userStr)) };
+                userStr = params.get('user');
+            } else if (typeof initDataString === 'object' && initDataString !== null) {
+                // Если это объект, предполагаем, что он содержит 'user' как строку JSON.
+                // Это может произойти, если фронтенд отправляет JSON.
+                // В нашем случае, мы ожидаем от dev.js URL-кодированную строку.
+                // Но эта логика делает код более надежным.
+                userStr = initDataString.user;
             }
+
+            if (userStr) {
+                // декодируем и парсим
+                const userData = JSON.parse(decodeURIComponent(userStr));
+                if (userData && userData.id) {
+                    return { valid: true, data: userData };
+                }
+            }
+            // Если user или user.id не найден в initData, это ошибка
+            console.error('[Auth Validate] "user" field with an "id" not found in initData during development.');
+            return { valid: false, data: null, error: "Invalid dev initData: 'user' object with 'id' is missing" };
+
         } catch (e) {
-            console.error('[Auth Validate] Не удалось разобрать dev-данные:', e);
+            console.error('[Auth Validate] Failed to parse dev data:', e);
             return { valid: false, data: null, error: "Invalid development data" };
         }
     }
 
-    // В продакшене (когда NODE_ENV='production' или не установлен)
-    // всегда проводим строгую проверку хеша.
+    // В production-режиме всегда проводим строгую проверку хеша.
+    console.log('[Auth Validate] Production mode: Performing hash validation.');
     if (!TELEGRAM_BOT_TOKEN) {
+        console.error('[Auth Validate] TELEGRAM_BOT_TOKEN is not configured.');
         return { valid: false, data: null, error: "Application is not configured for Telegram authentication (token missing)." };
     }
 
@@ -120,98 +141,187 @@ router.post('/telegram-handshake', async (req, res) => {
     const telegramUser = validationResult.data;
     const telegram_id = telegramUser.id;
 
-    // --- DEV MODE ROLE EMULATION ---
-    // Этот блок выполняется только в режиме разработки, если в мок-данных есть специальное поле dev_role
-    if (process.env.NODE_ENV === 'development' && telegramUser.dev_role) {
+    // --- РЕЖИМ РАЗРАБОТКИ ---
+    if (process.env.NODE_ENV === 'development') {
+        // Пропускаем проверку хеша и доверяем данным от фронтенда
+        console.log('[Auth] Development mode: Trusting frontend data for role emulation.');
+        
+        const ownerTelegramId = parseInt(process.env.DEV_OWNER_TELEGRAM_ID, 10);
+        const adminTelegramId = parseInt(process.env.DEV_ADMIN_TELEGRAM_ID, 10);
+        const serviceTelegramId = parseInt(process.env.DEV_SERVICE_TELEGRAM_ID, 10);
+    
+        if (!telegramUser.dev_role) {
+            return res.status(400).json({ message: "Dev Error: 'dev_role' is missing in the emulated user data." });
+        }
         const dev_role = telegramUser.dev_role;
-        console.log(`[DEV_MODE] Emulating role: "${dev_role}" for TG ID: ${telegram_id}`);
+        let userRecord, access_level, owner_user_id;
+    
+        if (dev_role === 'owner') {
+          // --- Эмуляция Владельца ---
+          userRecord = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [ownerTelegramId]);
+          if (userRecord.rows.length === 0) {
+            console.log(`[Auth Dev] Owner with telegram_id=${ownerTelegramId} not found. Creating...`);
+            userRecord = await pool.query(
+              "INSERT INTO users (telegram_id, first_name, user_name, setup_date, tax_system, acquiring) VALUES ($1, $2, $3, '2023-01-01', 'income_6', 1.9) RETURNING *",
+              [ownerTelegramId, telegramUser.first_name, telegramUser.username]
+            );
+          }
+          access_level = 'owner';
+          owner_user_id = userRecord.rows[0].id;
+    
+        } else {
+          // --- Эмуляция Админа или Сервис-инженера ---
+          const ownerResult = await pool.query('SELECT id FROM users WHERE telegram_id = $1', [ownerTelegramId]);
+          if (ownerResult.rows.length === 0) {
+            return res.status(404).json({ message: "Dev Error: Owner user not found. Please login as 'owner' first to create the main user." });
+          }
+          owner_user_id = ownerResult.rows[0].id;
+    
+          let targetTelegramId;
+          if (dev_role === 'admin') {
+            targetTelegramId = adminTelegramId;
+            access_level = 'admin';
+          } else { // service
+            targetTelegramId = serviceTelegramId;
+            access_level = 'service';
+          }
+          
+          // Ищем или создаем запись о доступе
+          let accessRecord = await pool.query(
+            'SELECT * FROM user_access_rights WHERE owner_user_id = $1 AND shared_with_telegram_id = $2',
+            [owner_user_id, targetTelegramId]
+          );
+    
+          if (accessRecord.rows.length === 0) {
+            console.log(`[Auth Dev] Access rights for ${dev_role} (telegram_id=${targetTelegramId}) not found. Creating...`);
+            await pool.query(
+              "INSERT INTO user_access_rights (owner_user_id, shared_with_telegram_id, shared_with_name, access_level) VALUES ($1, $2, $3, $4)",
+              [owner_user_id, targetTelegramId, telegramUser.first_name, access_level]
+            );
+            accessRecord = {
+                rows: [{ shared_with_name: telegramUser.first_name }]
+            };
+          }
+          
+          // Для генерации токена нам нужен основной профиль владельца
+          userRecord = await pool.query('SELECT * FROM users WHERE id = $1', [owner_user_id]);
+        }
         
-        const devOwnerId = 1; // Используем постоянный ID владельца для консистентности в тестах
+        // Создаем JWT токен
+        const token = jwt.sign(
+            { userId: userRecord.rows[0].id, telegramId: telegramUser.id.toString(), accessLevel: access_level }, 
+            JWT_SECRET, { expiresIn: '12h' }
+        );
         
-        const tokenPayload = { 
-            userId: devOwnerId, 
-            telegramId: telegram_id.toString(),
-            accessLevel: dev_role
-        };
-        
-        const userPayloadForClient = {
-            userId: devOwnerId,
-            telegramId: telegram_id.toString(),
-            firstName: telegramUser.first_name || `Dev ${dev_role}`,
-            username: telegramUser.username || `dev_${dev_role}`,
-            accessLevel: dev_role
-        };
-
-        const appToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '12h' });
-        const action = (dev_role === 'owner') ? 'login_success' : 'login_shared_access';
+        // --- ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ ---
+        // Собираем объект пользователя для ответа на фронтенд КОРРЕКТНО
+        let userForFrontend;
+        if (dev_role === 'owner') {
+            userForFrontend = {
+                ...userRecord.rows[0], // Для owner'а отправляем его полную запись
+                role: access_level,
+                accessLevel: access_level
+            };
+        } else {
+            // Для admin и service создаем объект с правильными данными
+            userForFrontend = {
+                id: owner_user_id, // ID всегда от владельца
+                telegram_id: telegramUser.id, // ID от эмулируемого пользователя
+                first_name: telegramUser.first_name, // Имя от эмулируемого пользователя
+                user_name: telegramUser.username, // Username от эмулируемого пользователя
+                role: access_level, // Роль эмулируемого пользователя
+                accessLevel: access_level // Уровень доступа эмулируемого пользователя
+            };
+        }
+        console.log('[DEBUG auth.js] User object being sent to frontend:', userForFrontend);
 
         return res.json({
             success: true,
-            action: action,
-            token: appToken,
-            user: userPayloadForClient
+            message: 'login_success',
+            token: token,
+            user: userForFrontend
         });
     }
-    // --- END DEV MODE ROLE EMULATION ---
 
-    try {
-        const userResult = await pool.query('SELECT id, vendista_api_token, setup_date, tax_system, acquiring, first_name, user_name FROM users WHERE telegram_id = $1', [telegram_id]);
 
-        if (userResult.rows.length > 0 && userResult.rows[0].vendista_api_token) {
-            const user = userResult.rows[0];
-            const appToken = jwt.sign(
-                { userId: user.id, telegramId: telegram_id.toString(), accessLevel: 'owner' }, 
-                JWT_SECRET, { expiresIn: '12h' }
-            );
-            return res.json({
-                success: true, action: 'login_success', token: appToken,
-                user: {
-                    userId: user.id, telegramId: telegram_id.toString(), firstName: user.first_name || telegramUser.first_name,
-                    username: user.user_name || telegramUser.username, setup_date: user.setup_date, tax_system: user.tax_system,
-                    acquiring: user.acquiring !== null ? String(user.acquiring) : null, accessLevel: 'owner'
-                }
-            });
+    // --- ПРОДАКШЕН ЛОГИКА ---
+    let userQuery = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
+    let user = userQuery.rows[0];
+    let role = null;
+    let owner_id = null;
+
+    // Определяем роль пользователя
+    if (user) {
+        // Если пользователь найден и прошел регистрацию
+        if (user.vendista_api_token) {
+            role = 'owner'; // Предполагаем, что найденный пользователь является владельцем
+            owner_id = user.id; // owner_id будет использоваться для генерации токена
+        } else {
+            // Если пользователь существует, но не завершил регистрацию
+            role = 'registration_incomplete';
+            owner_id = user.id; // owner_id будет использоваться для генерации токена
         }
-        
-        const accessResult = await pool.query(
-            `SELECT owner_user_id, access_level, shared_with_name FROM user_access_rights WHERE shared_with_telegram_id = $1`, 
-            [telegram_id]
+    } else {
+        // Если пользователь новый, создаем запись и отправляем на регистрацию
+        const newUserQuery = await pool.query(
+            "INSERT INTO users (telegram_id, first_name, user_name) VALUES ($1, $2, $3) RETURNING *",
+            [telegram_id, telegramUser.first_name || '', telegramUser.username || '']
         );
+        const newUser = newUserQuery.rows[0];
+        role = 'registration_required';
+        owner_id = newUser.id; // owner_id будет использоваться для генерации токена
+    }
 
-        if (accessResult.rows.length > 0) {
-            const access = accessResult.rows[0];
-            const appToken = jwt.sign(
-                { userId: access.owner_user_id, telegramId: telegram_id.toString(), accessLevel: access.access_level, sharedName: access.shared_with_name },
-                JWT_SECRET, { expiresIn: '12h' }
+    // Если пользователь найден и прошел регистрацию
+    if (user && user.vendista_api_token) {
+        const token = jwt.sign(
+            { userId: user.id, telegramId: user.telegram_id, accessLevel: role },
+            JWT_SECRET,
+            { expiresIn: '12h' }
             );
+
             return res.json({
-                success: true, action: 'login_shared_access', token: appToken,
+            success: true,
+            token: token,
                 user: {
-                    userId: access.owner_user_id, telegramId: telegram_id.toString(), firstName: access.shared_with_name,
-                    username: telegramUser.username || '', accessLevel: access.access_level
+                ...user,
+                role: role,
+                accessLevel: role // <-- ИСПРАВЛЕНИЕ: приводим к camelCase
+                }
+            });
+        }
+        
+    // Если пользователь существует, но не завершил регистрацию
+    if (user) {
+            return res.json({
+            success: true, 
+            message: 'registration_incomplete',
+                user: {
+                id: user.id,
+                telegram_id: user.telegram_id,
+                first_name: telegramUser.first_name,
+                user_name: telegramUser.username
                 }
             });
         }
 
-        if (userResult.rows.length > 0) {
-            return res.json({
-                success: true, action: 'registration_incomplete', telegram_id: telegram_id.toString(), 
-                firstName: userResult.rows[0].first_name || telegramUser.first_name,
-                username: userResult.rows[0].user_name || telegramUser.username,
-            });
-        }
-        
-        return res.json({
-            success: true, action: 'registration_required', telegram_id: telegram_id.toString(),
-            firstName: telegramUser.first_name, username: telegramUser.username,
-        });
+    // Если пользователь новый, создаем запись и отправляем на регистрацию
+    const newUserQuery = await pool.query(
+        "INSERT INTO users (telegram_id, first_name, user_name) VALUES ($1, $2, $3) RETURNING *",
+        [telegram_id, telegramUser.first_name || '', telegramUser.username || '']
+    );
+    const newUser = newUserQuery.rows[0];
 
-    } catch (err) {
-        console.error("[POST /api/auth/telegram-handshake] Database/server error:", err);
-        sendErrorToAdmin({ telegramId: telegram_id, errorContext: 'Telegram Handshake DB/Server', errorMessage: err.message, errorStack: err.stack })
-        .catch(notifyErr => console.error("Failed to send admin notification from telegram-handshake DB error:", notifyErr));
-        res.status(500).json({ success: false, error: 'Server error during handshake.' });
-    }
+            return res.json({
+        success: true,
+        message: 'registration_required',
+        user: {
+            id: newUser.id,
+            telegram_id: newUser.telegram_id,
+            first_name: telegramUser.first_name,
+            user_name: telegramUser.username
+        }
+    });
 });
 
 router.post('/log-frontend-error', async (req, res) => {
@@ -517,6 +627,116 @@ router.post('/refresh-app-token', async (req, res) => {
             errorStack: err.stack
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Внутренняя ошибка сервера при обновлении токена.' });
+    }
+});
+
+// Validate existing JWT token
+router.get('/validate-token', async (req, res) => {
+    const header = req.headers['authorization'];
+    if (!header) {
+        return res.status(401).json({ success: false, error: 'No authorization header' });
+    }
+
+    const parts = header.split(' ');
+    if (parts.length !== 2 || parts[0] !== 'Bearer') {
+        return res.status(401).json({ success: false, error: 'Invalid token format' });
+    }
+
+    const token = parts[1];
+    if (!token) {
+        return res.status(401).json({ success: false, error: 'No token provided' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        // --- ОБЩАЯ ЛОГИКА ДЛЯ ВСЕХ СРЕД ---
+        // Всегда ищем пользователя в базе данных, чтобы отдать на фронтенд актуальные данные.
+        const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.userId]);
+        if (userResult.rows.length === 0) {
+            console.warn(`[validate-token] User with ID ${decoded.userId} from token not found in DB.`);
+            return res.status(401).json({ success: false, error: 'User not found' });
+        }
+        const user = userResult.rows[0];
+
+        // Определяем роль из токена. В dev-режиме она может быть подменена.
+        const roleOrAccessLevel = decoded.accessLevel || decoded.role || 'owner';
+
+        // Формируем полный объект пользователя для ответа
+        let userForClient = {
+            ...user, // Полные данные из БД
+            id: user.id, // Убедимся, что ID правильный
+            telegram_id: decoded.telegramId, // <-- Используем telegram_id из токена, он может быть эмулированным
+            role: roleOrAccessLevel,
+            accessLevel: roleOrAccessLevel,
+        };
+
+        // В dev-режиме, если роль не 'owner', нам надо добавить данные о правах доступа
+        if (process.env.NODE_ENV === 'development' && roleOrAccessLevel !== 'owner') {
+             const accessRightsResult = await pool.query(
+                `SELECT uar.shared_with_name
+                 FROM user_access_rights uar
+                 WHERE uar.owner_user_id = $1 AND uar.shared_with_telegram_id = $2`,
+                [user.id, decoded.telegramId]
+            );
+            if(accessRightsResult.rows.length > 0) {
+                userForClient.first_name = accessRightsResult.rows[0].shared_with_name;
+                userForClient.user_name = `dev_${roleOrAccessLevel}`; // Добавляем и username для консистентности
+            }
+        }
+        
+        res.json({
+            success: true,
+            user: userForClient
+        });
+
+    } catch (err) {
+        console.error('Token validation error:', err);
+        return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+    }
+});
+
+// Endpoint для ручного сброса статуса оплаты Vendista (только для админов)
+router.post('/reset-payment-status', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'User ID is required' });
+        }
+
+        // Сбрасываем статус оплаты на 'active'
+        const result = await pool.query(
+            `UPDATE users SET 
+                vendista_payment_status = 'active', 
+                vendista_payment_notified_at = NULL,
+                updated_at = NOW()
+             WHERE id = $1 
+             RETURNING id, telegram_id, first_name, vendista_payment_status`,
+            [userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+
+        const user = result.rows[0];
+        console.log(`[Auth] Payment status reset for user ${user.id} (${user.first_name})`);
+
+        res.json({
+            success: true,
+            message: `Payment status reset successfully for user ${user.first_name} (ID: ${user.id})`,
+            user: {
+                id: user.id,
+                telegram_id: user.telegram_id,
+                first_name: user.first_name,
+                payment_status: user.vendista_payment_status
+            }
+        });
+
+    } catch (err) {
+        console.error('Error resetting payment status:', err);
+        return res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 

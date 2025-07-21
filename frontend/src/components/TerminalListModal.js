@@ -1,5 +1,6 @@
 // frontend/src/components/TerminalListModal.js
 import React from 'react';
+import './ModalFrame.css';
 import './TerminalListModal.css';
 import { ALL_ITEMS } from '../constants';
 
@@ -8,8 +9,12 @@ const ITEM_UNITS = ALL_ITEMS.reduce((acc, item) => {
     return acc;
 }, {});
 
-export default function TerminalListModal({ terminals, onSelect, onClose, currentSelection, disabledId = null, title = "Выберите стойку" }) {
+export default function TerminalListModal({ isOpen, terminals, onSelect, onClose, currentSelection, disabledId = null, title = "Выберите стойку" }) {
     
+    if (!isOpen) {
+        return null;
+    }
+
     const onlineTerminals = terminals.filter(t => t.is_online);
     const offlineTerminals = terminals.filter(t => !t.is_online);
 

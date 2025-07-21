@@ -43,9 +43,20 @@ router.get('/', authMiddleware, async (req, res) => {
                     'water', jsonb_build_object('level', tc.water_level),
                     'grams', jsonb_build_object('level', tc.grams_level),
                     'pieces', jsonb_build_object('level', tc.pieces_level)
-                ) as stock_summary
+                ) as stock_summary,
+                COALESCE(machine_inventory.inventory_details, '[]'::jsonb) AS machine_inventory
              FROM terminals t
              LEFT JOIN terminal_configs tc ON t.id = tc.id
+             LEFT JOIN LATERAL (
+                SELECT jsonb_agg(jsonb_build_object(
+                    'item_name', i.item_name,
+                    'current_stock', i.current_stock,
+                    'max_stock', i.max_stock,
+                    'critical_stock', i.critical_stock
+                )) AS inventory_details
+                FROM inventories i
+                WHERE i.terminal_id = t.id AND i.location = 'machine'
+             ) AS machine_inventory ON TRUE
              WHERE t.user_id = $1 AND t.is_active = true 
              ORDER BY t.name ASC`,
             [ownerUserId]
@@ -152,6 +163,67 @@ router.post('/:internalId/settings', authMiddleware, async (req, res) => {
         sendErrorToAdmin({
             userId: ownerUserId, errorContext: `POST /api/terminals/${internalId}/settings`,
             errorMessage: err.message, errorStack: err.stack,
+        }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при сохранении настроек.' });
+    } finally {
+        client.release();
+    }
+});
+
+// Новый эндпоинт для сохранения настроек контейнеров
+router.post('/:terminalId/settings', authMiddleware, async (req, res) => {
+    const { ownerUserId, telegramId } = req.user;
+    const { terminalId } = req.params;
+    const { inventorySettings } = req.body; // Ожидаем массив объектов
+
+    // Проверка, что терминал принадлежит пользователю
+    try {
+        const termCheck = await pool.query(
+            'SELECT id FROM terminals WHERE id = $1 AND user_id = $2',
+            [terminalId, ownerUserId]
+        );
+        if (termCheck.rowCount === 0) {
+            console.warn(`[POST /api/terminals/:terminalId/settings] OwnerID: ${ownerUserId}, TerminalID: ${terminalId} - Access denied.`);
+            return res.status(403).json({ success: false, error: 'Доступ к терминалу запрещен.' });
+        }
+    } catch (checkError) {
+        console.error(`[POST /api/terminals/:terminalId/settings] OwnerID: ${ownerUserId}, TerminalID: ${terminalId} - Access check error:`, checkError);
+        return res.status(500).json({ success: false, error: 'Ошибка проверки доступа к терминалу.' });
+    }
+
+    if (!Array.isArray(inventorySettings)) {
+        return res.status(400).json({ success: false, error: 'Неверный формат данных настроек.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        for (const setting of inventorySettings) {
+            const { item_name, max_stock, critical_stock } = setting;
+            const query = `
+                INSERT INTO inventories (user_id, terminal_id, item_name, location, max_stock, critical_stock)
+                VALUES ($1, $2, $3, 'machine', $4, $5)
+                ON CONFLICT (user_id, terminal_id, item_name, location) 
+                DO UPDATE SET 
+                    max_stock = EXCLUDED.max_stock,
+                    critical_stock = EXCLUDED.critical_stock,
+                    updated_at = NOW();
+            `;
+            await client.query(query, [ownerUserId, terminalId, item_name, max_stock, critical_stock]);
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'Настройки успешно сохранены.' });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(`[POST /api/terminals/:terminalId/settings] OwnerID: ${ownerUserId}, TerminalID: ${terminalId}. Error:`, err);
+        sendErrorToAdmin({
+            userId: ownerUserId,
+            errorContext: 'POST /api/terminals/:terminalId/settings',
+            errorMessage: err.message,
+            errorStack: err.stack
         }).catch(console.error);
         res.status(500).json({ success: false, error: 'Ошибка сервера при сохранении настроек.' });
     } finally {

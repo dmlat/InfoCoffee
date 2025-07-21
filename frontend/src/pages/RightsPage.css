@@ -1,123 +1,279 @@
 /* frontend/src/pages/RightsPage.css */
+
 .rights-page-layout .main-content-area {
-    max-width: 800px;
-    margin: 0 auto;
-    width: 100%;
+  max-width: 700px; /* Увеличена ширина */
+  margin: 0 auto; /* Центрируем */
+  width: 100%;
 }
 
 .access-form-container {
-    background: #282c34;
-    padding: 20px 25px;
-    border-radius: 12px;
-    margin-bottom: 25px;
+  background: #282c34;
+  padding: 20px 25px;
+  border-radius: 12px;
+  margin-bottom: 24px;
 }
 
 .form-title {
-    color: #8ae6ff;
-    font-weight: 600;
-    font-size: 1.1em;
-    margin: 0 0 5px 0;
-    text-align: left;
+  color: #8ae6ff;
+  font-weight: 600;
+  font-size: 1.1em;
+  margin: 0 0 10px 0;
+  text-align: left;
 }
+
 .form-sub-title {
-    color: #a0b0c8;
-    margin: 0 0 15px 0;
-    font-size: 0.9em;
-    text-align: left;
+  color: #a0b0c8;
+  font-size: 0.9em;
+  margin: -5px 0 15px 0;
+  text-align: left;
 }
 
-.access-form .form-row {
-    display: flex;
-    gap: 10px;
-    align-items: center;
+.access-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
-.access-form .form-input {
-    flex-grow: 1;
-    padding: 8px 10px;
-    border-radius: 6px;
-    background: #2e3340;
-    border: 1px solid #303548;
-    color: #c6c6c6;
-    height: 38px;
-    box-sizing: border-box;
+.form-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end; /* Выравнивание элементов по низу */
 }
 
-.access-form .action-btn {
-    flex-shrink: 0;
-    width: auto;
+.form-input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #2e3340;
+  border: 1px solid #303548;
+  color: #c6c6c6;
+  height: 38px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #4f81c7;
+}
+
+.rights-form-add-button {
+  background-color: #4f81c7;
+  color: white;
+  font-weight: 400;
+  text-transform: none;
+  font-size: 0.95em;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  height: 38px;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.rights-form-add-button:hover {
+  background-color: #5a9ee6;
+}
+
+.rights-form-add-button:disabled {
+  background-color: #2e3340;
+  border-color: #303548;
+  color: #7a8b98;
+  cursor: not-allowed;
 }
 
 .form-error {
-    color: salmon;
-    font-size: 0.9em;
-    margin-top: 10px;
+  color: salmon;
+  margin-top: 10px;
+  text-align: left;
+  font-size: 0.9em;
 }
 
 .form-hint {
-    font-size: 0.8em;
-    color: #777c8c;
-    display: block;
-    margin-top: 15px;
-    line-height: 1.5;
+  font-size: 0.8em;
+  color: #777c8c;
+  display: block;
+  margin-top: 10px;
+  line-height: 1.4;
 }
+
 .form-hint code {
-    background: #20232a;
-    padding: 2px 4px;
-    border-radius: 4px;
-    font-family: monospace;
+  background: #3a3e47;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.9em;
+  color: #e0e0e0;
 }
 
-.data-table .access-level-header {
-    text-align: center;
+/* Таблица доступов */
+.data-table-container {
+  background: #282c34;
+  padding: 16px;
+  border-radius: 12px;
+  margin-top: 24px;
 }
 
-.data-table .access-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
+.access-level-header {
+  width: 180px; /* Фиксированная ширина для колонки уровней доступа */
+}
+
+.access-buttons {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
 }
 
 .access-btn {
-    border: 1px solid #303548;
-    background-color: #2e3340;
-    color: #a0b0c8;
-    padding: 5px 12px;
-    font-size: 0.85em;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.access-btn:hover {
-    background-color: #383e4c;
-    border-color: #484e5c;
+  padding: 5px 12px;
+  background: #2e3340;
+  color: #a0b0c8;
+  border: 1px solid #303548;
+  border-radius: 6px;
+  font-size: 0.8em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .access-btn.active {
-    background-color: #3e67e0;
-    border-color: #3e67e0;
-    color: #fff;
-    font-weight: 600;
+  background: #3e67e0;
+  color: #fff;
+  border-color: #3e67e0;
 }
 
-.data-table .delete-btn {
-    font-size: 1.6em;
-    font-weight: 400;
-    padding: 0 8px;
+.access-btn:hover {
+  border-color: #8ae6ff;
 }
 
 .your-access-label {
-    font-style: italic;
-    color: #999;
+  background: #4a4f58;
+  color: #e0e0e0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.85em;
+  font-weight: 500;
 }
 
+.delete-btn {
+  background: transparent;
+  color: #fff;
+  font-size: 1.5em;
+  font-weight: 300;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.delete-btn:hover {
+  color: #ff8a8a;
+  background-color: rgba(224, 107, 107, 0.15);
+}
+
+/* Медиа-запросы для RightsPage */
 @media (max-width: 767px) {
-    .access-form .form-row {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .access-form .action-btn {
-        width: 100%;
-    }
+  .form-row {
+    flex-direction: column;
+    align-items: stretch; /* Растягиваем элементы */
+  }
+
+  .form-input, .rights-form-add-button {
+    width: 100%;
+  }
+
+  .data-table-container {
+    overflow-x: auto;
+  }
+
+  .data-table th, .data-table td {
+    padding: 8px 6px; /* Уменьшаем отступы */
+    white-space: normal; /* Разрешаем перенос текста */
+  }
+
+  /* Адаптация колонок таблицы */
+  .data-table th:nth-child(1), .data-table td:nth-child(1), /* Имя */
+  .data-table th:nth-child(2), .data-table td:nth-child(2) { /* Telegram ID */
+    max-width: 80px; /* Ограничиваем ширину, чтобы дать место другим колонкам */
+    word-break: break-word;
+  }
+
+  .access-level-header { /* Доступ */
+    width: 110px; /* Увеличиваем ширину для вмещения кнопок */
+    min-width: 110px;
+  }
+
+  .td-action { /* Кнопка удаления */
+    width: 40px; /* Фиксированная ширина для кнопки удаления */
+    min-width: 40px;
+  }
+
+  /* Расположение кнопок Админ/Сервис друг под другом */
+  .access-buttons {
+    flex-direction: column;
+    gap: 5px;
+    align-items: stretch;
+  }
+
+  .access-btn {
+    width: 100%; /* Делаем кнопки полной ширины */
+    padding: 4px 8px; /* Уменьшаем отступы */
+    font-size: 0.75em; /* Уменьшаем шрифт */
+  }
+
+  .your-access-label {
+    font-size: 0.75em;
+  }
+}
+
+@media (max-width: 375px) {
+  .data-table-container {
+    padding: 0; /* Удаляем отступы для маленьких экранов */
+  }
+
+  .data-table {
+    width: 100%;
+  }
+
+  .data-table th, .data-table td {
+    padding: 4px 2px; /* Ещё уменьшаем отступы для максимальной компактности */
+  }
+
+  /* Адаптация колонок таблицы для 375px */
+  .data-table th:nth-child(1), .data-table td:nth-child(1), /* Имя */
+  .data-table th:nth-child(2), .data-table td:nth-child(2) { /* Telegram ID */
+    max-width: unset;
+    width: auto;
+    min-width: 30px; /* Минимальная ширина, чтобы не схлопывались полностью */
+    word-break: break-all; /* Разрешаем перенос слов */
+  }
+
+  .access-level-header, .data-table td:nth-child(3) { /* Доступ */
+    width: auto; 
+    min-width: 70px; /* Минимальная ширина для вмещения более высоких кнопок */
+    white-space: nowrap;
+  }
+
+  .td-action, .data-table th:last-child { /* Кнопка удаления */
+    width: 25px; /* Максимально узкая ширина */
+    min-width: 25px;
+  }
+
+  .access-buttons {
+    flex-direction: column;
+    gap: 1px; /* Ещё уменьшаем зазор */
+  }
+
+  .access-btn {
+    width: auto; 
+    padding: 4px 8px; /* Увеличиваем отступы для высоты */
+    font-size: 0.85em; /* Кегль как внутри таблицы */
+    white-space: nowrap;
+  }
+
+  .your-access-label {
+    font-size: 0.85em; /* Кегль как внутри таблицы */
+    white-space: nowrap;
+  }
 }

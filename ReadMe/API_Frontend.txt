@@ -1,0 +1,78 @@
+Frontend API Interaction Summary
+
+This document outlines how the frontend application interacts with the backend API, covering key components, authentication, and data handling.
+
+API Integration (frontend/src/api.js)
+
+  The api.js file is the central point for all API calls from the frontend.
+  It exports functions for making authenticated requests to various backend endpoints.
+  All requests are routed through this file to ensure consistent handling of headers, authentication tokens, and error responses.
+  It handles the attachment of the JWT token to outgoing requests.
+
+Authentication Flow (frontend/src/App.js, frontend/src/utils/user.js, frontend/src/pages/DevEntryPage.js)
+
+  Initial Login:
+    When a user attempts to log in, especially via role emulation in development, the process starts in frontend/src/pages/DevEntryPage.js (for dev mode) or the standard login form.
+    Login data is sent to the /auth/login endpoint.
+
+  Token Validation:
+    Upon successful login, a JWT token is received.
+    The App.js component uses an AuthProvider to manage the authentication state.
+    After receiving a token, App.js calls the /auth/validate-token endpoint to verify the token's authenticity and retrieve user details.
+    The AuthProvider now includes an isLoading state to prevent premature rendering of authenticated components before the token is validated.
+
+  Persistent Authentication:
+    The JWT token is stored locally (e.g., in localStorage) for session persistence.
+    Subsequent requests include this token in the Authorization header.
+    The AuthProvider ensures the user context and token are available across the application.
+
+Data Handling and Page-Specific Interactions
+
+  Finances Page (frontend/src/pages/FinancesPage.js)
+
+    This page fetches financial data using the useStatsPolling hook.
+    It relies on the JWT token for authorization.
+    The useStatsPolling hook now accepts the token directly, ensuring it's available when the polling starts.
+    Data is fetched from endpoints like /api/finances/overview.
+
+  Warehouse Page (frontend/src/pages/WarehousePage.js)
+
+    This page retrieves terminal and inventory data.
+    It makes API calls to /api/terminals and /api/inventory?location=warehouse.
+    The component handles display and updates of warehouse stock.
+    
+    Task Context Integration:
+    - The page now supports receiving task context through navigation state (`location.state.taskContext`).
+    - When a task context is provided, the page automatically selects the specified terminal and sets the transfer mode to "stand".
+    - This integration allows seamless execution of restock tasks by automatically focusing on the relevant terminal.
+
+  General Data Flow:
+    Frontend components dispatch actions or directly call functions from api.js to interact with the backend.
+    Responses from the backend are processed to update the UI or application state.
+    Error handling is centralized in api.js to provide consistent user feedback.
+
+  Tasks Page (frontend/src/pages/TasksPage.js)
+    Эта страница теперь имеет расширенный функционал и взаимодействует со следующими эндпоинтами:
+    - `GET /api/tasks/my`: для получения задач, назначенных текущему пользователю. Результат содержит информацию об `ingredients` для задач пополнения.
+    - `GET /api/tasks`: для получения полного журнала задач.
+    - `GET /api/tasks/settings`: для получения настроек обслуживания стоек. Теперь возвращает `needs_containers_config`.
+    - `POST /api/tasks/create-manual`: для ручного создания задач. Фронтенд формирует массив объектов задач, который отправляется на бэкенд.
+    - `POST /api/tasks/:taskId/complete`: для завершения задач. Для задач пополнения отправляется `updatedStock`, и логика завершения зависит от того, является ли задача ручной или системной.
+    
+    Отображение:
+    - В блоке "Ваши задачи" для задач пополнения теперь отображаются 1-2 ингредиента с самым низким процентом заполнения, независимо от их критического статуса. Это позволяет сосредоточиться на наиболее пустых контейнерах.
+    - В блоках "Пополнение стойки" и "Уборка стойки" отображается предупреждение "Заполните контейнеры" (красным цветом), если для стойки `needs_containers_config` равен `true`. При клике на это предупреждение происходит переход на страницу настроек стойки.
+    
+    Выполнение задач:
+    - Кнопка "Выполнить" для задач пополнения теперь работает для всех ролей (owner, admin, service) и переносит пользователя на складскую страницу (WarehousePage) в режиме "Стойка" с автоматическим выбором нужного терминала.
+    - Переход осуществляется через `navigate('/dashboard/warehouse', { state: { taskContext: {...} } })` с передачей контекста задачи.
+    - Для задач уборки используется существующий обработчик модального окна.
+
+Important Notes:
+
+  Mobile-First Design:
+    Frontend components, especially modals, follow a MobileFirst responsive design approach, often templating styles from components like StockUpModal.css.
+
+  State Management:
+    The application uses React Context (AuthContext) for managing global state like user authentication and loading status.
+    The isLoading flag in AuthContext is crucial for preventing race conditions where authenticated data is requested before the token is fully loaded and validated. 
