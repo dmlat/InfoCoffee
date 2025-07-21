@@ -3,20 +3,22 @@ const db = require('../db');
 const { encrypt, decrypt } = require('./security');
 const { sendErrorToAdmin } = require('./adminErrorNotifier');
 
-const VENDISTA_API_BASE_URL = process.env.VENDISTA_API_BASE_URL || 'https://api.vendista.ru';
+const VENDISTA_API_BASE_URL = process.env.VENDISTA_API_BASE_URL || 'https://api.vendista.ru:99';
 
 async function getNewVendistaToken(login, password) {
     try {
-        const response = await axios.post(`${VENDISTA_API_BASE_URL}/auth/token`, {
-            login,
-            password
+        const response = await axios.get(`${VENDISTA_API_BASE_URL}/token`, {
+            params: {
+                Login: login,
+                Password: password
+            }
         });
         if (response.data && response.data.token) {
             return response.data.token;
         }
         return null;
     } catch (error) {
-        console.error(`[getNewVendistaToken] Failed to get new token for login ${login}`, error.response ? error.response.data : error.message);
+        console.error(`[getNewVendistaToken] Failed to get new token for login ${login}. URL: ${error.config?.url}. Status: ${error.response?.status}.`, error.response?.data);
         return null;
     }
 }
