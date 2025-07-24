@@ -17,6 +17,86 @@ const getIngredientPillClass = (ingredient) => {
     return 'normal';
 };
 
+// New hook for ingredient pill visibility logic
+const useIngredientPillVisibility = (dataItems, isExpanded, idKey = 'id') => {
+    const ingredientsContainerRefs = useRef({});
+    const [visibleIngredientCounts, setVisibleIngredientCounts] = useState({});
+    const [expandedPills, setExpandedPills] = useState({});
+
+    const calculateVisibleCounts = useCallback((container, ingredients) => {
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.visibility = 'hidden';
+        tempContainer.style.height = 'auto';
+        tempContainer.style.width = 'auto';
+        tempContainer.style.display = 'flex';
+        tempContainer.style.gap = '6px';
+        document.body.appendChild(tempContainer);
+
+        const containerWidth = container.offsetWidth;
+        const sortedIngredients = [...ingredients].sort((a, b) => (a.percentage ?? 101) - (b.percentage ?? 101));
+        
+        if (window.innerWidth < 375) {
+            document.body.removeChild(tempContainer);
+            return 1;
+        }
+
+        const pillWidths = sortedIngredients.map(ing => {
+            const tempPill = document.createElement('span');
+            tempPill.className = 'ingredient-pill';
+            tempPill.innerText = `${ing.name}: ${ing.percentage?.toFixed(0) ?? '??'}%`;
+            tempContainer.appendChild(tempPill);
+            const width = tempPill.offsetWidth;
+            tempContainer.removeChild(tempPill);
+            return width;
+        });
+        
+        const gap = 6;
+        let currentWidth = 0;
+        let visibleCount = 0;
+
+        for (const width of pillWidths) {
+            const requiredWidth = visibleCount === 0 ? width : width + gap;
+            if (currentWidth + requiredWidth <= containerWidth) {
+                currentWidth += requiredWidth;
+                visibleCount++;
+            } else {
+                break;
+            }
+        }
+        
+        document.body.removeChild(tempContainer);
+        return visibleCount;
+    }, []);
+
+    useLayoutEffect(() => {
+        if (!isExpanded || !dataItems || dataItems.length === 0) return;
+
+        const observers = new Map();
+
+        dataItems.forEach(item => {
+            const container = ingredientsContainerRefs.current[item[idKey]];
+            if (container) {
+                const observer = new ResizeObserver(() => {
+                    const count = calculateVisibleCounts(container, item.ingredients);
+                    setVisibleIngredientCounts(prev => ({ ...prev, [item[idKey]]: count }));
+                });
+                observer.observe(container);
+                observers.set(item[idKey], observer);
+                // Initial calculation
+                const initialCount = calculateVisibleCounts(container, item.ingredients);
+                setVisibleIngredientCounts(prev => ({ ...prev, [item[idKey]]: initialCount }));
+            }
+        });
+
+        return () => {
+            observers.forEach(observer => observer.disconnect());
+        };
+
+    }, [isExpanded, dataItems, calculateVisibleCounts, idKey]);
+
+    return { ingredientsContainerRefs, visibleIngredientCounts, expandedPills, setExpandedPills };
+};
 
 const TaskStatusIcon = ({ task }) => {
     const moscowTime = new Date();
@@ -34,21 +114,19 @@ const TaskStatusIcon = ({ task }) => {
 
 const YourTasksBlock = ({ tasks, isLoading, onTaskAction, isExpanded, onToggle }) => {
     const navigate = useNavigate();
+    const { ingredientsContainerRefs, visibleIngredientCounts, expandedPills, setExpandedPills } = useIngredientPillVisibility(tasks, isExpanded, 'id');
 
     const handleExecuteClick = (task) => {
-        if (task.task_type === 'restock') {
-            navigate('/dashboard/warehouse', { 
-                state: { 
-                    taskContext: {
-                        id: task.id,
-                        terminalId: task.terminal_id,
-                        terminalName: task.terminal_name,
-                    }
-                } 
-            });
-        } else {
-            onTaskAction(task);
-        }
+        // All tasks are now 'restock'
+        navigate('/dashboard/warehouse', { 
+            state: { 
+                taskContext: {
+                    id: task.id,
+                    terminalId: task.terminal_id,
+                    terminalName: task.terminal_name,
+                }
+            } 
+        });
     };
     
     return (
@@ -74,7 +152,7 @@ const YourTasksBlock = ({ tasks, isLoading, onTaskAction, isExpanded, onToggle }
                             ) : tasks.length === 0 ? (
                                 <tr><td colSpan="2" className="tasks-table-empty-row">У вас нет активных задач.</td></tr>
                             ) : tasks.map(task => {
-                                const taskTypeText = task.task_type === 'restock' ? 'Пополнение' : 'Уборка';
+                                const taskTypeText = 'Пополнение';
                                 return (
                                     <tr key={task.id}>
                                         <td className="task-cell">
@@ -82,19 +160,33 @@ const YourTasksBlock = ({ tasks, isLoading, onTaskAction, isExpanded, onToggle }
                                             <div className="task-type-name">{taskTypeText}</div>
                                             {task.comment && <div className="task-details"><i>{task.comment}</i></div>}
                                             {task.task_type === 'restock' && task.ingredients && (
-                                                <div className="task-ingredients-pills">
+                                                <div className="task-ingredients-pills" ref={el => ingredientsContainerRefs.current[task.id] = el}>
                                                     {(() => {
-                                                        // Упрощенная логика: показываем 1-2 ингредиента с самыми низкими процентами
-                                                        // независимо от критичности
                                                         const sortedIngredients = task.ingredients
-                                                            .sort((a, b) => (a.percentage ?? 101) - (b.percentage ?? 101))
-                                                            .slice(0, 2); // Берем только первые 2 с самыми низкими процентами
+                                                            .sort((a, b) => (a.percentage ?? 101) - (b.percentage ?? 101));
                                                         
-                                                        return sortedIngredients.map(ing => (
-                                                            <span key={ing.name} className={`ingredient-pill ${getIngredientPillClass(ing)}`}>
-                                                                {ing.name}: {ing.percentage?.toFixed(0) ?? '??'}%
-                                                            </span>
-                                                        ));
+                                                        const visibleCount = visibleIngredientCounts[task.id] ?? sortedIngredients.length; // Use dynamically calculated count
+                                                        const hiddenCount = sortedIngredients.length - visibleCount;
+
+                                                        return (
+                                                            <>
+                                                                {((expandedPills[task.id] || false) ? sortedIngredients : sortedIngredients.slice(0, visibleCount)).map(ing => (
+                                                                    <span key={ing.name} className={`ingredient-pill ${getIngredientPillClass(ing)}`}>
+                                                                        {ing.name}: {ing.percentage?.toFixed(0) ?? '??'}%
+                                                                    </span>
+                                                                ))}
+                                                                {hiddenCount > 0 && !expandedPills[task.id] && (
+                                                                    <span className="ingredient-pill show-more-pills" onClick={() => setExpandedPills(prev => ({ ...prev, [task.id]: true }))}>
+                                                                        ... Ещё {hiddenCount}
+                                                                    </span>
+                                                                )}
+                                                                {expandedPills[task.id] && (
+                                                                    <span className="ingredient-pill show-more-pills" onClick={() => setExpandedPills(prev => ({ ...prev, [task.id]: false }))}>
+                                                                        Свернуть
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        );
                                                     })()}
                                                 </div>
                                             )}
@@ -102,7 +194,7 @@ const YourTasksBlock = ({ tasks, isLoading, onTaskAction, isExpanded, onToggle }
                                         <td className="status-cell-centered">
                                             {task.status === 'pending' && (
                                                 <button 
-                                                    className="action-button complete"
+                                                    className="action-button complete create-task-button-inline"
                                                     onClick={() => handleExecuteClick(task)}
                                                 >
                                                 Выполнить
@@ -153,7 +245,7 @@ const TasksLogBlock = ({ tasks, isLoading, onTaskDelete, onTaskAction, isExpande
                                 ) : tasks.length === 0 ? (
                                     <tr><td colSpan="3" className="tasks-table-empty-row">Активных задач нет.</td></tr>
                                 ) : tasks.map(task => {
-                                    const taskTypeText = task.task_type === 'restock' ? 'Пополнение' : 'Уборка';
+                                    const taskTypeText = 'Пополнение';
                                     
                                     return (
                                         <tr key={task.id}>
@@ -182,86 +274,11 @@ const TasksLogBlock = ({ tasks, isLoading, onTaskDelete, onTaskAction, isExpande
 };
 
 const RestockSettingsBlock = ({ restockInfo, settings, users, isLoading, onOpenModal, onOpenCommentModal, isExpanded, onToggle }) => {
-    const ingredientsContainerRefs = useRef({});
-    const [visibleIngredientCounts, setVisibleIngredientCounts] = useState({});
-    const [expandedPills, setExpandedPills] = useState({});
-
-    useLayoutEffect(() => {
-        if (!isExpanded) return;
-
-        const calculateVisibleCounts = (container, ingredients) => {
-            const tempContainer = document.createElement('div');
-            tempContainer.style.position = 'absolute';
-            tempContainer.style.visibility = 'hidden';
-            tempContainer.style.height = 'auto';
-            tempContainer.style.width = 'auto';
-            tempContainer.style.display = 'flex';
-            tempContainer.style.gap = '6px';
-            document.body.appendChild(tempContainer);
-
-            const containerWidth = container.offsetWidth;
-            const sortedIngredients = [...ingredients].sort((a, b) => (a.percentage ?? 101) - (b.percentage ?? 101));
-            
-            if (window.innerWidth < 375) {
-                document.body.removeChild(tempContainer);
-                return 1;
-            }
-
-            const pillWidths = sortedIngredients.map(ing => {
-                const tempPill = document.createElement('span');
-                tempPill.className = 'ingredient-pill';
-                tempPill.innerText = `${ing.name}: ${ing.percentage?.toFixed(0) ?? '??'}%`;
-                tempContainer.appendChild(tempPill);
-                const width = tempPill.offsetWidth;
-                tempContainer.removeChild(tempPill);
-                return width;
-            });
-            
-            const gap = 6;
-            let currentWidth = 0;
-            let visibleCount = 0;
-
-            for (const width of pillWidths) {
-                const requiredWidth = visibleCount === 0 ? width : width + gap;
-                if (currentWidth + requiredWidth <= containerWidth) {
-                    currentWidth += requiredWidth;
-                    visibleCount++;
-                } else {
-                    break;
-                }
-            }
-            
-            document.body.removeChild(tempContainer);
-            return visibleCount;
-        };
-        
-        const observers = new Map();
-
-        restockInfo.forEach(terminal => {
-            const container = ingredientsContainerRefs.current[terminal.id];
-            if (container) {
-                const observer = new ResizeObserver(() => {
-                    const count = calculateVisibleCounts(container, terminal.ingredients);
-                    setVisibleIngredientCounts(prev => ({ ...prev, [terminal.id]: count }));
-                });
-                observer.observe(container);
-                observers.set(terminal.id, observer);
-                // Initial calculation
-                const initialCount = calculateVisibleCounts(container, terminal.ingredients);
-                setVisibleIngredientCounts(prev => ({ ...prev, [terminal.id]: initialCount }));
-            }
-        });
-
-        return () => {
-            observers.forEach(observer => observer.disconnect());
-        };
-
-    }, [isExpanded, restockInfo]);
-
+    const { ingredientsContainerRefs, visibleIngredientCounts, expandedPills, setExpandedPills } = useIngredientPillVisibility(restockInfo, isExpanded);
 
     const navigate = useNavigate();
     const handleConfigureClick = (terminalId) => {
-        navigate(`/stands/${terminalId}#settings`);
+        navigate(`/dashboard/stands/${terminalId}`, { state: { targetTab: 'settings' } });
     };
 
     return (
@@ -276,7 +293,7 @@ const RestockSettingsBlock = ({ restockInfo, settings, users, isLoading, onOpenM
                 <>
                     <p className="settings-hint">
                         - Настройте <span className="hint-red">критические остатки</span> и <span className="hint-yellow">Рецепты</span> в <span className="hint-blue">Стойках</span>, чтобы получать задачи на пополнение.<br/>
-                        - Нажмите "<span className="hint-blue">Поставить</span>" (голубой цвет текста), чтобы <span className="hint-white-bold">вручную</span> поставить задачу исполнителю.
+                        - Нажмите "<span className="hint-blue">Поставить</span>", чтобы <span className="hint-white-bold">вручную</span> поставить задачу исполнителю.
                     </p>
                     <div className="data-table-container">
                         <table className="data-table restock-table">
@@ -308,6 +325,9 @@ const RestockSettingsBlock = ({ restockInfo, settings, users, isLoading, onOpenM
                                             <tr className="restock-terminal-row">
                                                 <td>
                                                     <div className="restock-terminal-name">{terminal.name}</div>
+                                                    {currentSettings?.sales_since_cleaning != null && (
+                                                        <div className="sales-count-display">Продаж было: <span className="hint-blue">{currentSettings.sales_since_cleaning}</span></div>
+                                                    )}
                                                     {currentSettings?.needs_containers_config && (
                                                         <div className="configure-notice" onClick={() => handleConfigureClick(terminal.id)}>
                                                             <span className="hint-red">Заполните контейнеры</span>
@@ -327,7 +347,7 @@ const RestockSettingsBlock = ({ restockInfo, settings, users, isLoading, onOpenM
                                                     <div className="ingredients-container" ref={el => ingredientsContainerRefs.current[terminal.id] = el}>
                                                         {((expandedPills[terminal.id] || false) ? sortedIngredients : sortedIngredients.slice(0, visibleCount)).map(ing => (
                                                             <span key={ing.name} className={`ingredient-pill ${getIngredientPillClass(ing)}`}>
-                                                                {ing.name}: {ing.percentage?.toFixed(0) ?? '??'}%
+                                                                {ing.name}: {ing.percentage?.toFixed(0) ?? '??'}% 
                                                             </span>
                                                         ))}
                                                         {hiddenCount > 0 && !expandedPills[terminal.id] && (
@@ -353,106 +373,6 @@ const RestockSettingsBlock = ({ restockInfo, settings, users, isLoading, onOpenM
                                                                 : !currentSettings?.assignee_id_restock 
                                                                     ? "Сначала назначьте исполнителя" 
                                                                     : "Создать задачу на пополнение"
-                                                        }
-                                                    >
-                                                        Поставить
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        </React.Fragment>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </>
-            )}
-        </div>
-    );
-};
-
-const CleaningSettingsBlock = ({ settings, users, isLoading, onSettingChange, onOpenModal, onOpenCommentModal, isExpanded, onToggle, onAutoSave }) => {
-    const navigate = useNavigate();
-    const handleConfigureClick = (terminalId) => {
-        navigate(`/stands/${terminalId}#settings`);
-    };
-
-    return (
-        <div className="cleaning-settings-container">
-            <div className="container-header" onClick={onToggle}>
-                <h2 className="container-title">
-                     <span className={`toggle-arrow ${isExpanded ? 'open' : ''}`}></span>
-                    Уборка стойки
-                </h2>
-            </div>
-            {isExpanded && (
-                <>
-                    <p className="settings-hint">
-                        - Настройте <span className="hint-red">частоту уборки</span> (убирать каждые X продаж) и <span className="hint-yellow">назначьте ответственного</span>.<br/>
-                        - Нажмите "<span className="hint-blue">Поставить</span>", чтобы <span className="hint-white-bold">вручную</span> поставить задачу исполнителю.
-                    </p>
-                    <div className="data-table-container">
-                        <table className="data-table cleaning-table">
-                            <thead>
-                                <tr>
-                                    <th>Стойка</th>
-                                    <th>Действие</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {isLoading ? (
-                                    <tr><td colSpan="2" className="tasks-table-empty-row">Загрузка...</td></tr>
-                                ) : settings.map((setting, index) => {
-                                    const assignedUser = users.find(u => u.telegram_id === setting.assignee_id_cleaning);
-                                    const assigneesText = assignedUser ? (assignedUser.is_self ? 'Вы' : (assignedUser.name || '').split(' ')[0]) : 'Назначить';
-                                    
-                                    return (
-                                        <React.Fragment key={setting.id}>
-                                            <tr className="cleaning-terminal-row">
-                                                <td>
-                                                    <span className="cleaning-terminal-name">{setting.name || `Терминал #${setting.id}`}</span>
-                                                    {setting.needs_containers_config && (
-                                                        <div className="configure-notice" onClick={() => handleConfigureClick(setting.id)}>
-                                                            <span className="hint-red">Заполните контейнеры</span>
-                                                            <span className="arrow-icon">&gt;</span>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="action-cell">
-                                                    <button className="assignee-button" onClick={(e) => {e.stopPropagation(); onOpenModal(setting.id, 'cleaning');}}>
-                                                        <span className="assignee-icon"></span>
-                                                        <span>{assigneesText}</span>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                            <tr className={`cleaning-frequency-row ${index === settings.length - 1 ? 'last-terminal' : ''}`}>
-                                                <td>
-                                                    <div className="cleaning-frequency-controls">
-                                                        <input 
-                                                            type="number" 
-                                                            className={`cleaning-frequency-input ${setting.cleaning_frequency == null ? 'glowing-placeholder' : ''}`}
-                                                            value={setting.cleaning_frequency ?? ''}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            onChange={e => onSettingChange(setting.id, 'cleaning_frequency', e.target.value)}
-                                                            onBlur={() => onAutoSave(setting.id)}
-                                                            placeholder="100"
-                                                        />
-                                                        {setting.sales_since_cleaning != null && (
-                                                            <div className="sales-count-display">Продаж было: <span className="hint-blue">{setting.sales_since_cleaning}</span></div>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="action-cell">
-                                                    <button 
-                                                        className="create-task-button-inline"
-                                                        onClick={(e) => {e.stopPropagation(); onOpenCommentModal(setting.id, 'cleaning');}}
-                                                        disabled={!setting.assignee_id_cleaning || setting.needs_containers_config}
-                                                        title={
-                                                            setting.needs_containers_config 
-                                                                ? "Заполните контейнеры в настройках стойки" 
-                                                                : !setting.assignee_id_cleaning 
-                                                                    ? "Назначьте исполнителя" 
-                                                                    : "Создать задачу на уборку"
                                                         }
                                                     >
                                                         Поставить
@@ -497,16 +417,14 @@ export default function TasksPage() {
             return saved ? JSON.parse(saved) : {
                 myTasks: true,
                 log: true,
-                restock: false,
-                cleaning: false,
+                restock: true, // Set to true by default now
             };
         } catch (error) {
             console.error("Failed to parse expandedBlocks from localStorage:", error);
             return {
                 myTasks: true,
                 log: true,
-                restock: false,
-                cleaning: false,
+                restock: true, // Set to true by default now
             };
         }
     });
@@ -550,12 +468,6 @@ export default function TasksPage() {
         setExpandedBlocks(prev => ({ ...prev, [blockName]: !prev[blockName] }));
     };
 
-    const handleSettingChange = (terminalId, field, value) => {
-        setSettings(prevSettings => 
-            prevSettings.map(s => s.id === terminalId ? { ...s, [field]: value } : s)
-        );
-    };
-
     const handleAutoSaveSetting = async (terminalId) => {
         const setting = settings.find(s => s.id === terminalId);
         if (!setting) return;
@@ -563,8 +475,6 @@ export default function TasksPage() {
         try {
             await apiClient.post('/tasks/settings', {
                 terminal_id: setting.id,
-                cleaning_frequency: setting.cleaning_frequency,
-                assignee_id_cleaning: setting.assignee_id_cleaning,
                 assignee_id_restock: setting.assignee_id_restock
             });
         } catch (error) {
@@ -572,13 +482,13 @@ export default function TasksPage() {
         }
     };
 
-    const handleOpenModal = (terminalId, type) => {
-        setCurrentModalData({ terminalId, type });
+    const handleOpenModal = (terminalId) => { // type is removed, it's always 'restock'
+        setCurrentModalData({ terminalId, type: 'restock' });
         setAssigneeModalOpen(true);
     };
     
-    const handleOpenCommentModal = (terminalId, taskType) => {
-        setCurrentModalData({ terminalIds: [terminalId], taskType });
+    const handleOpenCommentModal = (terminalId) => { // taskType is removed
+        setCurrentModalData({ terminalIds: [terminalId], taskType: 'restock' });
         setCommentModalOpen(true);
     };
 
@@ -593,8 +503,8 @@ export default function TasksPage() {
     };
 
     const handleSaveAssignees = async (selectedAssigneeId) => {
-        const { terminalId, type } = currentModalData;
-        const field = type === 'cleaning' ? 'assignee_id_cleaning' : 'assignee_id_restock';
+        const { terminalId } = currentModalData;
+        const field = 'assignee_id_restock';
         
         setSettings(prev => prev.map(s => s.id === terminalId ? { ...s, [field]: selectedAssigneeId } : s));
         
@@ -602,8 +512,6 @@ export default function TasksPage() {
         try {
             await apiClient.post('/tasks/settings', {
                 terminal_id: terminalId,
-                cleaning_frequency: settingToUpdate.cleaning_frequency,
-                assignee_id_cleaning: settingToUpdate.assignee_id_cleaning,
                 assignee_id_restock: settingToUpdate.assignee_id_restock,
             });
         } catch (error) {
@@ -613,18 +521,18 @@ export default function TasksPage() {
     };
 
     const handleCreateManualTask = async (comment) => {
-        const { terminalIds, taskType } = currentModalData;
+        const { terminalIds } = currentModalData; // taskType removed
         
         // This logic is now handled by the backend. 
         // We just need to ensure at least one selected terminal has an assignee.
         const settingsForTerminals = settings.filter(s => terminalIds.includes(s.id));
         const tasksToCreate = settingsForTerminals
             .map(s => {
-                const assigneeId = taskType === 'cleaning' ? s.assignee_id_cleaning : s.assignee_id_restock;
+                const assigneeId = s.assignee_id_restock;
                 if (!assigneeId) return null;
                 return {
                     terminalId: s.id,
-                    taskType: taskType,
+                    taskType: 'restock', // Always restock
                     assigneeId: assigneeId,
                     comment: comment
                 };
@@ -705,7 +613,7 @@ export default function TasksPage() {
                     onSave={handleSaveAssignees}
                     isMultiSelect={false}
                     preSelectedAssignees={
-                        settings.find(s => s.id === currentModalData.terminalId)?.[currentModalData.type === 'cleaning' ? 'assignee_id_cleaning' : 'assignee_id_restock']
+                        settings.find(s => s.id === currentModalData.terminalId)?.assignee_id_restock
                     }
                 />
             )}
@@ -734,7 +642,7 @@ export default function TasksPage() {
                     onCancel={handleCloseModal}
                     onConfirm={() => handleCompleteTask(taskToComplete.id)}
                     title="Подтверждение выполнения"
-                    message={`Вы уверены, что хотите завершить задачу "${taskToComplete?.task_type === 'cleaning' ? 'Уборка' : 'Пополнение'}" для ${taskToComplete?.terminal_name}?`}
+                    message={`Вы уверены, что хотите завершить задачу "Пополнение" для ${taskToComplete?.terminal_name}?`}
                 />
             )}
 
@@ -768,17 +676,7 @@ export default function TasksPage() {
                          onToggle={() => toggleBlock('restock')}
                     />
 
-                    <CleaningSettingsBlock
-                         settings={cleaningSettingsWithTerminals}
-                         users={users}
-                         isLoading={isLoading}
-                         onOpenModal={handleOpenModal}
-                         onOpenCommentModal={handleOpenCommentModal}
-                         onSettingChange={handleSettingChange}
-                         onAutoSave={handleAutoSaveSetting}
-                         isExpanded={expandedBlocks.cleaning}
-                         onToggle={() => toggleBlock('cleaning')}
-                    />
+                    {/* CleaningSettingsBlock has been removed */}
                 </>
             )}
         </div>

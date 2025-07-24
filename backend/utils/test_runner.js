@@ -8,64 +8,61 @@ const { sendNotification } = require('./botNotifier');
 // --- Functions to be called ---
 
 /**
- * Creates a new task in the database manually.
- * @param {string} type - 'cleaning' or 'restock'
- * @param {number} terminalId - The internal ID of the terminal.
+ * Creates a manual service task for a given terminal.
+ * This is a test utility and should not be used in production.
+ * @param {number} terminalId - The ID of the terminal.
+ * @param {string} type - 'restock'
+ * @param {string} [comment='Тестовая задача'] - An optional comment for the task.
  */
-async function createTask(type, terminalId) {
-    if (!['cleaning', 'restock'].includes(type)) {
-        throw new Error('Invalid task type. Use "cleaning" or "restock".');
-    }
-    if (isNaN(terminalId)) {
-        throw new Error('Invalid terminalId. Must be a number.');
+async function createTestTask(terminalId, type, comment = 'Тестовая задача') {
+    if (type !== 'restock') {
+        throw new Error('Invalid task type. Use "restock".');
     }
 
-    console.log(`Creating '${type}' task for terminal ID ${terminalId}...`);
+    let client;
+    try {
+        // 1. Get owner ID and assignee IDs from the database
+        const settingsRes = await client.query(
+            `SELECT t.user_id, s.assignee_id_restock
+             FROM terminals t
+             LEFT JOIN stand_service_settings s ON t.id = s.terminal_id
+             WHERE t.id = $1`,
+            [terminalId]
+        );
 
-    // 1. Get terminal owner and assignees
-    // ИСПРАВЛЕНО: Изменено поле согласно DB.txt схеме
-    const settingsRes = await pool.query(
-        `SELECT t.user_id, s.assignee_id_cleaning, s.assignee_id_restock 
-         FROM terminals t
-         LEFT JOIN stand_service_settings s ON t.id = s.terminal_id
-         WHERE t.id = $1`,
-        [terminalId]
-    );
+        if (settingsRes.rowCount === 0) {
+            throw new Error(`Terminal with ID ${terminalId} not found.`);
+        }
 
-    if (settingsRes.rowCount === 0) {
-        throw new Error(`Terminal with ID ${terminalId} not found.`);
-    }
+        const { user_id: ownerUserId, assignee_id_restock } = settingsRes.rows[0];
+        let assignee_id = null;
 
-    const { user_id: ownerUserId, assignee_id_cleaning, assignee_id_restock } = settingsRes.rows[0];
-
-    // ИСПРАВЛЕНО: Выбираем assignee_id в зависимости от типа задачи
-    let assignee_id;
-    if (type === 'cleaning') {
-        assignee_id = assignee_id_cleaning;
-    } else if (type === 'restock') {
         assignee_id = assignee_id_restock;
-    }
 
-    if (!assignee_id) {
-        console.warn(`Terminal ${terminalId} has no assignee for ${type}. Task will be created but nobody will be notified.`);
-    }
+        if (!assignee_id) {
+            throw new Error(`No assignee found for task type '${type}' on terminal ${terminalId}.`);
+        }
 
-    // 2. Create task
-    let details = null;
-    if (type === 'restock') {
-        details = { items: 'Тестовый набор, Ингредиент 2' }; // Generic details for testing
-    }
+        // 2. Create task
+        let details = null;
+        if (type === 'restock') {
+            details = { items: 'Тестовый набор, Ингредиент 2' }; // Generic details for testing
+        }
 
-    // ИСПРАВЛЕНО: Используем assignee_id (единичное поле) вместо assignee_ids
-    const insertRes = await pool.query(
-        `INSERT INTO service_tasks (terminal_id, task_type, status, details, assignee_id)
-         VALUES ($1, $2, 'pending', $3, $4) RETURNING id`,
-        [terminalId, type, JSON.stringify(details), assignee_id]
-    );
-    
-    const newTaskId = insertRes.rows[0].id;
-    console.log(`Successfully created task with ID: ${newTaskId}`);
-    return newTaskId;
+        // ИСПРАВЛЕНО: Используем assignee_id (единичное поле) вместо assignee_ids
+        const insertRes = await client.query(
+            `INSERT INTO service_tasks (terminal_id, task_type, status, details, assignee_id)
+             VALUES ($1, $2, 'pending', $3, $4) RETURNING id`,
+            [terminalId, type, JSON.stringify(details), assignee_id]
+        );
+        
+        const newTaskId = insertRes.rows[0].id;
+        console.log(`Successfully created task with ID: ${newTaskId}`);
+        return newTaskId;
+    } catch (error) {
+        console.error('Error creating test task:', error.message);
+        process.exit(1);
+    }
 }
 
 /**
@@ -123,7 +120,7 @@ async function main() {
     try {
         switch (command) {
             case 'createTask':
-                await createTask(options.type, parseInt(options.terminalId, 10));
+                await createTestTask(parseInt(options.terminalId, 10), options.type);
                 break;
             case 'sendNotification':
                 await sendTestNotification(parseInt(options.userId, 10), options.message);

@@ -10,7 +10,7 @@ import TerminalListModal from '../TerminalListModal';
 import { ALL_ITEMS } from '../../constants';
 import './StandDetailModal.css';
 
-export default function StandDetailModal({ terminal, allTerminals, onTerminalChange, onClose }) {
+export default function StandDetailModal({ terminal, allTerminals, onTerminalChange, onClose, initialTab }) {
     const location = useLocation();
     const navigate = useNavigate();
     const scrollPositionRef = useRef(null); // Ref to hold scroll position
@@ -23,7 +23,7 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
         return 'stock';
     }, [location.hash]);
 
-    const [activeTab, setActiveTab] = useState(getTabFromHash);
+    const [activeTab, setActiveTab] = useState(initialTab || getTabFromHash);
     const [details, setDetails] = useState({ inventory: [] });
     const [error, setError] = useState('');
     
@@ -102,8 +102,10 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
     }, [fetchDetailsAndRecipes]);
 
     useEffect(() => {
-        setActiveTab(getTabFromHash());
-    }, [getTabFromHash]);
+        if (!initialTab) {
+            setActiveTab(getTabFromHash());
+        }
+    }, [getTabFromHash, initialTab]);
 
     const handleTabClick = (tabId) => {
         setActiveTab(tabId);

@@ -16,8 +16,7 @@
 }
 
 .tasks-list-container,
-.restock-settings-container,
-.cleaning-settings-container {
+.restock-settings-container {
     background-color: #282c34;
     padding: 0;
     border-radius: 12px;
@@ -81,8 +80,7 @@
 
 /* Override generic styles from tables.css */
 .tasks-list-container .data-table-container,
-.restock-settings-container .data-table-container,
-.cleaning-settings-container .data-table-container {
+.restock-settings-container .data-table-container {
     background: none;
     padding: 0;
     margin-top: 0;
@@ -135,14 +133,12 @@
 }
 
 /* --- Shared Settings Table Styles --- */
-.restock-table,
-.cleaning-table {
+.restock-table {
     table-layout: fixed;
     width: 100%;
 }
 
-.restock-table td,
-.cleaning-table td {
+.restock-table td {
     padding-top: 8px;
     padding-bottom: 8px;
     vertical-align: middle;
@@ -150,46 +146,39 @@
 
 /* Column widths for restock and cleaning tables */
 .restock-table th:first-child,
-.restock-table td:first-child,
-.cleaning-table th:first-child,
-.cleaning-table td:first-child {
+.restock-table td:first-child {
     width: calc(100% - 125px);
 }
 
 .restock-table th:last-child,
-.restock-table td:last-child,
-.cleaning-table th:last-child,
-.cleaning-table td:last-child {
+.restock-table td:last-child {
     width: 125px;
 }
 
-.restock-terminal-row td,
-.cleaning-terminal-row td {
+.restock-terminal-row td {
     padding-bottom: 4px;
     border-bottom: none;
 }
 
-.restock-ingredients-row td,
-.cleaning-frequency-row td {
+.restock-ingredients-row td {
     padding-top: 4px;
+    padding-bottom: 12px; /* Add padding to prevent ingredient pill clipping */
 }
 
-.restock-ingredients-row,
-.cleaning-frequency-row {
+.restock-ingredients-row {
     border-bottom: 1px solid #3a3e47;
 }
 
-.restock-ingredients-row.last-terminal,
-.cleaning-frequency-row.last-terminal {
+.restock-ingredients-row.last-terminal {
     border-bottom: none;
 }
 
-.restock-terminal-name,
-.cleaning-terminal-name {
+.restock-terminal-name {
     font-weight: 500;
     color: #e0e0e0;
     overflow: hidden;
     text-overflow: ellipsis;
+    padding-bottom: 4px; /* Added padding to create space for sales count */
 }
 
 .ingredients-container {
@@ -197,13 +186,6 @@
     flex-wrap: wrap;
     gap: 6px;
     align-items: center;
-}
-
-.cleaning-frequency-controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 4px;
 }
 
 .action-cell {
@@ -216,41 +198,12 @@
     margin-left: auto;
 }
 
-.cleaning-frequency-input {
-    width: 60px;
-    background-color: #1e2128;
-    border: 1px solid #3a3e47;
-    color: #e0e0e0;
-    border-radius: 6px;
-    padding: 4px 6px;
-    font-size: 0.9em;
-    text-align: center;
-    -moz-appearance: textfield;
-    transition: all 0.3s ease;
-}
-
-.cleaning-frequency-input.glowing-placeholder {
-    animation: input-glow 2s infinite ease-in-out;
-    border-color: #4f81c7;
-}
-
-.cleaning-frequency-input::-webkit-outer-spin-button,
-.cleaning-frequency-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-.cleaning-frequency-input:focus {
-    outline: none;
-    border-color: #4f81c7;
-    animation: none;
-}
-
 .sales-count-display {
-    font-size: 0.95em !important; /* Set to match cleaning-terminal-name font size on desktop, added !important */
-    color: #a0b0c8 !important; /* Reverted color, added !important */
-    font-weight: normal !important; /* Ensure it's not bold, added !important */
+    font-size: 0.8em; /* Slightly smaller than task details */
+    color: #a0b0c8;
+    font-weight: normal;
     white-space: nowrap;
+    line-height: 1.2;
 }
 
 /* --- Ingredient Pills --- */
@@ -435,12 +388,11 @@
 
 .tasks-table .task-cell {
     line-height: 1.3;
+    padding-bottom: 20px; /* Increased padding to prevent ingredient pill clipping */
 }
 .tasks-table .task-cell > div {
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
     text-overflow: ellipsis;
 }
 .task-terminal-name {
@@ -474,6 +426,7 @@
     flex-wrap: wrap;
     gap: 4px;
     margin-top: 6px;
+    margin-bottom: 8px; /* Added small bottom margin for spacing */
 }
 
 .configure-notice {
@@ -490,11 +443,9 @@
 
 .configure-notice .arrow-icon {
     display: inline-block;
-    width: 0;
-    height: 0;
-    border-top: 4px solid transparent;
-    border-bottom: 4px solid transparent;
-    border-left: 5px solid #e57373;
+    color: #8ae6ff; /* Use hint-blue color for the arrow character */
+    font-weight: bold;
+    font-size: 1.2em;
     transition: transform 0.2s ease-in-out;
     animation: bounce-horizontal 1.5s infinite;
 }
@@ -587,28 +538,19 @@
         font-size: 0.9em;
     }
 
-    .cleaning-table input[type="number"] {
-        width: 40px;
-    }
-
     .tasks-table,
-    .restock-table,
-    .cleaning-table {
+    .restock-table {
         table-layout: auto;
     }
 
     /* Column widths for mobile */
     .restock-table th:first-child,
-    .restock-table td:first-child,
-    .cleaning-table th:first-child,
-    .cleaning-table td:first-child {
+    .restock-table td:first-child {
         width: auto; /* Let it shrink */
     }
 
     .restock-table th:last-child,
-    .restock-table td:last-child,
-    .cleaning-table th:last-child,
-    .cleaning-table td:last-child {
+    .restock-table td:last-child {
         width: 70px; /* Fixed width for action column on mobile */
     }
 
@@ -636,8 +578,7 @@
     }
 
     /* Override specific styles for table cells to allow shrinking */
-    .restock-table td,
-    .cleaning-table td {
+    .restock-table td {
         white-space: normal; /* Allow text to wrap */
         word-break: break-word; /* Break long words */
     }
@@ -651,16 +592,12 @@
     /* Specific adjustments for very small screens */
     @media (max-width: 375px) {
         .restock-table th:first-child,
-        .restock-table td:first-child,
-        .cleaning-table th:first-child,
-        .cleaning-table td:first-child {
+        .restock-table td:first-child {
             width: calc(100% - 90px); /* Calculate width to ensure space for action column */
         }
 
         .restock-table th:last-child,
-        .restock-table td:last-child,
-        .cleaning-table th:last-child,
-        .cleaning-table td:last-child {
+        .restock-table td:last-child {
             width: 90px; /* Ensure action column has sufficient width */
         }
 
@@ -714,8 +651,7 @@
         white-space: nowrap;
     }
 
-    .restock-terminal-name,
-    .cleaning-terminal-name {
+    .restock-terminal-name {
         white-space: normal;
         word-break: break-word;
     }

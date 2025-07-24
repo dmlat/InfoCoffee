@@ -20,8 +20,6 @@ router.get('/settings', authMiddleware, async (req, res) => {
                 t.id,
                 t.name,
                 t.sales_since_cleaning,
-                s.cleaning_frequency,
-                s.assignee_id_cleaning,
                 s.assignee_id_restock,
                 -- Проверка конфигурации контейнеров: есть ли хоть один айтем без заданного max_stock > 0
                 COALESCE(config_check.needs_containers_config, true) AS needs_containers_config
@@ -53,8 +51,6 @@ router.post('/settings', authMiddleware, async (req, res) => {
     const { ownerUserId, telegramId } = req.user;
     const {
         terminal_id,
-        cleaning_frequency,
-        assignee_id_cleaning,
         assignee_id_restock
     } = req.body;
 
@@ -69,11 +65,9 @@ router.post('/settings', authMiddleware, async (req, res) => {
         }
 
         const query = `
-            INSERT INTO stand_service_settings (terminal_id, cleaning_frequency, assignee_id_cleaning, assignee_id_restock)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO stand_service_settings (terminal_id, assignee_id_restock)
+            VALUES ($1, $2)
             ON CONFLICT (terminal_id) DO UPDATE SET
-                cleaning_frequency = EXCLUDED.cleaning_frequency,
-                assignee_id_cleaning = EXCLUDED.assignee_id_cleaning,
                 assignee_id_restock = EXCLUDED.assignee_id_restock,
                 updated_at = NOW()
             RETURNING *;
@@ -81,8 +75,6 @@ router.post('/settings', authMiddleware, async (req, res) => {
 
         const values = [
             terminal_id,
-            cleaning_frequency || null,
-            assignee_id_cleaning || null,
             assignee_id_restock || null
         ];
 
@@ -115,7 +107,7 @@ router.post('/create-manual', authMiddleware, async (req, res) => {
         for (const task of tasks) {
             const { terminalId, taskType, assigneeId, comment } = task;
 
-            if (!terminalId || !taskType || !assigneeId) {
+            if (!terminalId || !assigneeId) { // taskType is no longer needed from frontend
                 // Пропускаем неполные задачи, но не прерываем весь процесс
                 console.warn(`[POST /api/tasks/create-manual] Skipping incomplete task object for owner ${ownerUserId}. Task:`, task);
                 continue;
@@ -131,16 +123,16 @@ router.post('/create-manual', authMiddleware, async (req, res) => {
             // 3. Create the task
             const insertTaskQuery = `
                 INSERT INTO service_tasks (terminal_id, task_type, status, assignee_id, comment, details)
-                VALUES ($1, $2, 'pending', $3, $4, $5)
+                VALUES ($1, 'restock', 'pending', $2, $3, $4)
                 RETURNING id, created_at;
             `;
-            const taskRes = await client.query(insertTaskQuery, [terminalId, taskType, assigneeId, comment, { is_manual: true }]);
+            const taskRes = await client.query(insertTaskQuery, [terminalId, assigneeId, comment, { is_manual: true }]);
             const newTaskId = taskRes.rows[0].id;
             
-            createdTasksInfo.push({ terminalName, assigneeId, taskType, comment });
+            createdTasksInfo.push({ terminalName, assigneeId, taskType: 'restock', comment });
             
             // 4. Notify the specific assignee
-            const taskTypeNameForMsg = taskType === 'cleaning' ? 'Уборка' : 'Пополнение';
+            const taskTypeNameForMsg = 'Пополнение';
             let assigneeMessage = `🧹 Новая задача: <b>${taskTypeNameForMsg}</b>\n📍 Стойка: <b>${terminalName}</b>`;
             if (comment) {
                 assigneeMessage += `\n\n💬 <i>${comment}</i>`;
@@ -157,7 +149,7 @@ router.post('/create-manual', authMiddleware, async (req, res) => {
 
             let summaryMessage = `<b>${creatorName}</b> создал(а) ${createdTasksInfo.length} новых задач:\n\n`;
             createdTasksInfo.forEach(info => {
-                const taskTypeName = info.taskType === 'cleaning' ? 'Уборка' : 'Пополнение';
+                const taskTypeName = 'Пополнение';
                 summaryMessage += ` • <b>${taskTypeName}</b> для стойки <i>${info.terminalName}</i>`;
                 if(info.comment) summaryMessage += ` (<i>${info.comment}</i>)`;
                 summaryMessage += `\n`;
@@ -242,6 +234,7 @@ router.get('/', authMiddleware, async (req, res) => {
             LEFT JOIN user_access_rights uar ON t.assignee_id = uar.shared_with_telegram_id AND term.user_id = uar.owner_user_id
             LEFT JOIN users u ON t.assignee_id = u.telegram_id AND term.user_id = u.id
             WHERE term.user_id = $1
+              AND t.task_type = 'restock'
               AND (t.status = 'pending' OR t.completed_at >= $2)
             ORDER BY t.created_at DESC
         `;
@@ -281,7 +274,7 @@ router.get('/my', authMiddleware, async (req, res) => {
                 ) as ingredients
             FROM service_tasks t
             JOIN terminals term ON t.terminal_id = term.id
-            WHERE t.status = 'pending' AND t.assignee_id = $1
+            WHERE t.status = 'pending' AND t.assignee_id = $1 AND t.task_type = 'restock'
             ORDER BY t.created_at DESC
         `;
         const result = await db.query(query, [telegramId]);
@@ -441,12 +434,15 @@ router.post('/:taskId/complete', authMiddleware, async (req, res) => {
                     return res.status(400).json({ success: false, error: errorMessage });
                 }
             }
+            // Сбрасываем счетчик продаж после успешного пополнения
+            await client.query('UPDATE terminals SET sales_since_cleaning = 0 WHERE id = $1', [task.terminal_id]);
         }
         
         await client.query('UPDATE service_tasks SET status = \'completed\', completed_at = NOW() WHERE id = $1', [taskId]);
 
         if (task.task_type === 'cleaning') {
-            await client.query('UPDATE terminals SET sales_since_cleaning = 0 WHERE id = $1', [task.terminal_id]);
+            // This block is now obsolete but kept to avoid breaking old tasks if any are in progress.
+            // In the future, this can be removed.
         }
 
         const completerInfo = await client.query(`
@@ -458,7 +454,7 @@ router.post('/:taskId/complete', authMiddleware, async (req, res) => {
         `, [telegramId, task.owner_id]);
 
         const completerName = completerInfo.rows.length > 0 ? completerInfo.rows[0].name : (req.user.firstName || req.user.userName);
-        const taskTypeName = task.task_type === 'cleaning' ? 'Уборка' : 'Пополнение';
+        const taskTypeName = 'Пополнение';
         const message = `✅ Задача выполнена: <b>${taskTypeName}</b>\n\n📍 Стойка: <b>${task.terminal_name}</b>\n👤 Исполнитель: <b>${completerName}</b>`;
         
         const ownerAndAdmins = await getAdminsAndOwner(task.owner_id);
@@ -511,7 +507,7 @@ router.delete('/:taskId', authMiddleware, async (req, res) => {
         await client.query('DELETE FROM service_tasks WHERE id = $1', [taskId]);
         
         if (taskToDelete.assignee_id) {
-            const taskTypeName = taskToDelete.task_type === 'restock' ? 'Пополнение' : 'Уборка';
+            const taskTypeName = 'Пополнение';
             const message = `❌ <b>Задача отменена: ${taskTypeName}</b>\n\nСтойка: <b>${taskToDelete.terminal_name}</b>\n\nЗадача была отменена администратором.`;
             sendNotification(taskToDelete.assignee_id, message).catch(console.error);
         }

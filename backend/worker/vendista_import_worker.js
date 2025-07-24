@@ -66,116 +66,92 @@ async function handleVendistaPaymentError(userId, errorMessage) {
 }
 
 async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
-    const createdTasksInfo = [];
+    const createdTasks = [];
     let ownerTelegramId;
 
     try {
         // ИСПРАВЛЕНО: Изменены имена полей согласно DB.txt схеме
         const settingsRes = await pool.query(
             `SELECT
-                s.cleaning_frequency,
-                s.assignee_id_cleaning,
+                t.name as terminal_name,
+                t.user_id,
+                t.vendista_id,
+                u.telegram_id as owner_telegram_id,
                 s.assignee_id_restock,
                 t.sales_since_cleaning,
-                t.name as terminal_name,
-                u.telegram_id as owner_telegram_id
+                array_agg(
+                    json_build_object(
+                        'item_name', ri.item_name,
+                        'quantity', ri.quantity
+                    )
+                ) as ingredients
             FROM terminals t
             LEFT JOIN stand_service_settings s ON t.id = s.terminal_id
             LEFT JOIN users u ON t.user_id = u.id
-            WHERE t.id = $1`,
+            LEFT JOIN recipe_items ri ON t.id = ri.recipe_id
+            WHERE t.id = $1
+            GROUP BY t.id, t.name, t.user_id, t.vendista_id, u.telegram_id, s.assignee_id_restock, t.sales_since_cleaning`,
             [internalTerminalId]
         );
 
-        if (settingsRes.rowCount === 0) return;
-        
-        const settings = settingsRes.rows[0];
-        // ИСПРАВЛЕНО: Изменены имена переменных согласно БД схеме (единичные поля)
-        const { cleaning_frequency, assignee_id_cleaning, assignee_id_restock, sales_since_cleaning, terminal_name, owner_telegram_id } = settings;
-        ownerTelegramId = owner_telegram_id;
+        if (settingsRes.rows.length > 0) {
+            const settings = {
+                ...settingsRes.rows[0],
+                ingredients: settingsRes.rows[0].ingredients.filter(ing => ing.item_name !== null)
+            };
+            const { assignee_id_restock, sales_since_cleaning, terminal_name, owner_telegram_id } = settings;
+            ownerTelegramId = owner_telegram_id;
 
-        // --- Логика для пополнения (Restock) ---
-        // ИСПРАВЛЕНО: Проверяем единичное поле, а не массив
-        if (assignee_id_restock) {
-            const stockRes = await pool.query(
-                `SELECT item_name, current_stock, critical_stock FROM inventories 
-                 WHERE terminal_id = $1 AND location = 'machine' AND critical_stock IS NOT NULL AND current_stock <= critical_stock`,
-                [internalTerminalId]
-            );
-            
-            const itemsToRestock = stockRes.rows.map(r => r.item_name);
+            // --- Логика для пополнения (Restock) ---
+            if (assignee_id_restock) {
+                const criticalItems = settings.ingredients.filter(ing => {
+                    const inventoryRes = pool.query(
+                        `SELECT current_stock, critical_stock FROM inventories WHERE terminal_id = $1 AND item_name = $2 AND location = 'machine'`,
+                        [internalTerminalId, ing.item_name]
+                    );
+                    return (inventoryRes.rows[0]?.current_stock || 0) <= (inventoryRes.rows[0]?.critical_stock || 0);
+                });
 
-            if (itemsToRestock.length > 0) {
-                const existingTaskRes = await pool.query(
-                    'SELECT id FROM service_tasks WHERE terminal_id = $1 AND task_type = $2 AND status = $3',
-                    [internalTerminalId, 'restock', 'pending']
-                );
-
-                if (existingTaskRes.rows.length === 0) {
-                    // ИСПРАВЛЕНО: Используем assignee_id (единичное поле) вместо assignee_ids
-                    const taskRes = await pool.query(
-                        `INSERT INTO service_tasks (terminal_id, task_type, assignee_id, status, created_at, details)
-                         VALUES ($1, $2, $3, $4, NOW(), $5) RETURNING id`,
-                        [internalTerminalId, 'restock', assignee_id_restock, 'pending', JSON.stringify({ 
-                            terminal_name, 
-                            items_to_restock: itemsToRestock,
-                            created_by_import: true
-                        })]
+                if (criticalItems.length > 0) {
+                    const existingTaskRes = await pool.query(
+                        'SELECT id FROM service_tasks WHERE terminal_id = $1 AND task_type = $2 AND status = $3',
+                        [internalTerminalId, 'restock', 'pending']
                     );
 
-                    createdTasksInfo.push({
-                        type: 'restock',
-                        taskId: taskRes.rows[0].id,
-                        // ИСПРАВЛЕНО: Единичный assignee вместо массива
-                        assignee: assignee_id_restock,
-                        terminalName: terminal_name,
-                        itemsToRestock
-                    });
+                    if (existingTaskRes.rows.length === 0) {
+                        const taskRes = await pool.query(
+                            `INSERT INTO service_tasks (terminal_id, task_type, assignee_id, status, details)
+                             VALUES ($1, 'restock', $2, 'pending', $3) RETURNING id`,
+                            [internalTerminalId, assignee_id_restock, JSON.stringify({
+                                critical_items: criticalItems.map(i => i.item_name),
+                                is_auto: true
+                            })]
+                        );
+                        
+                        createdTasks.push({
+                            type: 'restock',
+                            taskId: taskRes.rows[0].id,
+                            terminalName: terminal_name,
+                            assignee: assignee_id_restock,
+                            criticalItems: criticalItems.map(i => i.item_name)
+                        });
+                    }
                 }
             }
+
+            // --- Логика для уборки (Cleaning) --- была удалена
         }
-
-        // --- Логика для уборки (Cleaning) ---
-        // ИСПРАВЛЕНО: Проверяем единичное поле, а не массив
-        if (assignee_id_cleaning && cleaning_frequency && sales_since_cleaning >= cleaning_frequency) {
-            const existingCleaningTaskRes = await pool.query(
-                'SELECT id FROM service_tasks WHERE terminal_id = $1 AND task_type = $2 AND status = $3',
-                [internalTerminalId, 'cleaning', 'pending']
-            );
-
-            if (existingCleaningTaskRes.rows.length === 0) {
-                // ИСПРАВЛЕНО: Используем assignee_id (единичное поле) вместо assignee_ids
-                const cleaningTaskRes = await pool.query(
-                    `INSERT INTO service_tasks (terminal_id, task_type, assignee_id, status, created_at, details)
-                     VALUES ($1, $2, $3, $4, NOW(), $5) RETURNING id`,
-                    [internalTerminalId, 'cleaning', assignee_id_cleaning, 'pending', JSON.stringify({ 
-                        terminal_name, 
-                        sales_count: sales_since_cleaning,
-                        created_by_import: true
-                    })]
-                );
-
-                createdTasksInfo.push({
-                    type: 'cleaning',
-                    taskId: cleaningTaskRes.rows[0].id,
-                    // ИСПРАВЛЕНО: Единичный assignee вместо массива
-                    assignee: assignee_id_cleaning,
-                    terminalName: terminal_name,
-                    salesCount: sales_since_cleaning
-                });
-            }
-        }
-
     } catch (error) {
         console.error(`[Import Worker] Error in checkAndCreateTasks for terminal ${internalTerminalId}:`, error);
         return [];
     }
 
     // === ОПТИМИЗИРОВАННАЯ ОТПРАВКА УВЕДОМЛЕНИЙ ===
-    if (createdTasksInfo.length > 0) {
-        await sendTaskNotificationsBatch(createdTasksInfo, ownerUserId, ownerTelegramId);
+    if (createdTasks.length > 0) {
+        await sendTaskNotificationsBatch(createdTasks, ownerUserId, ownerTelegramId);
     }
 
-    return createdTasksInfo;
+    return createdTasks;
 }
 
 /**
@@ -206,9 +182,9 @@ async function sendTaskNotificationsBatch(tasksInfo, ownerUserId, ownerTelegramI
                 message += `${taskTypeEmoji} <b>${taskTypeName}</b> - ${task.terminalName}\n`;
                 
                 if (task.type === 'restock') {
-                    message += `   Требуют пополнения: ${task.itemsToRestock.join(', ')}\n`;
+                    message += `   Требуют пополнения: ${task.criticalItems.join(', ')}\n`;
                 } else if (task.type === 'cleaning') {
-                    message += `   Продано с последней уборки: ${task.salesCount}\n`;
+                    // message += `   Продано с последней уборки: ${task.salesCount}\n`; // This line is removed
                 }
             }
             

@@ -18,9 +18,21 @@ router.get('/', authMiddleware, async (req, res) => {
                     t.id,
                     -- Проверка конфигурации контейнеров: есть ли хоть один айтем без заданного max_stock > 0
                     COUNT(i.item_name) FILTER (WHERE i.location = 'machine' AND (i.max_stock IS NULL OR i.max_stock <= 0)) > 0 AS needs_containers_config,
-                    -- Проверка конфигурации рецептов: количество напитков в транзакциях больше, чем настроенных рецептов
-                    (SELECT COUNT(DISTINCT tr.machine_item_id) FROM transactions tr WHERE tr.coffee_shop_id = t.vendista_terminal_id AND tr.user_id = t.user_id AND tr.machine_item_id IS NOT NULL) > 
-                    (SELECT COUNT(r.id) FROM recipes r WHERE r.terminal_id = t.id) AS needs_recipes_config,
+                    -- Проверка конфигурации рецептов: есть ли НЕскрытые напитки без ингредиентов
+                    (
+                        -- Подсчет всех уникальных ID напитков из транзакций, которые НЕ помечены как скрытые
+                        SELECT COUNT(DISTINCT tr.machine_item_id)
+                        FROM transactions tr
+                        LEFT JOIN recipes r ON r.terminal_id = t.id AND r.machine_item_id = tr.machine_item_id
+                        WHERE tr.coffee_shop_id = t.vendista_terminal_id AND tr.user_id = t.user_id AND tr.machine_item_id IS NOT NULL
+                          AND (r.is_hidden IS NULL OR r.is_hidden = false)
+                    ) > (
+                        -- Подсчет всех рецептов, у которых есть хотя бы один ингредиент
+                        SELECT COUNT(DISTINCT r.machine_item_id)
+                        FROM recipes r
+                        INNER JOIN recipe_items ri ON r.id = ri.recipe_id
+                        WHERE r.terminal_id = t.id AND ri.quantity > 0
+                    ) AS needs_recipes_config,
                     -- Агрегируем минимальные остатки для главного экрана
                     MIN(CASE WHEN i.item_name = 'Вода' THEN i.current_stock / NULLIF(i.max_stock, 0) END) as water_level,
                     MIN(CASE WHEN i.item_name = ANY(ARRAY['Кофе', 'Сливки', 'Какао', 'Раф']) THEN i.current_stock / NULLIF(i.max_stock, 0) END) as grams_level,
@@ -38,7 +50,7 @@ router.get('/', authMiddleware, async (req, res) => {
                 t.last_online_time, 
                 t.is_online,
                 COALESCE(tc.needs_containers_config, true) AS needs_containers_config,
-                COALESCE(tc.needs_recipes_config, false) AS needs_recipes_config,
+                COALESCE(tc.needs_recipes_config, true) AS needs_recipes_config,
                 jsonb_build_object(
                     'water', jsonb_build_object('level', tc.water_level),
                     'grams', jsonb_build_object('level', tc.grams_level),

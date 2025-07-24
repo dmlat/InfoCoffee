@@ -140,6 +140,17 @@
     color: #a0b0c8;
 }
 
+.ingredient-pill.show-more-pills {
+    cursor: pointer;
+    background-color: rgba(138, 230, 255, 0.15);
+    color: #8ae6ff;
+    font-weight: 600;
+}
+
+.ingredient-pill.show-more-pills:hover {
+    background-color: rgba(138, 230, 255, 0.3);
+}
+
 .stand-details-arrow {
     font-size: 1.5em; /* Уменьшаем кегль для соответствия */
     color: #8ae6ff; /* Цвет как у текста в заголовках */
@@ -197,7 +208,7 @@
 /* Specific adjustment for very small screens */
 @media (max-width: 424px) {
     .stands-grid {
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        grid-template-columns: 1fr;
     }
 }
 
