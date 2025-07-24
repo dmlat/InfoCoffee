@@ -1,111 +1,187 @@
 // frontend/src/components/StandDetail/StandRecipesTab.js
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
 import apiClient from '../../api';
 import { ALL_ITEMS } from '../../constants';
 import CopySettingsModal from '../CopySettingsModal';
+import EditRecipeModal from './EditRecipeModal';
+import PresetSelectionModal from './PresetSelectionModal';
+import { FaEyeSlash, FaUndo } from 'react-icons/fa'; // Иконка для скрытия
 import './StandRecipesTab.css';
 
-// Вспомогательная функция для форматирования заголовков
-const formatHeader = (name) => {
-    // Сокращаем все названия до 3 символов
-    return name.substring(0, 3);
+const formatRecipeName = (name) => {
+    if (!name) return '';
+    const firstLine = name.substring(0, 8);
+    let secondLine = name.substring(8, 16);
+    if (name.length > 16) {
+        secondLine = secondLine.substring(0, 7) + '.';
+    }
+    if (!secondLine) return firstLine;
+    return `${firstLine}\n${secondLine}`;
 };
 
-// Константа для расходников, которым нужно значение по умолчанию
-const CONSUMABLES_WITH_DEFAULT_1 = ['Стаканы', 'Крышки', 'Размеш.', 'Сахар', 'Трубочки'];
+const formatIngredientName = (name) => {
+    if (!name) return '';
+    if (name.length > 6) {
+        return name.substring(0, 6);
+    }
+    return name;
+};
+
+// Helper to sort ingredients based on the canonical order in ALL_ITEMS
+const sortIngredients = (items) => {
+    const order = ALL_ITEMS.map(item => item.name);
+    return [...items].sort((a, b) => order.indexOf(a.item_name) - order.indexOf(b.item_name));
+};
+
 
 export default function StandRecipesTab({ terminal, internalTerminalId, machineItems, initialRecipes, allTerminals, onSave }) {
     const [recipes, setRecipes] = useState([]);
-    const [changedRecipeIds, setChangedRecipeIds] = useState(new Set());
+    const [hiddenRecipesVisible, setHiddenRecipesVisible] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
-    const [saveStatus, setSaveStatus] = useState({ message: '', type: '' });
+    
+    // State for modals
+    const [editingRecipe, setEditingRecipe] = useState(null);
+    const [isPresetSelectorOpen, setPresetSelectorOpen] = useState(false);
+    const [selectingPresetFor, setSelectingPresetFor] = useState(null); // For which ID we are selecting a preset
+    const [presetSelectionSource, setPresetSelectionSource] = useState(null); // 'tab' or 'modal'
+    const scrollContainerRef = useRef(null);
+    const scrollPositionRef = useRef(null);
+    const wasHiddenVisibleRef = useRef(false);
+
+    useEffect(() => {
+        wasHiddenVisibleRef.current = hiddenRecipesVisible;
+    }, [hiddenRecipesVisible]);
+
+    useLayoutEffect(() => {
+        if (scrollPositionRef.current !== null && scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = scrollPositionRef.current;
+            scrollPositionRef.current = null; // Reset after restoring
+        }
+        if (wasHiddenVisibleRef.current) {
+            setHiddenRecipesVisible(true);
+        }
+    }, [recipes]);
+
 
     useEffect(() => {
         if (!machineItems || !initialRecipes) return;
         
-        const newRecipes = machineItems.map(itemId => {
+        const allRecipes = machineItems.map(itemId => {
             const existingRecipe = initialRecipes[itemId];
-            
             if (existingRecipe) {
-                // Если рецепт уже существует, просто возвращаем его
                 return { ...existingRecipe };
             }
-            
-            // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
-            // Если рецепта нет, создаем новый с дефолтными значениями для расходников
             return {
                 machine_item_id: itemId,
                 terminal_id: internalTerminalId,
                 name: '',
-                // Создаем массив `items` с предустановленными расходниками
-                items: CONSUMABLES_WITH_DEFAULT_1.map(name => ({
-                    item_name: name,
-                    quantity: 1
-                })),
+                items: [],
+                is_hidden: false, 
             };
         });
 
-        setRecipes(newRecipes);
-        setChangedRecipeIds(new Set());
+        // Сортировка: сначала рецепты с ингредиентами, потом без, внутри по ID
+        allRecipes.sort((a, b) => {
+            const aHasItems = a.items && a.items.length > 0;
+            const bHasItems = b.items && b.items.length > 0;
+            if (aHasItems && !bHasItems) return -1;
+            if (!aHasItems && bHasItems) return 1;
+            return a.machine_item_id - b.machine_item_id;
+        });
+
+        setRecipes(allRecipes);
     }, [initialRecipes, machineItems, internalTerminalId]);
 
-
-    const handleRecipeChange = (machineItemId, field, value, itemName = null) => {
-        setRecipes(prevRecipes =>
-            prevRecipes.map(recipe => {
-                if (recipe.machine_item_id === machineItemId) {
-                    const updatedRecipe = { ...recipe };
-                    if (field === 'name') {
-                        updatedRecipe.name = value;
-                    } else if (field === 'quantity' && itemName) {
-                        const newItems = [...(recipe.items || [])];
-                        const itemIndex = newItems.findIndex(i => i.item_name === itemName);
-                        const normalizedValue = value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
-
-                        if (itemIndex > -1) {
-                            newItems[itemIndex] = { ...newItems[itemIndex], quantity: normalizedValue };
-                        } else {
-                            newItems.push({ item_name: itemName, quantity: normalizedValue });
-                        }
-                        updatedRecipe.items = newItems;
-                    }
-                    return updatedRecipe;
-                }
-                return recipe;
-            })
-        );
-        setChangedRecipeIds(prev => new Set(prev).add(machineItemId));
-    };
-
-    const showSaveStatus = (message, type) => {
-        setSaveStatus({ message, type });
-        setTimeout(() => setSaveStatus({ message: '', type: '' }), 3500);
-    };
-
-    const handleSave = async () => {
-        setIsSaving(true);
-        const recipesToSave = recipes.filter(r => changedRecipeIds.has(r.machine_item_id));
-
-        const savePromises = recipesToSave.map(recipe => {
-            const payload = {
-                terminalId: recipe.terminal_id,
-                machine_item_id: recipe.machine_item_id,
-                name: recipe.name,
-                items: recipe.items.filter(item => item.quantity && parseFloat(item.quantity) > 0)
-            };
-            return apiClient.post('/recipes', payload);
+    // Function to update a single recipe in the local state
+    const updateLocalRecipe = (updatedRecipe) => {
+        setRecipes(prevRecipes => {
+            const newRecipes = prevRecipes.map(r => 
+                r.machine_item_id === updatedRecipe.machine_item_id ? updatedRecipe : r
+            );
+            // Re-sort the list to maintain order
+            newRecipes.sort((a, b) => {
+                const aHasItems = a.items && a.items.length > 0;
+                const bHasItems = b.items && b.items.length > 0;
+                if (aHasItems && !bHasItems) return -1;
+                if (!aHasItems && bHasItems) return 1;
+                return a.machine_item_id - b.machine_item_id;
+            });
+            return newRecipes;
         });
+    };
+
+    const handleToggleHidden = async (recipe, isHidden) => {
+        if (scrollContainerRef.current) {
+            scrollPositionRef.current = scrollContainerRef.current.scrollTop;
+        }
 
         try {
-            await Promise.all(savePromises);
-            showSaveStatus('Изменения успешно сохранены!', 'success');
-            onSave(); // Обновляем данные после сохранения
+            let response;
+            if (recipe.id) {
+                // If recipe exists, just update its status
+                response = await apiClient.post(`/recipes/${recipe.id}/toggle-hidden`, { is_hidden: isHidden });
+            } else {
+                // If recipe does not exist, create it with hidden status
+                const payload = {
+                    terminalId: recipe.terminal_id,
+                    machine_item_id: recipe.machine_item_id,
+                    name: 'Скрытый', // Placeholder name
+                    items: [],
+                    is_hidden: isHidden, // Explicitly set hidden status
+                };
+                response = await apiClient.post('/recipes', payload);
+            }
+            onSave();
         } catch (err) {
-            showSaveStatus(err.response?.data?.error || 'Ошибка при сохранении.', 'error');
-        } finally {
-            setIsSaving(false);
+            console.error('Ошибка при обновлении статуса.', err);
+            scrollPositionRef.current = null;
         }
+    };
+    
+    const handlePresetSelected = async (preset) => {
+        const targetMachineId = selectingPresetFor;
+        if (!targetMachineId) return;
+
+        // Common data for both paths
+        const recipeData = {
+            name: preset.name.split('(')[0].trim(),
+            items: preset.items,
+        };
+
+        if (presetSelectionSource === 'tab') {
+            if (scrollContainerRef.current) {
+                scrollPositionRef.current = scrollContainerRef.current.scrollTop;
+            }
+            // Path 1: Save directly
+            try {
+                const payload = {
+                    terminalId: internalTerminalId,
+                    machine_item_id: targetMachineId,
+                    ...recipeData,
+                    save_as_template: false, // Not a template save from here
+                };
+                const response = await apiClient.post('/recipes', payload);
+                onSave(); // Refresh the main list
+            } catch (err) {
+                 console.error('Ошибка сохранения.', err);
+                 scrollPositionRef.current = null; // Reset on error
+            }
+
+        } else if (presetSelectionSource === 'modal') {
+             // Path 2: Open in EditRecipeModal
+            const baseRecipe = recipes.find(r => r.machine_item_id === targetMachineId) || {
+                machine_item_id: targetMachineId,
+                terminal_id: internalTerminalId,
+            };
+            const updatedRecipeWithPreset = { ...baseRecipe, ...recipeData };
+            setEditingRecipe(updatedRecipeWithPreset);
+        }
+
+        // Cleanup
+        setPresetSelectorOpen(false);
+        setSelectingPresetFor(null);
+        setPresetSelectionSource(null);
     };
     
     const handleCopyRecipes = async (destinationTerminalIds) => {
@@ -113,98 +189,209 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
         if (destinationTerminalIds.length === 0) return;
 
         setIsSaving(true);
-        showSaveStatus(`Копирование в ${destinationTerminalIds.length} терминал(а/ов)...`, 'info');
         
         try {
             const res = await apiClient.post('/recipes/copy', {
                 sourceTerminalId: internalTerminalId,
                 destinationTerminalIds: destinationTerminalIds
             });
-            showSaveStatus(res.data.message, res.data.success ? 'success' : 'error');
+            onSave(); // Refresh data after copy
         } catch (err) {
-             showSaveStatus(err.response?.data?.error || 'Ошибка при копировании.', 'error');
+             console.error('Ошибка при копировании.', err);
         } finally {
             setIsSaving(false);
         }
     };
-    
-    const handleFocus = (e) => e.currentTarget.select();
 
-    const recipeItemsMap = useMemo(() => ALL_ITEMS.map(i => i.name), []);
+    const visibleRecipes = useMemo(() => recipes.filter(r => !r.is_hidden), [recipes]);
+    const hiddenRecipes = useMemo(() => recipes.filter(r => r.is_hidden), [recipes]);
+
+    const renderRecipeRow = (recipe, isHiddenTable = false) => {
+        const hasItems = recipe.items && recipe.items.length > 0;
+
+        // Group ingredients for special display rule
+        const primaryIngredients = [];
+        const singleUnitIngredients = [];
+        if (hasItems) {
+            const sortedItems = sortIngredients(recipe.items);
+            sortedItems.forEach(item => {
+                if (parseFloat(item.quantity) === 1) {
+                    singleUnitIngredients.push(item);
+                } else {
+                    primaryIngredients.push(item);
+                }
+            });
+        }
+
+        return (
+            <tr key={recipe.machine_item_id} className="recipe-row" onClick={() => !isHiddenTable && setEditingRecipe(recipe)}>
+                <td className="id-col">
+                    <div className="id-val">{recipe.machine_item_id}</div>
+                    {!isHiddenTable && (
+                        <div className="name-val">
+                            {(recipe.name ? formatRecipeName(recipe.name) : 'Без названия')
+                                .split('\n').map((line, idx) => (
+                                    <React.Fragment key={idx}>
+                                        {line}
+                                        {idx < 1 ? <br/> : null}
+                                    </React.Fragment>
+                                ))}
+                        </div>
+                    )}
+                </td>
+                
+                {!isHiddenTable && (
+                    <td className="recipe-items-col">
+                        {hasItems ? (
+                            <span className="ingredient-summary-line" title={recipe.items.map(item => `${item.item_name}: ${item.quantity}`).join(' | ')}>
+                                {primaryIngredients.map((item, index) => (
+                                    <span className="ingredient-group" key={item.item_name}>
+                                        {`${formatIngredientName(item.item_name)}: `}
+                                        <span className="ingredient-quantity-highlight">{item.quantity}</span>
+                                        {(index < primaryIngredients.length - 1 || singleUnitIngredients.length > 0) && <span className="separator"> | </span>}
+                                    </span>
+                                ))}
+                                {singleUnitIngredients.length > 0 && (
+                                    <span className="ingredient-group">
+                                        {`${singleUnitIngredients.map(i => formatIngredientName(i.item_name)).join(', ')}: `}
+                                        <span className="ingredient-quantity-highlight">1</span>
+                                    </span>
+                                )}
+                            </span>
+                        ) : (
+                            <div className="recipe-actions">
+                                <button className="action-link" onClick={(e) => { e.stopPropagation(); setEditingRecipe(recipe); }}>Создать новый рецепт</button>
+                                <span>&nbsp;или&nbsp;</span>
+                                <button className="action-link" onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    setSelectingPresetFor(recipe.machine_item_id);
+                                    setPresetSelectionSource('tab');
+                                    setPresetSelectorOpen(true);
+                                }}>Выбрать готовый</button>
+                            </div>
+                        )}
+                    </td>
+                )}
+
+                <td className="actions-col" onClick={(e) => e.stopPropagation()}>
+                    {isHiddenTable ? (
+                         <button 
+                            className="action-btn secondary compact-return-btn" 
+                            onClick={() => handleToggleHidden(recipe, false)}
+                            title="Вернуть в основной список"
+                        >
+                           <FaUndo style={{ marginRight: '4px' }} /> Вернуть
+                         </button>
+                    ) : (
+                        <button 
+                            className="hide-btn" 
+                            title="Скрыть ID" 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleHidden(recipe, true);
+                            }}
+                        >
+                            <FaEyeSlash />
+                        </button>
+                    )}
+                </td>
+            </tr>
+        );
+    };
 
     return (
         <>
+            {editingRecipe && (
+                <EditRecipeModal
+                    recipe={editingRecipe}
+                    onClose={(didSave) => {
+                        if (didSave) {
+                           // Re-fetch data if a recipe was edited and saved in the modal
+                           onSave(); 
+                        }
+                        setEditingRecipe(null);
+                    }}
+                    onOpenPresetSelector={() => {
+                        setSelectingPresetFor(editingRecipe.machine_item_id);
+                        setPresetSelectionSource('modal');
+                        setPresetSelectorOpen(true);
+                    }}
+                />
+            )}
+
+            {isPresetSelectorOpen && (
+                <PresetSelectionModal
+                    onClose={() => {
+                        setPresetSelectorOpen(false);
+                        setSelectingPresetFor(null); // Clear the target on close
+                        setPresetSelectionSource(null);
+                    }}
+                    onSelect={handlePresetSelected}
+                />
+            )}
+
             {isCopyModalOpen && (
                  <CopySettingsModal
                     terminals={allTerminals}
                     sourceTerminalId={terminal.id}
-                    onClose={() => setIsCopyModalOpen(false)}
                     onSave={handleCopyRecipes}
+                    onClose={() => setIsCopyModalOpen(false)}
                     title="Копировать рецепты в..."
                 />
             )}
-            <div className="modal-tab-content recipes-form">
-                <div className="settings-header-container">
-                    <h4>Укажите в гр / мл / шт</h4>
-                    <div className="header-buttons">
-                         <button type="button" className="action-btn secondary" onClick={() => setIsCopyModalOpen(true)} disabled={isSaving}>Копировать</button>
-                        <button type="button" className="action-btn header-save-btn" onClick={handleSave} disabled={isSaving || changedRecipeIds.size === 0}>
-                            {isSaving ? 'Сохранение...' : 'Сохранить'}
-                        </button>
+            <div className="modal-tab-content recipes-form" ref={scrollContainerRef}>
+                <div className="recipes-info-block">
+                    <div className="recipes-info-text-container">
+                        <p className="recipes-info-text">&#8226; Нажмите на <span className="text-highlight-blue">рецепт</span>, чтобы настроить его.</p>
+                        <p className="recipes-info-text">&#8226; Нажмите <FaEyeSlash style={{ verticalAlign: 'middle', margin: '0 4px' }} /> и <span className="text-highlight-red">скройте</span> неиспользуемые ID.</p>
                     </div>
+                    <button type="button" className="action-btn secondary copy-recipes-btn" onClick={() => setIsCopyModalOpen(true)} disabled={isSaving}>Копировать</button>
                 </div>
-                 {saveStatus.message && <div className={`save-status-recipes ${saveStatus.type}`}>{saveStatus.message}</div>}
 
                 <div className="table-scroll-container">
-                    <table className="recipes-table">
+                    <table className="recipes-table-new">
                         <thead>
                             <tr>
-                                <th className="sticky-col id-col">ID</th>
-                                <th className="sticky-col name-col">Name</th>
-                                {recipeItemsMap.map(itemName => (
-                                    <th key={itemName} title={itemName}>{formatHeader(itemName)}</th>
-                                ))}
+                                <th className="id-col-header">ID</th>
+                                <th className="recipe-items-col-header">Рецепт</th>
+                                <th className="actions-col-header"></th>
                             </tr>
                         </thead>
                         <tbody>
-                            {recipes.length > 0 ? recipes.map(recipe => {
-                                const itemsAsMap = (recipe.items || []).reduce((acc, item) => {
-                                    acc[item.item_name] = item.quantity;
-                                    return acc;
-                                }, {});
-
-                                return (
-                                <tr key={recipe.machine_item_id}>
-                                    <td className="sticky-col id-col">{recipe.machine_item_id}</td>
-                                    <td className="sticky-col name-col">
-                                        <input 
-                                            type="text" 
-                                            placeholder="Название напитка" 
-                                            value={recipe.name || ''} 
-                                            onChange={e => handleRecipeChange(recipe.machine_item_id, 'name', e.target.value)}
-                                            onFocus={handleFocus}
-                                            className="recipe-name-input"
-                                        />
-                                    </td>
-                                    {recipeItemsMap.map(itemName => (
-                                        <td key={itemName}>
-                                            <input 
-                                                type="text" 
-                                                inputMode="decimal"
-                                                placeholder="0" 
-                                                value={itemsAsMap[itemName] || ''}
-                                                onChange={e => handleRecipeChange(recipe.machine_item_id, 'quantity', e.target.value, itemName)}
-                                                onFocus={handleFocus}
-                                            />
-                                        </td>
-                                    ))}
-                                </tr>
-                            )}) : (
-                                <tr><td colSpan={recipeItemsMap.length + 2}>Нет данных о проданных напитках. Совершите продажу, чтобы кнопки появились.</td></tr>
-                            )}
+                            {visibleRecipes.length > 0 
+                                ? visibleRecipes.map(recipe => renderRecipeRow(recipe))
+                                : <tr><td colSpan="3">Нет активных рецептов.</td></tr>
+                            }
                         </tbody>
                     </table>
                 </div>
+                
+                {hiddenRecipes.length > 0 && (
+                    <div className="tasks-list-container" style={{ marginTop: '16px' }}>
+                        <div className="container-header" onClick={() => setHiddenRecipesVisible(!hiddenRecipesVisible)}>
+                             <h2 className="container-title">
+                                <span className={`toggle-arrow ${hiddenRecipesVisible ? 'open' : ''}`}></span>
+                                Скрытые ID ({hiddenRecipes.length})
+                            </h2>
+                        </div>
+                        
+                        {hiddenRecipesVisible && (
+                             <div className="table-scroll-container" style={{ marginTop: '12px' }}>
+                                <table className="recipes-table-new hidden-table">
+                                     <thead>
+                                        <tr>
+                                            <th className="id-col-header">ID</th>
+                                            <th className="actions-col-header">Действие</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {hiddenRecipes.map(recipe => renderRecipeRow(recipe, true))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         </>
     );

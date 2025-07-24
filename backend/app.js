@@ -35,6 +35,7 @@ const { startPolling } = require('./bot'); // <-- ИМПОРТ ФУНКЦИИ
 const { processInventoryChanges } = require('./worker/inventory_notifier_worker');
 const { startMonitoring } = require('./utils/botMonitor'); // <-- НОВЫЙ ИМПОРТ МОНИТОРИНГА
 require('./worker/task_cleanup_worker'); // <-- ПОДКЛЮЧЕНИЕ ВОРКЕРА СКРЫТИЯ ЗАДАЧ
+const presetsRoutes = require('./routes/presets');
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use('/api/recipes', recipesRoutes);
 app.use('/api/warehouse', warehouseRoutes);
 app.use('/api/inventory', inventoryRoutes); // <-- НОВОЕ ПОДКЛЮЧЕНИЕ
 app.use('/api/tasks', tasksRoutes); // <-- НОВАЯ СТРОКА
+app.use('/api/presets', presetsRoutes);
 app.use('/api', configRoutes); // Убедимся, что роут используется
 
 // === НОВЫЙ ЭНДПОИНТ ДЛЯ МОНИТОРИНГА ===

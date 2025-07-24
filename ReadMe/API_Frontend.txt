@@ -68,6 +68,23 @@ Data Handling and Page-Specific Interactions
     - Переход осуществляется через `navigate('/dashboard/warehouse', { state: { taskContext: {...} } })` с передачей контекста задачи.
     - Для задач уборки используется существующий обработчик модального окна.
 
+  EditRecipeModal.js - Managing "Dirty" State for Unsaved Changes
+    - Context: This modal allows editing a recipe and uses a "dirty" state (`isDirty`) to enable the "Save" button only when actual changes have been made.
+    - Problem Encountered: Applying a preset (which updates the recipe data passed via props) was not correctly enabling the "Save" button. This was because the `useEffect` hook that initialized the component's state was re-running on every prop change, resetting both the current state and the "initial state" snapshot used for comparison. The component was effectively comparing the new state to itself, resulting in `isDirty` being `false`.
+    - Solution: The component was refactored to distinguish between two events:
+        1.  Loading a new recipe: When the modal is first opened for a specific recipe, its initial state (name, items) is captured and stored in a `useState` variable (`initialState`). A `useRef` (`openedRecipeIdRef`) is used to track the ID of this recipe.
+        2.  Applying a preset: When a preset is selected, the parent component passes down updated `recipe` props. The `useEffect` hook now checks if the `recipe.machine_item_id` is the same as the one in `openedRecipeIdRef`. If it is, it only updates the *displayed* values (`name`, `items`) but does **not** reset the `initialState` snapshot.
+    - Mistake to Avoid: When implementing a "dirty check" or "unsaved changes" feature in a component, be careful with `useEffect` hooks that depend on props. Do not reset your "initial state" snapshot every time the props change if those changes are meant to be edits. The initial state should only be captured once, when the component is first loaded with the data to be edited. Subsequent changes should be compared against that original snapshot. Using a `useRef` to track the ID of the loaded entity is a robust pattern to prevent this bug.
+
+  StandRecipesTab.js - Preserving UI State Across Re-renders
+    - Context: This tab displays a long list of recipes. Users can perform actions like hiding a recipe or applying a preset, which triggers a full re-render of the list. It also has a collapsible "Hidden Recipes" section.
+    - Problem Encountered: A simple re-render would reset the user's scroll position and collapse the "Hidden Recipes" section if it was open. This created a jarring user experience, forcing the user to find their place again after every small change.
+    - Solution: A more robust state preservation system was implemented:
+        1.  Refs for UI State: Multiple `useRef` hooks are used to store the UI state that needs to be preserved: `scrollPositionRef` for the `scrollTop` of the list and `wasHiddenVisibleRef` for the open/closed state of the hidden items accordion.
+        2.  Capturing State: Before any action that will cause a re-render (like hiding a recipe), the current `scrollTop` and the accordion's visibility are captured into their respective refs.
+        3.  Restoring State: A `useLayoutEffect` hook, which runs synchronously after the component re-renders but before the browser paints the changes, is used. This hook reads the values from the refs and imperatively sets the `scrollTop` and the visibility state of the hidden items section.
+    - Mistake to Avoid: When state changes cause a list or complex component to re-render, don't just preserve scroll position; preserve the entire relevant UI state. This includes toggles, open accordions, selected tabs, etc. Using a combination of `useRef` to store the state *before* the render and `useLayoutEffect` to restore it *after* is the correct pattern. Using a standard `useEffect` for this can cause a noticeable flicker, as the component will briefly render in its default state before the effect runs.
+
 Important Notes:
 
   Mobile-First Design:

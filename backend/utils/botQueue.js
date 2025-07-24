@@ -288,8 +288,8 @@ function logQueueStats() {
     console.log(`[BotQueue Stats] Regular: ${stats.regularQueue}, Priority: ${stats.priorityQueue}, Failed: ${stats.failedMessages}, Processing: ${stats.isProcessing}`);
 }
 
-// Логирование статистики каждые 60 секунд
-setInterval(logQueueStats, 60000);
+// Логирование статистики каждые 5 минут (было 60000)
+setInterval(logQueueStats, 5 * 60 * 1000);
 
 // === ЭКСПОРТ ===
 module.exports = {

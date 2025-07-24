@@ -1,5 +1,5 @@
 // frontend/src/components/StandDetail/StandDetailModal.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import apiClient from '../../api';
 import StandNavigator from './StandNavigator';
@@ -13,6 +13,7 @@ import './StandDetailModal.css';
 export default function StandDetailModal({ terminal, allTerminals, onTerminalChange, onClose }) {
     const location = useLocation();
     const navigate = useNavigate();
+    const scrollPositionRef = useRef(null); // Ref to hold scroll position
 
     const getTabFromHash = useCallback(() => {
         const hash = location.hash.replace('#', '');
@@ -24,7 +25,6 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
 
     const [activeTab, setActiveTab] = useState(getTabFromHash);
     const [details, setDetails] = useState({ inventory: [] });
-    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     
     const [initialSettings, setInitialSettings] = useState({});
@@ -32,6 +32,7 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
     const [initialRecipes, setInitialRecipes] = useState({});
     const [internalTerminalId, setInternalTerminalId] = useState(null);
     const [isTerminalListModalOpen, setIsTerminalListModalOpen] = useState(false);
+    const [hiddenRecipesVisible, setHiddenRecipesVisible] = useState(false);
 
     const formatNumericOutput = (value) => {
         const num = parseFloat(value);
@@ -44,7 +45,6 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
         const internalId = terminal.id;
         if (!internalId) return;
         
-        setIsLoading(true);
         setError('');
         setInternalTerminalId(internalId); // Устанавливаем ID сразу
 
@@ -93,7 +93,7 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
         } catch (err) {
             setError(err.response?.data?.error || err.message || 'Ошибка сети при загрузке данных стойки.');
         } finally {
-            setIsLoading(false);
+            // No more global loading state
         }
     }, [terminal.id]);
 
@@ -128,6 +128,9 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
                             initialRecipes={initialRecipes}
                             allTerminals={allTerminals}
                             onSave={fetchDetailsAndRecipes} 
+                            hiddenRecipesVisible={hiddenRecipesVisible}
+                            setHiddenRecipesVisible={setHiddenRecipesVisible}
+                            scrollPositionRef={scrollPositionRef}
                        />;
             case 'settings':
                 return <StandSettingsTab 
@@ -182,9 +185,8 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
                             })}
                         </div>
                         
-                        {isLoading && <div className="page-loading-container"><span>Загрузка деталей...</span></div>}
                         {error && <p className="error-message">{error}</p>}
-                        {!isLoading && !error && renderActiveTab()}
+                        {renderActiveTab()}
                     </div>
                 </div>
             </div>

@@ -1,0 +1,65 @@
+/* frontend/src/components/StandDetail/PresetSelectionModal.css */
+.presets-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    height: 100%;
+    overflow-y: auto;
+    padding-right: 4px; /* Space for scrollbar */
+}
+
+@media (max-width: 600px) {
+    .presets-list {
+        grid-template-columns: 1fr; /* Single column on small screens */
+    }
+}
+
+
+.preset-card {
+    background-color: #2e3340;
+    border: 1px solid #3a3e47;
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+    /* Masonry is not needed with grid */
+    break-inside: avoid;
+    height: fit-content; /* Ensure cards size to their content */
+}
+.preset-card:hover {
+    background-color: #3e67e0;
+    border-color: #8ae6ff;
+}
+
+.preset-name {
+    margin: 0 0 10px 0;
+    font-size: 1em;
+    font-weight: 600;
+    color: #e0e0e0;
+    border-bottom: 1px solid #4a505e;
+    padding-bottom: 8px;
+}
+
+.preset-recipe-grid.six-columns {
+    display: grid;
+    grid-template-columns: repeat(3, max-content 1fr); /* Three pairs of name/value */
+    gap: 4px 8px;
+    font-size: 0.8em; /* Reduced font size */
+    font-weight: 400; /* Reduced font weight */
+}
+
+.preset-ingredient-cell.name {
+    color: #a0b0c8;
+    text-align: right;
+}
+
+.preset-ingredient-cell.value {
+    color: #e0e0e0;
+    text-align: center;
+    font-weight: 500; /* Slightly bolder for value */
+    background-color: rgba(43, 48, 61, 0.7);
+    border-radius: 4px;
+    padding: 1px 2px; /* Reduced padding */
+    width: fit-content; /* Shrink to content width */
+    justify-self: center; /* Center the cell content horizontally */
+} 

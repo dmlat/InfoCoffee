@@ -1,0 +1,108 @@
+/* frontend/src/components/StandDetail/EditRecipeModal.css */
+.modal-header h2.modal-title {
+    margin: 0;
+    font-size: 1.2em;
+    color: #e0e0e0;
+}
+
+.modal-body {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px; /* Adjusted gap */
+}
+
+.template-checkbox-top {
+    display: flex;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #3a3e47;
+}
+.template-checkbox-top input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 12px;
+}
+.template-checkbox-top label {
+    font-size: 0.9em;
+    color: #c6c6c6;
+    cursor: pointer;
+}
+
+.top-buttons-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.preset-btn {
+    background: linear-gradient(135deg, #2e3340 0%, #3a3e47 100%);
+    border: 1px solid #4f81c7 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.preset-btn:hover {
+    background: linear-gradient(135deg, #3a3e47 0%, #4f81c7 100%);
+}
+
+.recipe-name-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    box-sizing: border-box; /* Ensure padding is included */
+}
+.recipe-name-container label {
+    font-size: 0.9em;
+    color: #a0b0c8;
+    margin-bottom: 6px;
+}
+.recipe-name-container input {
+    background-color: #20232a;
+    border: 1px solid #3a3e47;
+    border-radius: 6px;
+    padding: 10px;
+    color: #e0e0e0;
+    font-size: 1em;
+    width: 100%;
+    box-sizing: border-box; /* Ensure padding and border are included in width calculation */
+}
+
+.ingredients-grid.three-columns {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding-top: 10px;
+    border-top: 1px solid #3a3e47;
+}
+
+.ingredient-input-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.ingredient-input-group label {
+    font-size: 1em; /* Matched to input font-size */
+    color: #a0b0c8;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ingredient-input-group input {
+    background-color: #20232a;
+    border: 1px solid #3a3e47;
+    border-radius: 6px;
+    padding: 10px;
+    color: #e0e0e0;
+    font-size: 1em;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+}
+.ingredient-input-group input:focus {
+    outline: none;
+    border-color: #8ae6ff;
+    background-color: #2e3340;
+} 

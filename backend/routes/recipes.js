@@ -17,7 +17,7 @@ router.get('/terminal/:terminalId', authMiddleware, async (req, res) => {
         }
         const recipesRes = await pool.query(
             `SELECT
-                r.id, r.terminal_id, r.machine_item_id, r.name, r.updated_at,
+                r.id, r.terminal_id, r.machine_item_id, r.name, r.updated_at, r.is_hidden,
                 COALESCE((SELECT json_agg(json_build_object('item_name', ri.item_name, 'quantity', ri.quantity)) FROM recipe_items ri WHERE ri.recipe_id = r.id), '[]'::json) as items
              FROM recipes r WHERE r.terminal_id = $1`,
             [terminalId]
@@ -32,8 +32,9 @@ router.get('/terminal/:terminalId', authMiddleware, async (req, res) => {
 // Сохранить/обновить один рецепт
 router.post('/', authMiddleware, async (req, res) => {
     const { ownerUserId, telegramId } = req.user;
-    const { terminalId, machine_item_id, name, items } = req.body;
-    console.log(`[POST /api/recipes] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Saving recipe for TerminalID: ${terminalId}, MachineItemID: ${machine_item_id}.`);
+    const { terminalId, machine_item_id, name, items, save_as_template, is_hidden } = req.body; // Добавлено is_hidden
+    console.log(`[POST /api/recipes] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Saving recipe for TerminalID: ${terminalId}, MachineItemID: ${machine_item_id}. Hidden: ${is_hidden}`);
+
     if (!terminalId || !machine_item_id || !Array.isArray(items)) {
         return res.status(400).json({ success: false, error: 'Неверный формат данных' });
     }
@@ -41,10 +42,11 @@ router.post('/', authMiddleware, async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const ownerCheck = await client.query('SELECT id FROM terminals WHERE id = $1 AND user_id = $2', [terminalId, ownerUserId]);
+        const ownerCheck = await client.query('SELECT name FROM terminals WHERE id = $1 AND user_id = $2', [terminalId, ownerUserId]);
         if (ownerCheck.rowCount === 0) {
             throw new Error('Доступ к терминалу запрещен');
         }
+        const terminalName = ownerCheck.rows[0].name;
 
         let recipeId;
         const existingRecipe = await client.query('SELECT id FROM recipes WHERE terminal_id = $1 AND machine_item_id = $2', [terminalId, machine_item_id]);
@@ -53,8 +55,10 @@ router.post('/', authMiddleware, async (req, res) => {
             recipeId = existingRecipe.rows[0].id;
             await client.query('UPDATE recipes SET name = $1, updated_at = NOW() WHERE id = $2', [name || `Напиток #${machine_item_id}`, recipeId]);
         } else {
-            // КОД ВОЗВРАЩЕН К ОРИГИНАЛЬНОМУ ВАРИАНТУ. Теперь БД сама сгенерирует ID.
-            const newRecipeRes = await client.query('INSERT INTO recipes (terminal_id, machine_item_id, name) VALUES ($1, $2, $3) RETURNING id', [terminalId, machine_item_id, name || `Напиток #${machine_item_id}`]);
+            const newRecipeRes = await client.query(
+                'INSERT INTO recipes (terminal_id, machine_item_id, name, is_hidden) VALUES ($1, $2, $3, $4) RETURNING id', 
+                [terminalId, machine_item_id, name || `Напиток #${machine_item_id}`, !!is_hidden]
+            );
             recipeId = newRecipeRes.rows[0].id;
         }
 
@@ -66,6 +70,18 @@ router.post('/', authMiddleware, async (req, res) => {
             await client.query(`INSERT INTO recipe_items (recipe_id, item_name, quantity) VALUES ${placeholders}`, values);
         }
 
+        if (save_as_template && name) {
+            const presetName = `${name} (${terminalName})`;
+            const itemsJson = JSON.stringify(validItems.map(({ item_name, quantity }) => ({ item_name, quantity })));
+            await client.query(
+                `INSERT INTO recipe_presets (user_id, name, items)
+                 VALUES ($1, $2, $3)
+                 ON CONFLICT (user_id, name) DO UPDATE SET
+                    items = EXCLUDED.items`,
+                [ownerUserId, presetName, itemsJson]
+            );
+        }
+
         await client.query('COMMIT');
         res.status(201).json({ success: true, message: 'Рецепт успешно сохранен!' });
     } catch (err) {
@@ -75,6 +91,43 @@ router.post('/', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, error: 'Ошибка сервера при сохранении рецепта' });
     } finally {
         client.release();
+    }
+});
+
+// Переключить видимость рецепта
+router.post('/:recipeId/toggle-hidden', authMiddleware, async (req, res) => {
+    const { ownerUserId, telegramId } = req.user;
+    const { recipeId } = req.params;
+    const { is_hidden } = req.body;
+
+    if (typeof is_hidden !== 'boolean') {
+        return res.status(400).json({ success: false, error: 'Поле is_hidden должно быть boolean' });
+    }
+
+    console.log(`[POST /api/recipes/:id/toggle-hidden] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Toggling hidden for RecipeID: ${recipeId} to ${is_hidden}.`);
+
+    try {
+        const ownerCheck = await pool.query(
+            `SELECT r.id FROM recipes r
+             JOIN terminals t ON r.terminal_id = t.id
+             WHERE r.id = $1 AND t.user_id = $2`,
+            [recipeId, ownerUserId]
+        );
+
+        if (ownerCheck.rowCount === 0) {
+            return res.status(403).json({ success: false, error: 'Доступ запрещен или рецепт не найден' });
+        }
+
+        await pool.query(
+            'UPDATE recipes SET is_hidden = $1, updated_at = NOW() WHERE id = $2',
+            [is_hidden, recipeId]
+        );
+
+        res.json({ success: true, message: 'Статус видимости рецепта успешно обновлен.' });
+
+    } catch (err) {
+        sendErrorToAdmin({ userId: ownerUserId, errorContext: `POST /api/recipes/${recipeId}/toggle-hidden`, errorMessage: err.message, errorStack: err.stack }).catch(console.error);
+        res.status(500).json({ success: false, error: 'Ошибка сервера при обновлении рецепта' });
     }
 });
 

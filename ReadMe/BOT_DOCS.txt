@@ -1,0 +1,119 @@
+# Telegram Bot: Technical Documentation
+
+This document details the architecture of the integrated Telegram bot system. It covers the different bot instances, their purposes, core components, and operational logic based on environment and user roles.
+
+---
+
+## 1. Bot Architecture: The Three-Bot System
+
+The platform utilizes three distinct bot instances, each with a specific role. This separation ensures stability, security, and testability.
+
+### 1.1. Production: The Main User Bot
+-   **Token**: `TELEGRAM_BOT_TOKEN`
+-   **Purpose**: This is the primary, user-facing bot. It's the central point of interaction for all users (`owner`, `admin`, `service`).
+-   **Functionality**:
+    -   Serves the Telegram Mini App (`/start`, `/app` commands).
+    -   Provides interactive menus and financial reports.
+    -   Handles user commands like `/myid` and `/expenses`.
+    -   The Mini App itself is attached to this bot.
+
+### 1.2. Production: The Admin Bot
+-   **Token**: `ADMIN_TELEGRAM_BOT_TOKEN`
+-   **Purpose**: A separate, invisible bot used exclusively for system-level error reporting and critical alerts.
+-   **Functionality**:
+    -   Operates via `adminErrorNotifier.js`.
+    -   Receives, groups, and debounces errors from the entire backend.
+    -   Sends formatted error reports to a dedicated admin chat (`ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS`).
+    -   This separation prevents user-facing bot queues from being blocked by system alerts and vice-versa.
+
+### 1.3. Development: The Dev Bot
+-   **Token**: `DEV_TELEGRAM_BOT_TOKEN`
+-   **Purpose**: A sandboxed bot for local development (`npm run dev`). It acts as a substitute for **both** production bots.
+-   **Functionality**:
+    -   Mirrors the Main User Bot's functionality for testing features.
+    -   Handles error reporting, sending notifications to a dev chat (`DEV_ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS`).
+    -   Allows testing of new commands and features without affecting production users.
+
+---
+
+## 2. Key Files and Responsibilities
+
+This is a breakdown of the core files that constitute the bot system.
+
+-   **`backend/bot.js`**
+    -   **What it does**: The main entry point and orchestrator for the User Bot (both production and dev).
+    -   **Details**: Handles all user-facing commands (`/start`, `/menu`), callbacks from inline keyboards, and text message parsing (for expenses). It manages the initialization process (`startPolling`) and integrates role-based logic (`owner`, `admin`, `service`) to display appropriate menus.
+
+-   **`backend/utils/botInstance.js`**
+    -   **What it does**: Creates and exports the primary bot instance (singleton).
+    -   **Details**: Selects the correct token (`TELEGRAM_BOT_TOKEN` or `DEV_TELEGRAM_BOT_TOKEN`) based on `NODE_ENV`. It's a critical module that ensures only one instance of the main bot exists.
+
+-   **`backend/utils/botQueue.js`**
+    -   **What it does**: A robust message queuing system for the User Bot.
+    -   **Details**: Prevents API rate-limiting by managing message flow. Features separate queues for priority and regular messages, automatic retries with exponential backoff for failed sends, and cooldowns. **All messages from the User Bot must go through this queue.**
+
+-   **`backend/utils/adminErrorNotifier.js`**
+    -   **What it does**: Manages the Admin Bot for error logging.
+    -   **Details**: Instantiates a completely separate bot. It includes advanced features like error grouping (combining 10 identical errors into one message), debouncing (e.g., one notification per unique error every 5 minutes), and hourly send limits to prevent spamming the admin chat.
+
+-   **`backend/utils/botHelpers.js`**
+    -   **What it does**: Provides high-level helper functions for sending complex notifications.
+    -   **Details**: Contains functions like `sendNotificationWithKeyboard` and `sendBulkNotifications`. It also encapsulates the development-mode logic for rerouting `admin`/`service` notifications to the `owner`'s Telegram ID for easier testing.
+
+-   **`backend/utils/botMonitor.js`**
+    -   **What it does**: A health monitoring system for the message queue.
+    -   **Details**: Periodically logs the status of the `botQueue` (queue size, failure rates) to the console, providing insight into the system's health.
+
+-   **`backend/devBotHandlers.js`**
+    -   **What it does**: Defines development-only bot commands.
+    -   **Details**: This module is only loaded when `NODE_ENV=development`. It provides commands like `/dev_reset_db` for testing purposes.
+
+-   **`backend/worker/inventory_notifier_worker.js`**
+    -   **What it does**: Processes and sends consolidated inventory change notifications.
+    -   **Details**: This worker aggregates all inventory changes made by a user (recorded in `inventory_change_log`). It groups these changes by location, determining if an item is in the `Warehouse` (when `terminal_id` is `NULL`) or a specific `Stand` (when `terminal_id` is present). It then formats this into a structured report and automatically splits long messages into multiple chunks to respect Telegram's character limits, sending them via `botQueue`.
+
+---
+
+## 3. Core Concepts and Mistakes to Avoid
+
+### 3.1. Initialization (`bot.js`)
+-   **Concept**: To prevent `429 Too Many Requests` errors on startup, `initializeBotSafely` uses delays and automatic retries.
+-   **Mistake to Avoid**: Never call `bot.startPolling()` directly. Always use the `startPolling` wrapper in `bot.js`, which handles safe initialization. Bypassing it will lead to startup failures.
+
+### 3.2. Message Sending (`botQueue.js`)
+-   **Concept**: Every message to a user must be queued to respect Telegram's rate limits. The queue handles errors, retries, and prioritization automatically.
+-   **Mistake to Avoid**: Never use `bot.sendMessage()` directly in your code. This bypasses all the critical safety features of the queue. Always use a helper function like `queueMessage`, `sendNotification`, or `sendNotificationWithKeyboard`.
+
+### 3.3. User Roles and Logic (`bot.js`, `botHelpers.js`)
+-   **Concept**: The bot is role-aware. The `getUser` function in `bot.js` checks if a user is an `owner`, `admin`, or `service`, and the UI (menus, commands) adapts accordingly.
+-   **Development Logic**: In development mode, `botHelpers.js` intercepts messages intended for test `admin` and `service` users and redirects them to the main developer's account (`DEV_OWNER_TELEGRAM_ID`), simplifying the testing workflow.
+-   **Mistake to Avoid**: When adding new features, always consider how they will function for all three roles. Ensure that any role-specific logic is handled gracefully.
+---
+
+## 4. Relationship with Core Application Files
+
+The bot system is not standalone; it is deeply integrated with the application's core files. Understanding these connections is critical for stable development.
+
+### 4.1. `backend/app.js` (The Conductor)
+-   **Connection**: This is the **only** file that loads environment variables (`.env`). The entire bot system inherits its configuration (`process.env`) from `app.js`. It also controls the startup sequence, launching the bot via `startPolling()` only after the main server is running.
+-   **Mistake to Avoid**: Never add `require('dotenv').config()` to any bot-related file. This will create a conflicting configuration and break the "single source of truth" principle, potentially causing the bot to use the wrong API tokens or database settings.
+
+### 4.2. `backend/db.js` (The Data Foundation)
+-   **Connection**: The bot's ability to check user roles, fetch tasks, or perform any data-driven action depends on the database connection provided by this file. `db.js` relies on the configuration loaded by `app.js`.
+-   **Mistake to Avoid**: Do not re-implement `.env` loading within `db.js`. The commented-out code in that file was removed intentionally to enforce the central configuration from `app.js`.
+
+### 4.3. `frontend/index.js` & `App.js` (The Authentication Bridge)
+-   **Connection**: The bot is tied to user identity, which is established on the frontend. In development, `index.js` creates a mock `window.Telegram` object. `App.js` then uses this object (real or mock) to perform the `/auth/telegram-handshake`, linking the user's session to their Telegram identity.
+-   **Mistake to Avoid**: Do not remove the asynchronous wrapper (`initDevTelegram().then(...)`) around the `<App />` render in `index.js`. Doing so will break the authentication flow in development, as the app will try to authenticate before the mock Telegram environment is ready.
+
+---
+
+## 5. Development and Testing
+
+### 5.1. Rerouting Notifications
+-   **Concept**: To simplify testing, some parts of the system (like `botHelpers.js` and `inventory_notifier_worker.js`) will reroute notifications in `development` mode. Instead of trying to send messages to test users (who may not have a real chat with the dev bot), they redirect all notifications to the main developer (`DEV_OWNER_TELEGRAM_ID`).
+-   **Mistake to Avoid**: If you receive a `chat not found` error, it likely means some part of the code is trying to message a test user directly instead of rerouting to the owner. Ensure any new notification logic includes a check for `process.env.NODE_ENV === 'development'` and redirects messages accordingly.
+
+### 5.2. Using Test Scripts
+-   **Concept**: The `backend/worker` directory contains test scripts like `test_inventory_notifier.js`. These are invaluable for testing specific backend features in a controlled environment.
+-   **Usage**: These scripts should be run from the command line (e.g., `node backend/worker/test_inventory_notifier.js`). They typically populate the database with test data, execute the feature, and clean up afterwards or verify the result, sending a real notification to the dev bot. 

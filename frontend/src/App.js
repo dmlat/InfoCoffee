@@ -14,6 +14,7 @@ import WarehousePage from './pages/WarehousePage';
 import TasksPage from './pages/TasksPage';
 import ProfilePage from './pages/ProfilePage';
 import RightsPage from './pages/RightsPage';
+import AnalyticsPage from './pages/AnalyticsPage';
 
 // Layouts
 import MainDashboardLayout from './layouts/MainDashboardLayout';
@@ -221,6 +222,7 @@ function AppRouter() {
                         <Route path="expenses" element={<ProtectedRoute allowedRoles={['owner', 'admin']}><ExpensesPage /></ProtectedRoute>} />
                         <Route path="rights" element={<ProtectedRoute allowedRoles={['owner', 'admin']}><RightsPage /></ProtectedRoute>} />
                         <Route path="profile" element={<ProtectedRoute allowedRoles={['owner', 'admin']}><ProfilePage /></ProtectedRoute>} />
+                        <Route path="analytics" element={<ProtectedRoute allowedRoles={['owner', 'admin']}><AnalyticsPage /></ProtectedRoute>} />
 
                         {/* Общие маршруты для всех авторизованных ролей */}
                         <Route path="warehouse" element={<WarehousePage />} />

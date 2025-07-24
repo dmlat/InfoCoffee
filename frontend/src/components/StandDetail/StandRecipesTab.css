@@ -4,8 +4,7 @@
     flex-direction: column;
 }
 
-.settings-header-container .action-btn.secondary,
-.settings-header-container .header-save-btn {
+.settings-header-container .action-btn.secondary {
     padding: 0 12px;
     font-size: 0.8em;
     height: 28px;
@@ -19,98 +18,295 @@
     margin-bottom: 8px;
     flex-shrink: 0;
 }
-.save-status-recipes.success {
-    color: #4caf50;
-}
-.save-status-recipes.error {
-    color: #f44336;
-}
-.save-status-recipes.info {
-    color: #8ae6ff;
+.save-status-recipes.success { color: #4caf50; }
+.save-status-recipes.error { color: #f44336; }
+.save-status-recipes.info { color: #8ae6ff; }
+
+.recipes-info-block {
+    font-size: 0.7em; /* Matched to settings-hint */
+    color: #a0b0c8;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background-color: rgba(43, 48, 61, 0.5);
+    border-radius: 8px;
+    border: 1px solid #3a3e47;
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Space out items */
+    gap: 10px; /* Gap between text and button */
 }
 
-.recipes-table { 
+.recipes-info-block .recipes-info-text-container {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.recipes-info-block p.recipes-info-text {
+    margin: 2px 0; /* Adjust margin for two lines */
+    flex-grow: 1; /* Allow text to take up available space */
+}
+
+.copy-recipes-btn {
+    flex-shrink: 0;
+    padding: 0 12px;
+    font-size: 1.17em; /* Increased font size by 30% from 0.9em (0.9 * 1.3 = 1.17) */
+    height: 28px;
+    line-height: 28px;
+}
+
+.text-highlight-blue {
+    color: #8ae6ff;
+    font-weight: 600;
+}
+.text-highlight-red {
+    color: #ff8a8a;
+    font-weight: 600;
+}
+
+.recipes-table-new { 
     width: 100%; 
     border-collapse: separate;
     border-spacing: 0;
-    font-size: 0.85em; 
+    font-size: 0.7em; /* Matched to recipes-info-block */
+    table-layout: fixed;
 }
 
-.recipes-table th, .recipes-table td { 
-    padding: 0;
-    text-align: center; 
+.recipes-table-new th, .recipes-table-new td { 
+    padding: 6px 8px;
+    text-align: left; 
     border-bottom: 1px solid #3a3e47;
-    border-right: 1px solid #3a3e47;
-    white-space: nowrap; 
-}
-.recipes-table th:last-child, .recipes-table td:last-child {
-    border-right: none;
+    vertical-align: middle;
 }
 
-.recipes-table thead {
+.recipes-table-new thead {
     position: sticky;
     top: -1px;
     z-index: 2;
-}
-
-.recipes-table th { 
-    background-color: #2e3340; 
-    color: #a0b0c8; 
-    font-weight: 500;
-    padding: 6px 2px;
-}
-
-.recipes-table .sticky-col {
-    position: sticky;
-    left: 0;
-    z-index: 1;
     background-color: #2e3340;
 }
 
-.recipes-table th:not(.sticky-col),
-.recipes-table td:not(.sticky-col) {
+.recipes-table-new th { 
+    color: #a0b0c8; 
+    font-weight: 500;
+}
+
+.recipe-row {
+    transition: background-color 0.2s ease;
+    cursor: pointer;
+}
+.recipe-row:hover {
+    background-color: #2f343e;
+}
+
+/* --- Column Sizing --- */
+.id-col, .id-col-header {
+    width: 65px;
+    max-width: 72px;
+    min-width: 0;
+    text-align: left;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+.recipe-items-col {
+    padding: 6px 8px;
+    vertical-align: middle;
+}
+.recipe-items-col, .recipe-items-col-header { 
+    /* Width is calculated automatically by table-layout: fixed */
+}
+.actions-col, .actions-col-header { 
     width: 45px;
-    min-width: 45px;
+    text-align: center; /* Ensure content is centered */
 }
-
-.recipes-table .id-col {
-    width: 35px;
-    min-width: 35px;
-    font-weight: bold; 
-    color: #8ae6ff;
-    padding: 0 4px; 
-}
-
-.recipes-table .name-col {
-    width: 70px;
-    min-width: 70px;
-    left: 35px; /* Сдвигаем на ширину ID колонки */
-    border-right-width: 2px;
-}
-
-.recipes-table input {
-    background-color: transparent; 
-    border: none; 
-    color: #e0e0e0; 
+.actions-col-header {
+    padding-right: 12px;
     text-align: center;
-    width: 100%; 
-    min-width: 0; /* Позволяем колонке сжиматься */
-    padding: 8px 4px; 
-    border-radius: 0; 
-    transition: background-color 0.2s;
-    font-size: 16px !important;
+}
+
+/* --- Column Content --- */
+.id-col .id-val {
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #8ae6ff;
+    text-align: left; /* Align to left */
+}
+.id-col .name-val {
+    font-size: 0.8em; 
+    color: #c6c6c6;
+    overflow: hidden;
+    white-space: pre-wrap; 
+    text-align: left; 
+}
+
+.ingredient-summary-line {
+    display: flex; /* Use flexbox for wrapping control */
+    flex-wrap: wrap;
+    gap: 0 4px; /* Add a small horizontal gap between items */
+    font-size: 0.9em;
+    color: #a0b0c8;
+    line-height: 1.4;
+}
+
+.ingredient-group {
+    white-space: normal; /* Allow breaking within the group for long lists */
+}
+
+.ingredient-quantity-highlight {
+    color: #8ae6ff;
+    font-weight: 500;
+}
+
+.separator {
+    color: #fff; /* Make the separator white */
+    font-weight: 500;
+}
+
+.recipe-items-col .recipe-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+.recipe-items-col .action-link {
+    background: none;
+    border: none;
+    color: #8ae6ff;
+    cursor: pointer;
+    font-size: 0.95em;
+    padding: 0;
+    text-decoration: underline;
+}
+
+.actions-col {
+    padding: 0 !important; /* Remove padding for precise button placement */
+    text-align: center;
+}
+
+.actions-col .hide-btn {
+    background: none;
+    border: none;
+    color: #7d8da8;
+    cursor: pointer;
+    font-size: 1.2em;
+    padding: 4px 0 !important; /* Adjusted padding to fill width while keeping vertical padding */
+    width: 100% !important; /* Make button fill the cell width */
+    box-sizing: border-box;
+    border-radius: 50%; /* Keep existing border-radius */
+    transition: color 0.2s, background-color 0.2s;
+}
+.actions-col .hide-btn:hover {
+    color: #ff8a8a;
+    background-color: rgba(255, 138, 138, 0.1);
+}
+.actions-col .action-btn-small {
+    padding: 4px 0 !important; /* Adjusted padding to fill width while keeping vertical padding */
+    width: 100% !important; /* Make button fill the cell width */
+    box-sizing: border-box;
+    font-size: 0.8em;
+}
+
+.compact-return-btn {
+    padding: 4px 10px !important;
+    font-size: 0.85em !important;
+    font-weight: 500;
+    line-height: 1.5;
+    width: auto !important; /* Override width to fit content */
+    height: auto !important;
+}
+
+.hidden-table .actions-col {
+    width: auto;
+    text-align: left;
+    padding-right: 8px;
+}
+
+/* --- Hidden Recipes Section --- */
+
+/* Styles adapted from TasksPage.css for consistency */
+.tasks-list-container .container-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #3a3e47;
+    padding: 8px 12px; /* CORRECTED: Matched with TasksPage.css */
+    cursor: pointer;
+    user-select: none;
+    min-height: 38px;
     box-sizing: border-box;
 }
 
-.recipes-table input:focus { 
-    outline: none; 
-    background-color: #3e67e0; 
+.tasks-list-container .container-header h2.container-title {
+    color: #e0e0e0;
+    font-size: 0.9em;
+    font-weight: 500;
+    margin: 0;
+    text-transform: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0 !important; /* Ensure override */
 }
 
-.recipes-table .recipe-name-input { 
-    text-align: left;
+.toggle-arrow {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 6px solid #a0b0c8;
+    transition: transform 0.2s ease-in-out, border-color 0.2s;
+}
+
+.toggle-arrow.open {
+    transform: rotate(90deg);
+}
+
+.tasks-list-container .container-header:hover .toggle-arrow {
+    border-left-color: #fff;
+}
+
+.tasks-list-container .container-header:hover .container-title {
+    color: #fff;
+}
+
+
+.hidden-table {
+    background-color: rgba(30, 33, 41, 0.6);
+}
+.hidden-table .id-col .name-val {
+    color: #909090;
+}
+.hidden-table .recipe-row:hover {
+    background-color: #3a3e47;
+}
+
+.hidden-table .id-col {
+    width: 65px; /* Minimal width for ID column */
+}
+
+.hidden-table .actions-col {
     padding-left: 8px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+}
+
+/* Legacy styles from old table for reference or cleanup */
+.recipes-table input {
+    font-size: 16px !important;
+}
+
+/* Mobile-First Adjustments for columns */
+@media (max-width: 767px) {
+    .recipes-table-new .id-col, 
+    .recipes-table-new .id-col-header {
+        width: 15%; 
+        min-width: 70px; /* Adjusted for smaller screens */
+    }
+    .recipes-table-new .actions-col, 
+    .recipes-table-new .actions-col-header {
+        width: 10%; /* Adjusted for smaller screens */
+    }
+    .recipes-table-new .recipe-items-col, 
+    .recipes-table-new .recipe-items-col-header {
+        width: 75%; /* Adjusted for smaller screens */
+    }
 }

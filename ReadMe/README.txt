@@ -36,6 +36,8 @@ The application's behavior is fundamentally controlled by the `NODE_ENV` environ
 -   `development`: Loads configuration from `backend/.env.development`.
 -   All other modules in the application access configuration variables via `process.env`. **Do not add `require('dotenv').config()` to any other file.**
 
+> **Mistake to Avoid:** Never add `require('dotenv').config()` to any other files (e.g., `db.js`, `bot.js`). `app.js` is the single source of truth for configuration. Adding it elsewhere can cause modules to load inconsistent environments, leading to hard-to-debug errors where different parts of the application connect to different databases or services.
+
 ### 2.2. Environment-Specific Settings
 
 -   **Production (`.env`):**
@@ -70,6 +72,8 @@ The authentication system is designed to function both within the real Telegram 
     -   When a role is selected on the `DevEntryPage`, the `frontend/src/utils/dev.js` utility script sends a request to the backend's `GET /api/dev-config` endpoint to fetch the pre-configured test user IDs.
     -   It then generates a fake `initData` string based on the selected role and **overwrites the `window.Telegram` object** in the browser. This mechanism simulates a legitimate Telegram login.
     -   A "Logout (Dev)" button is rendered on all pages in development mode, allowing for instant session termination and role switching by returning to the `DevEntryPage`.
+    
+> **Mistake to Avoid:** The asynchronous initialization in `frontend/index.js` (`initDevTelegram().then(...)`) is critical. Rendering the `<App />` component directly in development mode will cause it to start before the mock `window.Telegram` object is created, which will break the authentication flow.
 
 3.  **Handshake**: The real (production) or fake (development) `initData` string is sent to the backend endpoint `POST /api/auth/telegram-handshake`.
 
@@ -84,6 +88,53 @@ The authentication system is designed to function both within the real Telegram 
 -   The `AuthProvider` React Context (`frontend/src/App.js`) is the central component for managing authentication state on the frontend. It handles the full authentication lifecycle, stores the user object and token, and makes them available to all child components.
 -   **CRITICAL: `isLoading` flag**: The `AuthProvider` exposes an `isLoading` boolean flag. This flag is `true` while the provider is asynchronously validating the token with the backend. Any component that relies on user data (e.g., `user.accessLevel` for role-based rendering) **must** check this flag and render a loading state until it is `false`. Failure to do so will lead to runtime errors (`Cannot read properties of undefined`) as the component will attempt to access `user` before it has been loaded.
 
+> **Mistake to Avoid:** Always check `if (isLoading)` before attempting to access the `user` object from the `useAuth()` hook. Components often render before the async authentication process is complete. Accessing `user.accessLevel` when `user` is still `null` is a common source of crashes.
+
+### 3.2.1. Accessing User Data in Components
+
+The established pattern for accessing user data (like the user object, token, or authentication status) within any component is to use the `useAuth()` hook. This ensures that every component has access to the same, single source of truth.
+
+```javascript
+// Example from RightsPage.js
+import { useAuth } from '../App';
+
+export default function RightsPage() {
+    const { user, isLoading } = useAuth();
+
+    if (isLoading) {
+        return <div>Loading...</div>;
+    }
+    // ... rest of the component logic using 'user'
+}
+```
+
+> **Mistake to Avoid:** **Never pass the `user` object as a prop** from a parent component to a child page (e.g., `<ProfilePage user={user} />`). This is an anti-pattern in this project. It breaks the standardized data flow, can lead to state synchronization issues, and was the root cause of an infinite-loop bug on the `ProfilePage`. Always use the `useAuth()` hook directly within the component that needs the data.
+
+### 3.2.2. Managing Component State with External Data (Props)
+
+A common challenge is managing a component's internal state when it's initialized with data from props, especially in editing forms or modals. A frequent bug occurs when trying to track whether the user has made changes ("dirty state").
+
+> **Mistake to Avoid:** **Do not re-initialize your component's "original state" every time props change.** If you have a `useEffect` hook that watches a prop (e.g., an `itemToEdit` object) and it sets both the *current form state* and the *original state snapshot* for comparison, any update to that prop will incorrectly make it seem like no changes have been made.
+>
+> **Correct Pattern:**
+> 1.  On the first render or when a new item is loaded, capture the incoming prop data into an "initial state" variable (using `useState`). Use a `useRef` to store the ID of the item being edited.
+> 2.  In your `useEffect` hook that watches the prop, check if the ID of the incoming item is different from the one in your `useRef`.
+> 3.  Only reset the "initial state" snapshot if the ID has changed (i.e., a completely new item is being edited).
+> 4.  If the ID is the same, only update the *display* state, allowing your comparison logic to correctly detect changes against the original snapshot.
+> This prevents the component from losing track of user edits when parent data is updated (e.g., applying a preset or template).
+
+### 3.2.3. Preserving UI State Across Re-renders
+
+For complex components that display lists or have interactive UI elements (like accordions), it is critical to preserve the user's view state across data-driven re-renders to avoid a frustrating user experience.
+
+> **Mistake to Avoid:** **Forgetting to preserve UI state beyond scroll position.** When a user action triggers a data refresh and re-render, the entire component tree can be rebuilt. This will reset not only the scroll position but also the state of any interactive elements, like whether a collapsible section was open. Simply saving and restoring `scrollTop` is not enough.
+>
+> **Correct Pattern:**
+> 1.  Identify all critical UI state that needs to be preserved (e.g., scroll position, open/closed state of accordions, selected tabs).
+> 2.  Use `useRef` hooks to create persistent storage for each piece of state that needs to survive the re-render.
+> 3.  **Before** dispatching the action that causes the re-render, capture the current UI state and save it to your `useRef` variables.
+> 4.  Use the `useLayoutEffect` hook to restore the UI state. This hook should depend on the data that gets re-rendered. It runs synchronously after the DOM has been updated but before the browser has painted the screen, making it ideal for restoring state without a visual flicker.
+
 ### 3.3. Routing and Navigation
 
 The application uses `react-router-dom` v6 with a robust, role-based routing architecture to prevent redirection loops and enforce access control.
@@ -93,6 +144,21 @@ The application uses `react-router-dom` v6 with a robust, role-based routing arc
 3.  **Protected Routes (`ProtectedRoute`)**: Each child route that requires specific permissions (e.g., `/dashboard/finances` for admins) is wrapped in this component. It verifies the user's role and redirects them to a default page if they lack the necessary access.
 
 This structure eliminates the possibility of infinite redirect cycles and provides a clear, predictable navigation flow.
+
+### 3.3.1. Adding a New Page
+
+To add a new navigable page to the main dashboard, follow these steps:
+
+1.  **Create the Page Component**: Create your new component file in `frontend/src/pages/`, for example, `AnalyticsPage.js`. Ensure it uses the `useAuth()` hook for user data if needed.
+2.  **Import the Component**: In `frontend/src/App.js`, import the new page component.
+    ```javascript
+    import AnalyticsPage from './pages/AnalyticsPage';
+    ```
+3.  **Add the Route**: In `frontend/src/App.js`, add a new `<Route>` within the `DashboardLayoutSelector`'s child routes. Wrap it in `ProtectedRoute` if it requires specific user roles.
+    ```javascript
+    <Route path="analytics" element={<ProtectedRoute allowedRoles={['owner', 'admin']}><AnalyticsPage /></ProtectedRoute>} />
+    ```
+4.  **Add Navigation Link**: In `frontend/src/layouts/MainDashboardLayout.js` (or `ServiceDashboardLayout.js`), add a new `NavLink` to the appropriate tab row so users can navigate to your new page.
 
 ---
 
@@ -124,7 +190,7 @@ try {
 ### 4.2. Background Workers and Scheduled Jobs
 
 -   **Import Scheduler (`schedule_imports.js`)**: Manages all scheduled data synchronization with the Vendista API, including 15-minute, daily, and weekly imports. Also handles terminal status synchronization.
--   **Inventory Notifier (`inventory_notifier_worker.js`)**: Runs hourly to scan for inventory changes, groups them by user, and sends a consolidated report to the business owner and admins, providing an audit trail of stock adjustments.
+-   **Inventory Notifier (`inventory_notifier_worker.js`)**: Runs hourly to scan for inventory changes. It aggregates all changes made by a user within that hour, groups them by location (determined by `terminal_id`: `NULL` for Warehouse, present for a Stand), and sends a consolidated, structured report to the owner and admins. To handle large reports, the worker automatically splits messages that exceed Telegram's character limit.
 -   **Task Cleanup (`task_cleanup_worker.js`)**: Runs daily at 23:59 (Moscow Time) to hide completed tasks from the main UI, keeping the active task list clean while preserving historical data for analytics.
 
 ### 4.2.1. Transaction Import Logic
@@ -174,6 +240,8 @@ To prevent notification spam from users with unpaid Vendista accounts, the syste
 4.  **Start Database**: Run `docker-compose up -d` to start the PostgreSQL container.
 5.  **Run Application**: Run `npm run dev`. This will start the backend (port 3001) and frontend (port 3000) servers with `nodemon` and `react-scripts`.
 6.  **Access Application**: Open `http://localhost:3000` in your browser to access the `DevEntryPage` and begin testing.
+
+> **Important Note on Database Schema:** If you encounter database errors like `column "..." does not exist` after pulling new changes, your local database schema is likely out of sync. The safest way to resolve this in a development environment is to stop the application, delete the `pgdata` volume (`rm -rf pgdata`), and restart the Docker container (`docker-compose up -d`). This will recreate the database with the latest schema.
 
 ---
 
@@ -273,3 +341,13 @@ For easier access, use the shell wrapper `scripts/run-manual-job.sh`:
     node backend/worker/direct_import.js import 1 7
     node backend/worker/direct_import.js import 1 full-history
     ``` 
+
+### 7.3. Testing Specific Workers
+
+The project may include dedicated test scripts for complex workers in the `backend/worker/` directory, such as `test_inventory_notifier.js`. These scripts are designed to be run in a `development` environment to verify specific functionality without affecting production data.
+
+-   **Run the inventory notifier test:**
+    ```bash
+    node backend/worker/test_inventory_notifier.js
+    ```
+--- 
