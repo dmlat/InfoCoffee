@@ -85,13 +85,16 @@ const validateTelegramInitData = (initDataString) => {
     }
 
     try {
+        console.log('[Auth Validate] Step 1: Parsing initData.');
         const params = new URLSearchParams(initDataString);
         const hash = params.get('hash');
         if (!hash) {
+            console.error('[Auth Validate] Error: No hash in initData.');
             return { valid: false, data: null, error: "No hash in initData" };
         }
         params.delete('hash');
         
+        console.log('[Auth Validate] Step 2: Preparing dataCheckString.');
         const dataCheckArr = [];
         const sortedKeys = Array.from(params.keys()).sort();
         sortedKeys.forEach(key => {
@@ -99,12 +102,20 @@ const validateTelegramInitData = (initDataString) => {
         });
         const dataCheckString = dataCheckArr.join('\n');
 
+        console.log('[Auth Validate] Step 3: Creating secret key.');
         const secretKey = crypto.createHmac('sha256', 'WebAppData').update(TELEGRAM_BOT_TOKEN).digest();
+        
+        console.log('[Auth Validate] Step 4: Calculating hash.');
         const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
+        console.log('[Auth Validate] Step 5: Comparing hashes.');
         if (calculatedHash === hash) {
             const user = params.get('user');
-            if (!user) return { valid: false, data: null, error: "No user data in initData" };
+            if (!user) {
+                console.error('[Auth Validate] Error: No user data in initData despite valid hash.');
+                return { valid: false, data: null, error: "No user data in initData" };
+            }
+            console.log('[Auth Validate] Validation successful.');
             return { valid: true, data: JSON.parse(decodeURIComponent(user)) };
         }
         
@@ -118,6 +129,7 @@ const validateTelegramInitData = (initDataString) => {
 };
 
 router.post('/telegram-handshake', async (req, res) => {
+    console.log('[POST /api/auth/telegram-handshake] Received request.'); // Временный лог
     const { initData } = req.body;
 
     if (!initData) {
