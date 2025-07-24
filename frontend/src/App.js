@@ -31,9 +31,43 @@ function AuthProvider({ children }) {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
+  // --- НОВОЕ: Вспомогательная функция для логирования ошибок на сервер ---
+  const logErrorToServer = async (error, context) => {
+    try {
+      // Формируем четкое сообщение об ошибке
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.response?.data?.error) {
+        // Ошибка от нашего бэкенда
+        errorMessage = error.response.data.error;
+      } else if (error?.message) {
+        // Общая ошибка (например, от axios)
+        errorMessage = error.message;
+      }
+      
+      console.error(`[AUTH_ERROR] Context: ${context}, Error: ${errorMessage}`, error);
+      
+      // Отправляем ошибку на бэкенд для уведомления администратора
+      await api.post('/auth/log-frontend-error', {
+        error: errorMessage,
+        context: `Frontend Auth: ${context}`,
+        tgInitData: window.Telegram?.WebApp?.initData || 'N/A'
+      });
+    } catch (loggingError) {
+      // Если даже логирование не удалось, выводим это в консоль
+      console.error('CRITICAL: Failed to log error to server:', loggingError);
+    }
+  };
+
+
   const initApp = async () => {
     try {
+      console.log('[Auth] --- Starting App Initialization ---');
       setIsLoading(true);
+      setError(''); // Сбрасываем предыдущие ошибки
       
       if (process.env.NODE_ENV === 'development') {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -42,7 +76,9 @@ function AuthProvider({ children }) {
       const localUser = getUser();
       
       if (localUser && localUser.token) {
+        console.log('[Auth] Found local user data with token.');
         try {
+          console.log('[Auth] Validating token...');
           api.defaults.headers.common['Authorization'] = `Bearer ${localUser.token}`;
           const response = await Promise.race([
             api.get('/auth/validate-token'),
@@ -52,42 +88,63 @@ function AuthProvider({ children }) {
           ]);
           setUser(response.data.user);
           setAuthStatus('authenticated');
+          console.log('[Auth] Token validation successful. User is authenticated.');
+
         } catch (tokenError) {
+          console.log('[Auth] Token validation failed. This is expected if the token expired.');
+          // Это не критическая ошибка, а ожидаемое поведение, если токен истек.
+          // Поэтому логируем с информативной целью.
+          await logErrorToServer(tokenError, 'Token Validation Failed (starting refresh)');
+          
           clearUserDataFromLocalStorage();
           delete api.defaults.headers.common['Authorization'];
           
           if (window.Telegram?.WebApp?.initData) {
+            console.log('[Auth] Attempting silent refresh with /auth/refresh-app-token...');
             try {
-              // --- ИСПРАВЛЕНИЕ: Используем правильный эндпоинт для обновления токена ---
-              // Был '/auth/telegram-handshake', стал '/auth/refresh-app-token'
-              // Это ключевое изменение, которое чинит логику для всех ролей.
               const response = await api.post('/auth/refresh-app-token', { initData: window.Telegram.WebApp.initData });
               const { token, user: userData, message } = response.data;
 
-              // Логика ниже остается той же, но теперь она получает корректные данные от бэкенда.
               if (message === 'registration_required') {
-                setAuthStatus('registration_required');
+                const errText = 'Refresh check resulted in registration_required. This should not happen for existing users.';
+                console.error(`[Auth] CRITICAL: ${errText}`);
+                setError(errText);
+                await logErrorToServer(new Error(errText), 'Silent Refresh - Registration Required');
+                setAuthStatus('error');
                 return;
               }
+
               api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
               setUser(userData);
               saveUserDataToLocalStorage({ token, user: userData });
               setAuthStatus('authenticated');
+              console.log('[Auth] Silent refresh successful.');
+
             } catch (err) {
-              setError('Authentication failed. Please try again.');
+              console.error('[Auth] CRITICAL: Silent refresh failed.', err);
+              const refreshErrorMessage = err.response?.data?.error || err.message;
+              setError(`Ошибка обновления сессии: ${refreshErrorMessage}`);
+              await logErrorToServer(err, 'Silent Refresh Failed');
               setAuthStatus('error');
             }
           } else {
-            setAuthStatus('unauthenticated');
+            const errText = 'No Telegram initData available for refresh. User is unauthenticated.';
+            console.log(`[Auth] ${errText}`);
+            setError('Не удалось обновить сессию: отсутствуют данные Telegram.');
+            await logErrorToServer(new Error(errText), 'Silent Refresh - No InitData');
+            setAuthStatus('error');
           }
         }
       } else {
+        console.log('[Auth] No local token found. Proceeding with initial handshake.');
         if (window.Telegram?.WebApp?.initData) {
+          console.log('[Auth] Found Telegram initData. Attempting handshake...');
           try {
             const response = await api.post('/auth/telegram-handshake', { initData: window.Telegram.WebApp.initData });
             const { token, user: userData, message } = response.data;
 
             if (message === 'registration_required') {
+              console.log('[Auth] Handshake resulted in registration_required.');
               setAuthStatus('registration_required');
               return;
             }
@@ -95,19 +152,30 @@ function AuthProvider({ children }) {
             setUser(userData);
             saveUserDataToLocalStorage({ token, user: userData });
             setAuthStatus('authenticated');
+            console.log('[Auth] Handshake successful.');
+
           } catch (err) {
-            setError('Authentication failed. Please try again.');
+            console.error('[Auth] CRITICAL: Handshake failed.', err);
+            const handshakeErrorMessage = err.response?.data?.error || err.message;
+            setError(`Ошибка входа: ${handshakeErrorMessage}`);
+            await logErrorToServer(err, 'Telegram Handshake Failed');
             setAuthStatus('error');
           }
         } else {
+          console.log('[Auth] No local token and no initData. User is unauthenticated.');
           setAuthStatus('unauthenticated');
         }
       }
     } catch (err) {
+      console.error('[Auth] A critical uncaught error occurred during app initialization.', err);
+      const criticalErrorMessage = err.response?.data?.error || err.message;
+      setError(`Критическая ошибка: ${criticalErrorMessage}`);
+      await logErrorToServer(err, 'Critical Init Error');
       clearUserDataFromLocalStorage();
-      setAuthStatus('unauthenticated');
+      setAuthStatus('unauthenticated'); // Fallback to unauthenticated
     } finally {
       setIsLoading(false);
+      console.log('[Auth] --- App Initialization Finished ---');
     }
   };
 
@@ -203,10 +271,56 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
 
 function AppRouter() {
-    const { authStatus, user } = useAuth();
+    const { authStatus, user, error, reAuthenticate } = useAuth();
 
     if (authStatus === 'loading') {
         return <div className="loading-container">Загрузка...</div>;
+    }
+
+    // --- НОВОЕ: Отображение экрана ошибки ---
+    if (authStatus === 'error') {
+        return (
+            <div className="loading-container" style={{ 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                padding: '20px', 
+                textAlign: 'center',
+                height: '100vh'
+            }}>
+                <h2 style={{ color: '#ff4d4d', marginBottom: '10px' }}>Произошла ошибка</h2>
+                <p style={{ color: '#ccc', marginBottom: '20px' }}>Не удалось войти в приложение. Пожалуйста, попробуйте перезагрузить.</p>
+                {error && (
+                  <div style={{ 
+                      color: 'grey', 
+                      background: '#2a2a2a', 
+                      padding: '15px', 
+                      borderRadius: '8px', 
+                      maxWidth: '90%', 
+                      wordBreak: 'break-word',
+                      textAlign: 'left',
+                      marginBottom: '25px',
+                      fontSize: '14px'
+                  }}>
+                      <strong>Детали:</strong> {error}
+                  </div>
+                )}
+                <button 
+                    onClick={() => reAuthenticate()} 
+                    style={{ 
+                        padding: '12px 25px', 
+                        cursor: 'pointer', 
+                        border: 'none', 
+                        borderRadius: '5px',
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        fontSize: '16px'
+                    }}
+                >
+                    Перезагрузить
+                </button>
+            </div>
+        );
     }
 
     return (
