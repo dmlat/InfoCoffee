@@ -83,6 +83,13 @@ The authentication system is designed to function both within the real Telegram 
 
 5.  **JWT Issuance**: Upon successful validation, the backend issues a JSON Web Token (JWT) containing the user's ID, `telegram_id`, and `accessLevel`. This token must be included in the `Authorization: Bearer <token>` header of all subsequent API requests.
 
+> **Mistake to Avoid: Confusing Initial Login with Session Refresh**
+> The application has two distinct authentication endpoints, and using the wrong one is a critical error.
+> - **`POST /api/auth/telegram-handshake`**: For **initial login only**. Use this when the user has no active session.
+> - **`POST /api/auth/refresh-app-token`**: For **silent session refresh only**. Use this when the user's JWT has expired and you need a new one without forcing a logout.
+>
+> Using `telegram-handshake` to refresh a token for an existing `admin` or `service` user will cause the backend to treat them as a new user requiring registration, which breaks the frontend application. This was the root cause of a major authentication bug.
+
 ### 3.2. Frontend State Management (AuthProvider)
 
 -   The `AuthProvider` React Context (`frontend/src/App.js`) is the central component for managing authentication state on the frontend. It handles the full authentication lifecycle, stores the user object and token, and makes them available to all child components.
@@ -247,107 +254,4 @@ To prevent notification spam from users with unpaid Vendista accounts, the syste
 
 ## 6. Deployment
 
-Deployment to a production server is automated via the `deploy.sh` script. This script handles:
-
-1.  Pulling the latest changes from the Git repository.
-2.  Installing/updating npm dependencies for both backend and frontend if `package.json` has changed.
-3.  Creating a production build of the frontend application.
-4.  Using `rsync` to deploy the built frontend assets to the web server's root directory.
-5.  Restarting the backend and scheduler processes via PM2 using `pm2 restart ecosystem.config.js --update-env`.
-
-Manual PM2 commands can also be used for management:
--   `pm2 list`: View status of all processes.
--   `pm2 logs infocoffee-backend`: View logs for a specific process.
--   `pm2 restart ecosystem.config.js --update-env`: Restart all processes and apply new environment variables.
-
-
----
-
-## 7. Manual Operations
-
-The `backend/worker/manual_runner.js` script provides a command-line interface for executing specific one-off tasks. It is essential for maintenance, debugging, and data backfilling.
-
-Additionally, `backend/worker/direct_import.js` provides a direct import utility that bypasses the scheduling queue for faster debugging and historical imports.
-
-Run the scripts from the project root directory.
-
-### 7.1. Debugging and Performance Tools
-
-For performance analysis and debugging, the system includes several specialized tools:
-
--   **Direct Import**: Bypasses the queue system for immediate execution and detailed performance metrics
--   **Statistics Display**: Shows comprehensive transaction statistics and database status  
--   **Schedule Testing**: Allows testing of cron jobs without waiting for scheduled execution
--   **Performance Logging**: Detailed timing breakdown of API calls, database operations, and inventory updates
-
-### Available Commands:
-
--   `import-transactions`: Manually trigger the transaction import for a specific user (via queue). Can fetch for a given number of days or the entire history since the user's setup date.
--   `direct-import`: Direct import without queue (for debugging and faster historical imports). Bypasses the scheduling system.
--   `sync-terminals`: Synchronize the list of terminals from Vendista for a user.
--   `update-creds`: Securely update the Vendista login and password for a user. The script will validate the new credentials before saving the encrypted versions.
--   `test-token`: Test the validity of a user's current Vendista API token against the API endpoints.
--   `show-stats`: Display transaction statistics and database status for a user.
--   `test-schedule`: Test scheduled import jobs immediately without waiting for cron.
-
-### Usage Examples:
-
--   **Queue import for User 1 (full history):**
-    ```bash
-    node backend/worker/manual_runner.js import-transactions --user-id 1 --full-history
-    ```
-
--   **Direct import for debugging or faster historical imports:**
-    ```bash
-    node backend/worker/manual_runner.js direct-import --user-id 1 --full-history
-    node backend/worker/manual_runner.js direct-import --user-id 1 --days 7
-    ```
-
--   **Show transaction statistics:**
-    ```bash
-    node backend/worker/manual_runner.js show-stats --user-id 1
-    ```
-
--   **Test scheduled jobs immediately:**
-    ```bash
-    node backend/worker/manual_runner.js test-schedule --job 15min
-    node backend/worker/manual_runner.js test-schedule --job daily
-    ```
-
--   **Update Vendista credentials for User 1:**
-    ```bash
-    node backend/worker/manual_runner.js update-creds --user-id 1 --login "your_vendista_login" --password "your_vendista_password"
-    ```
-
--   **Test the API token for User 3:**
-    ```bash
-    node backend/worker/manual_runner.js test-token --user-id 3
-    ```
-
-### 7.2. Shell Wrapper (Convenience Commands)
-
-For easier access, use the shell wrapper `scripts/run-manual-job.sh`:
-
--   **Quick debugging and statistics:**
-    ```bash
-    ./scripts/run-manual-job.sh show-stats --user-id 1
-    ./scripts/run-manual-job.sh direct-import --user-id 1 --days 1
-    ./scripts/run-manual-job.sh test-schedule --job 15min
-    ```
-
--   **Direct alternative to manual_runner.js:**
-    ```bash
-    node backend/worker/direct_import.js stats 1
-    node backend/worker/direct_import.js import 1 7
-    node backend/worker/direct_import.js import 1 full-history
-    ``` 
-
-### 7.3. Testing Specific Workers
-
-The project may include dedicated test scripts for complex workers in the `backend/worker/` directory, such as `test_inventory_notifier.js`. These scripts are designed to be run in a `development` environment to verify specific functionality without affecting production data.
-
--   **Run the inventory notifier test:**
-    ```bash
-    node backend/worker/test_inventory_notifier.js
-    ```
---- 
+Deployment to a production server is automated via the `

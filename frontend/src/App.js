@@ -58,9 +58,13 @@ function AuthProvider({ children }) {
           
           if (window.Telegram?.WebApp?.initData) {
             try {
-              const response = await api.post('/auth/telegram-handshake', { initData: window.Telegram.WebApp.initData });
+              // --- ИСПРАВЛЕНИЕ: Используем правильный эндпоинт для обновления токена ---
+              // Был '/auth/telegram-handshake', стал '/auth/refresh-app-token'
+              // Это ключевое изменение, которое чинит логику для всех ролей.
+              const response = await api.post('/auth/refresh-app-token', { initData: window.Telegram.WebApp.initData });
               const { token, user: userData, message } = response.data;
 
+              // Логика ниже остается той же, но теперь она получает корректные данные от бэкенда.
               if (message === 'registration_required') {
                 setAuthStatus('registration_required');
                 return;

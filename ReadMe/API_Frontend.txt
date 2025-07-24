@@ -21,6 +21,12 @@ Authentication Flow (frontend/src/App.js, frontend/src/utils/user.js, frontend/s
     After receiving a token, App.js calls the /auth/validate-token endpoint to verify the token's authenticity and retrieve user details.
     The AuthProvider now includes an isLoading state to prevent premature rendering of authenticated components before the token is validated.
 
+  **Silent Session Refresh (Token Expiration Flow):**
+    - **Context**: When a user returns to the app after their JWT has expired, `GET /auth/validate-token` will fail.
+    - **Correct Flow**: The `AuthProvider` catches this specific error and must initiate a silent refresh.
+    - **Implementation**: It calls the `POST /api/auth/refresh-app-token` endpoint, sending the current `initData` from Telegram. This endpoint is designed to issue a new token for any valid user (`owner`, `admin`, `service`) without re-triggering the registration flow.
+    - **Mistake to Avoid**: Never use `POST /api/auth/telegram-handshake` for refreshing an expired token. The `telegram-handshake` endpoint is **only for initial login**. Using it for an existing `admin` or `service` user will cause the backend to misinterpret them as a new, unregistered user, leading to critical frontend failures ("grey screen"). This was the root cause of the authentication bug.
+
   Persistent Authentication:
     The JWT token is stored locally (e.g., in localStorage) for session persistence.
     Subsequent requests include this token in the Authorization header.
