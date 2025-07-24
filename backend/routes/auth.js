@@ -78,23 +78,19 @@ const validateTelegramInitData = (initDataString) => {
     }
 
     // В production-режиме всегда проводим строгую проверку хеша.
-    console.log('[Auth Validate] Production mode: Performing hash validation.');
     if (!TELEGRAM_BOT_TOKEN) {
         console.error('[Auth Validate] TELEGRAM_BOT_TOKEN is not configured.');
         return { valid: false, data: null, error: "Application is not configured for Telegram authentication (token missing)." };
     }
 
     try {
-        console.log('[Auth Validate] Step 1: Parsing initData.');
         const params = new URLSearchParams(initDataString);
         const hash = params.get('hash');
         if (!hash) {
-            console.error('[Auth Validate] Error: No hash in initData.');
             return { valid: false, data: null, error: "No hash in initData" };
         }
         params.delete('hash');
         
-        console.log('[Auth Validate] Step 2: Preparing dataCheckString.');
         const dataCheckArr = [];
         const sortedKeys = Array.from(params.keys()).sort();
         sortedKeys.forEach(key => {
@@ -102,20 +98,12 @@ const validateTelegramInitData = (initDataString) => {
         });
         const dataCheckString = dataCheckArr.join('\n');
 
-        console.log('[Auth Validate] Step 3: Creating secret key.');
         const secretKey = crypto.createHmac('sha256', 'WebAppData').update(TELEGRAM_BOT_TOKEN).digest();
-        
-        console.log('[Auth Validate] Step 4: Calculating hash.');
         const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
-        console.log('[Auth Validate] Step 5: Comparing hashes.');
         if (calculatedHash === hash) {
             const user = params.get('user');
-            if (!user) {
-                console.error('[Auth Validate] Error: No user data in initData despite valid hash.');
-                return { valid: false, data: null, error: "No user data in initData" };
-            }
-            console.log('[Auth Validate] Validation successful.');
+            if (!user) return { valid: false, data: null, error: "No user data in initData" };
             return { valid: true, data: JSON.parse(decodeURIComponent(user)) };
         }
         
@@ -581,11 +569,13 @@ router.post('/refresh-app-token', async (req, res) => {
         return res.status(401).json({ success: false, error: errorMsg });
     }
     
-    const current_telegram_id_refresh = BigInt(telegramUser.id);
+    // --- ИСПРАВЛЕНИЕ: Используем .toString() вместо BigInt() ---
+    // Драйвер pg может некорректно обрабатывать BigInt, что вызывает зависание запроса.
+    // Передача ID как строки - безопасный и надежный способ.
+    const current_telegram_id_refresh = telegramUser.id.toString();
     console.log(`[POST /api/auth/refresh-app-token] Validated Telegram ID: ${current_telegram_id_refresh} for refresh`);
 
     try {
-        console.log('[Refresh Token] Step 1: Searching for user in `users` table (owner check).');
         let tokenPayload;
         let userDataForClient;
 
@@ -599,12 +589,12 @@ router.post('/refresh-app-token', async (req, res) => {
             const ownerUser = ownerRes.rows[0];
             tokenPayload = { 
                 userId: ownerUser.id, 
-                telegramId: current_telegram_id_refresh.toString(),
+                telegramId: current_telegram_id_refresh,
                 accessLevel: 'owner'
             };
             userDataForClient = {
                 userId: ownerUser.id,
-                telegramId: current_telegram_id_refresh.toString(),
+                telegramId: current_telegram_id_refresh,
                 firstName: ownerUser.first_name || telegramUser.first_name,
                 username: ownerUser.user_name || telegramUser.username,
                 setup_date: ownerUser.setup_date,
@@ -632,13 +622,13 @@ router.post('/refresh-app-token', async (req, res) => {
                 const accessRecord = accessRightsResult.rows[0];
                 tokenPayload = {
                     userId: accessRecord.owner_user_id,
-                    telegramId: current_telegram_id_refresh.toString(),
+                    telegramId: current_telegram_id_refresh,
                     accessLevel: accessRecord.access_level,
                     sharedName: accessRecord.shared_with_name
                 };
                  userDataForClient = {
                     userId: accessRecord.owner_user_id,
-                    telegramId: current_telegram_id_refresh.toString(),
+                    telegramId: current_telegram_id_refresh,
                     firstName: accessRecord.shared_with_name,
                     username: telegramUser.username,
                     setup_date: accessRecord.owner_setup_date,
@@ -667,7 +657,6 @@ router.post('/refresh-app-token', async (req, res) => {
         
         console.log(`[POST /api/auth/refresh-app-token] App token refreshed for TG ID: ${current_telegram_id_refresh} (acting as user_id: ${tokenPayload.userId})`);
         
-        console.log('[Refresh Token] Step 4: Sending successful response to client.');
         res.json({
             success: true,
             token: newAppToken,
