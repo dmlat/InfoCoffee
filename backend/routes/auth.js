@@ -259,26 +259,62 @@ router.post('/telegram-handshake', async (req, res) => {
     
     console.log(`[Auth] User search result: found=${!!user}, user_id=${user?.id}, has_token=${!!user?.vendista_api_token}`);
 
-    // Определяем роль пользователя
+    // ИСПРАВЛЕННАЯ ЛОГИКА: Определяем роль пользователя
     if (user) {
-        console.log(`[Auth] Found user in users table: ${user.id}`);
-        // Если пользователь найден и прошел регистрацию
+        console.log(`[Auth] Found user in users table: ${user.id}, has_token: ${!!user.vendista_api_token}`);
+        
+        // Если пользователь найден И есть vendista_api_token - это owner
         if (user.vendista_api_token) {
-            role = 'owner'; // Предполагаем, что найденный пользователь является владельцем
-            owner_id = user.id; // owner_id будет использоваться для генерации токена
+            role = 'owner';
+            owner_id = user.id;
             userForResponse = user;
             console.log(`[Auth] User is owner with completed registration`);
         } else {
-            // Если пользователь существует, но не завершил регистрацию
-            role = 'registration_incomplete';
-            owner_id = user.id; // owner_id будет использоваться для генерации токена
-            userForResponse = user;
-            console.log(`[Auth] User is owner with incomplete registration`);
+            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Пользователь найден БЕЗ токена
+            // Проверяем, может ли он быть admin/service через user_access_rights
+            console.log(`[Auth] User found without token, checking if they have access rights...`);
+            
+            const accessRightsResult = await pool.query(
+                `SELECT uar.owner_user_id, uar.access_level, uar.shared_with_name, 
+                        u.setup_date, u.tax_system, u.acquiring, u.first_name as owner_first_name
+                 FROM user_access_rights uar
+                 JOIN users u ON uar.owner_user_id = u.id
+                 WHERE uar.shared_with_telegram_id = $1`,
+                [telegram_id_str]
+            );
+            
+            console.log(`[Auth] Access rights search for existing user: found=${accessRightsResult.rows.length > 0}`);
+            
+            if (accessRightsResult.rows.length > 0) {
+                // Пользователь существует в users, но является admin/service
+                console.log(`[Auth] User is ${accessRightsResult.rows[0].access_level} with existing user record`);
+                const accessRecord = accessRightsResult.rows[0];
+                role = accessRecord.access_level; // 'admin' или 'service'
+                owner_id = accessRecord.owner_user_id;
+                
+                // Формируем объект пользователя для admin/service
+                userForResponse = {
+                    id: owner_id, // ID владельца для токена
+                    telegram_id: telegram_id_str, // Telegram ID admin/service как строка
+                    first_name: accessRecord.shared_with_name, // Имя admin/service
+                    user_name: telegramUser.username || '', // Username из Telegram
+                    setup_date: accessRecord.setup_date,
+                    tax_system: accessRecord.tax_system,
+                    acquiring: accessRecord.acquiring
+                };
+                console.log(`[Auth] Created user object for existing ${role}:`, userForResponse);
+            } else {
+                // Пользователь существует, но не имеет прав доступа - незавершенная регистрация owner'а
+                role = 'registration_incomplete';
+                owner_id = user.id;
+                userForResponse = user;
+                console.log(`[Auth] User is owner with incomplete registration`);
+            }
         }
     } else {
-        console.log(`[Auth] User not found in users table, checking user_access_rights...`);
+        console.log(`[Auth] User not found in users table, checking user_access_rights for new users...`);
         
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверяем user_access_rights для admin/service пользователей
+        // Проверяем user_access_rights для новых admin/service пользователей (не существующих в users)
         console.log(`[Auth] Searching in user_access_rights for telegram_id: ${telegram_id_str}`);
         const accessRightsResult = await pool.query(
             `SELECT uar.owner_user_id, uar.access_level, uar.shared_with_name, 
@@ -289,15 +325,15 @@ router.post('/telegram-handshake', async (req, res) => {
             [telegram_id_str]
         );
         
-        console.log(`[Auth] Access rights search result: found=${accessRightsResult.rows.length > 0}`);
+        console.log(`[Auth] Access rights search for new user: found=${accessRightsResult.rows.length > 0}`);
         
         if (accessRightsResult.rows.length > 0) {
-            console.log(`[Auth] Found user in access_rights table with role: ${accessRightsResult.rows[0].access_level}`);
+            console.log(`[Auth] Found NEW user in access_rights table with role: ${accessRightsResult.rows[0].access_level}`);
             const accessRecord = accessRightsResult.rows[0];
             role = accessRecord.access_level; // 'admin' или 'service'
             owner_id = accessRecord.owner_user_id;
             
-            // Формируем объект пользователя для admin/service
+            // Формируем объект пользователя для admin/service (не существующих в users)
             userForResponse = {
                 id: owner_id, // ID владельца для токена
                 telegram_id: telegram_id_str, // Telegram ID admin/service как строка
@@ -307,7 +343,7 @@ router.post('/telegram-handshake', async (req, res) => {
                 tax_system: accessRecord.tax_system,
                 acquiring: accessRecord.acquiring
             };
-            console.log(`[Auth] Created user object for ${role}:`, userForResponse);
+            console.log(`[Auth] Created user object for NEW ${role}:`, userForResponse);
         } else {
             console.log(`[Auth] User not found in access_rights, creating new user record`);
             // Если пользователь новый, создаем запись и отправляем на регистрацию
@@ -1091,6 +1127,59 @@ router.get('/auth-stats', async (req, res) => {
     } catch (err) {
         console.error('[Auth Stats] Error in auth-stats:', err);
         res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+// Тестовый эндпоинт для проверки уведомлений (только для testing)
+router.post('/test-admin-notification', async (req, res) => {
+    // Доступно только в development или для owner пользователей
+    if (process.env.NODE_ENV !== 'development') {
+        try {
+            const header = req.headers['authorization'];
+            if (!header) {
+                return res.status(401).json({ success: false, error: 'Authorization required' });
+            }
+
+            const token = header.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            
+            if (decoded.accessLevel !== 'owner') {
+                return res.status(403).json({ success: false, error: 'Owner access required' });
+            }
+        } catch (err) {
+            return res.status(401).json({ success: false, error: 'Invalid token' });
+        }
+    }
+
+    try {
+        console.log(`[Auth Test] Testing admin notification system...`);
+        
+        // Отправляем тестовое уведомление
+        await sendErrorToAdmin({
+            telegramId: req.body.telegramId || '12345',
+            userFirstName: 'Test User',
+            errorContext: '🧪 TEST NOTIFICATION from /api/auth/test-admin-notification',
+            errorMessage: 'This is a test notification to verify the admin error system is working correctly.',
+            additionalInfo: { 
+                timestamp: new Date().toISOString(),
+                note: 'If you see this message, the notification system is configured correctly!' 
+            }
+        });
+
+        console.log(`[Auth Test] Test notification sent successfully`);
+        
+        res.json({
+            success: true,
+            message: 'Test notification sent to admin chat. Check your Telegram for the message.'
+        });
+
+    } catch (err) {
+        console.error('[Auth Test] Error sending test notification:', err);
+        res.status(500).json({ 
+            success: false, 
+            error: `Failed to send test notification: ${err.message}`,
+            details: 'Check server logs and admin bot configuration'
+        });
     }
 });
 
