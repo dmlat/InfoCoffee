@@ -37,6 +37,12 @@ setInterval(() => {
     }
 }, NOTIFICATION_COOLDOWN_MS);
 
+console.log('[AdminErrorNotifier] Checking configuration...');
+console.log('[AdminErrorNotifier] NODE_ENV:', process.env.NODE_ENV);
+console.log('[AdminErrorNotifier] IS_DEV:', IS_DEV);
+console.log('[AdminErrorNotifier] ADMIN_BOT_TOKEN available:', !!ADMIN_BOT_TOKEN);
+console.log('[AdminErrorNotifier] ADMIN_CHAT_ID available:', !!ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS);
+
 if (ADMIN_BOT_TOKEN && ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS) {
     // Создаем отдельный инстанс с настройками для админского бота
     botInstance = new TelegramBot(ADMIN_BOT_TOKEN, { 
@@ -50,9 +56,13 @@ if (ADMIN_BOT_TOKEN && ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS) {
         }
     });
     
-    console.log('[AdminErrorNotifier] Admin Bot initialized for sending error notifications.');
+    console.log('[AdminErrorNotifier] ✅ Admin Bot initialized for sending error notifications.');
+    console.log('[AdminErrorNotifier] Bot token length:', ADMIN_BOT_TOKEN.length);
+    console.log('[AdminErrorNotifier] Chat ID:', ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS);
 } else {
-    console.warn('[AdminErrorNotifier] ADMIN_TELEGRAM_BOT_TOKEN or ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS not set. Admin error notifications disabled.');
+    console.warn('[AdminErrorNotifier] ❌ ADMIN_TELEGRAM_BOT_TOKEN or ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS not set. Admin error notifications disabled.');
+    console.warn('[AdminErrorNotifier] Expected bot token, got:', ADMIN_BOT_TOKEN ? `${ADMIN_BOT_TOKEN.substring(0, 10)}...` : 'undefined');
+    console.warn('[AdminErrorNotifier] Expected chat ID, got:', ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS || 'undefined');
 }
 
 // Новая функция для экранирования HTML
@@ -71,12 +81,20 @@ function getErrorGroupKey(errorContext, errorMessage) {
 
 // Пакетная обработка ошибок
 async function processBatchedErrors() {
-    if (batchProcessingActive || ERROR_QUEUE.length === 0) {
+    console.log(`[AdminErrorNotifier] 🔄 processBatchedErrors called. Queue: ${ERROR_QUEUE.length}, Active: ${batchProcessingActive}`);
+    
+    if (batchProcessingActive) {
+        console.log(`[AdminErrorNotifier] ⏸️ Batch processing already active, skipping...`);
+        return;
+    }
+    
+    if (ERROR_QUEUE.length === 0) {
+        console.log(`[AdminErrorNotifier] 📭 Queue is empty, nothing to process`);
         return;
     }
 
     batchProcessingActive = true;
-    console.log(`[AdminErrorNotifier] Processing ${ERROR_QUEUE.length} batched errors...`);
+    console.log(`[AdminErrorNotifier] 🏃 Processing ${ERROR_QUEUE.length} batched errors...`);
 
     try {
         // Группируем ошибки по типу
@@ -162,8 +180,12 @@ async function sendGroupedErrorNotification(group) {
     message += `\n📊 Проверьте логи для полной информации.`;
 
     try {
+        console.log(`[AdminErrorNotifier] 🚀 Attempting to send message to chat ${ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS}`);
+        console.log(`[AdminErrorNotifier] Message preview:`, message.substring(0, 100) + '...');
+        
         const MAX_MESSAGE_LENGTH = 4096;
         if (message.length > MAX_MESSAGE_LENGTH) {
+            console.log(`[AdminErrorNotifier] Message too long (${message.length} chars), splitting...`);
             // Разбиваем длинное сообщение на части
             const parts = [];
             let currentPart = "";
@@ -178,23 +200,32 @@ async function sendGroupedErrorNotification(group) {
             }
             if (currentPart) parts.push(currentPart);
 
-            for (const part of parts) {
-                await botInstance.sendMessage(ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS, part, { 
+            console.log(`[AdminErrorNotifier] Sending ${parts.length} message parts...`);
+            for (let i = 0; i < parts.length; i++) {
+                console.log(`[AdminErrorNotifier] Sending part ${i + 1}/${parts.length}...`);
+                await botInstance.sendMessage(ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS, parts[i], { 
                     parse_mode: 'HTML',
                     disable_web_page_preview: true 
                 });
                 await new Promise(resolve => setTimeout(resolve, 500)); // Задержка между частями
             }
         } else {
+            console.log(`[AdminErrorNotifier] Sending single message (${message.length} chars)...`);
             await botInstance.sendMessage(ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS, message, { 
                 parse_mode: 'HTML',
                 disable_web_page_preview: true 
             });
         }
         
-        console.log(`[AdminErrorNotifier] Sent grouped error notification (${count}x errors)`);
+        console.log(`[AdminErrorNotifier] ✅ Successfully sent grouped error notification (${count}x errors)`);
     } catch (sendErr) {
-        console.error('[AdminErrorNotifier] Failed to send notification:', sendErr.message);
+        console.error('[AdminErrorNotifier] ❌ Failed to send notification:', sendErr);
+        console.error('[AdminErrorNotifier] Error details:', {
+            message: sendErr.message,
+            code: sendErr.code,
+            parameters: sendErr.parameters,
+            stack: sendErr.stack
+        });
         
         // Если ошибка связана с rate limiting, увеличиваем интервал
         if (sendErr.code === 429) {
@@ -220,6 +251,20 @@ async function sendErrorToAdmin({
     errorStack, 
     additionalInfo, 
 }) {
+    console.log(`[AdminErrorNotifier] 📨 sendErrorToAdmin called:`, {
+        userId, telegramId, errorContext: errorContext?.substring(0, 50) + '...',
+        hasBotInstance: !!botInstance,
+        hasChatId: !!ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS
+    });
+
+    // Проверяем, инициализирован ли бот
+    if (!botInstance || !ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS) {
+        console.warn(`[AdminErrorNotifier] ❌ Cannot send notification: bot not configured`);
+        console.warn(`[AdminErrorNotifier] Bot instance:`, !!botInstance);
+        console.warn(`[AdminErrorNotifier] Chat ID:`, !!ADMIN_TELEGRAM_CHAT_ID_FOR_ERRORS);
+        return;
+    }
+
     // Создаем идентификатор пользователя для дедупликации
     const userIdentifier = userId || telegramId;
     const cacheKey = `${errorContext}:${userIdentifier || 'anonymous'}:${errorMessage.substring(0, 50)}`;
@@ -273,12 +318,19 @@ async function sendErrorToAdmin({
         timestamp: now
     });
 
-    console.log(`[AdminErrorNotifier] Error queued for batch processing. Queue length: ${ERROR_QUEUE.length}`);
+    console.log(`[AdminErrorNotifier] ✅ Error queued for batch processing. Queue length: ${ERROR_QUEUE.length}`);
+    console.log(`[AdminErrorNotifier] Queue item added:`, {
+        errorContext: errorContext?.substring(0, 30) + '...',
+        userIdentifier: finalUserIdentifier?.substring(0, 30) + '...',
+        timestamp: now
+    });
 
     // Если очередь становится большой, немедленно обрабатываем
     if (ERROR_QUEUE.length >= 5) {
-        console.log('[AdminErrorNotifier] Queue size threshold reached. Processing immediately.');
+        console.log('[AdminErrorNotifier] 🚨 Queue size threshold reached. Processing immediately.');
         setTimeout(processBatchedErrors, 1000);
+    } else {
+        console.log(`[AdminErrorNotifier] ⏰ Queue will be processed in next batch cycle (${ERROR_QUEUE.length}/5 items)`);
     }
 }
 

@@ -124,21 +124,22 @@ router.post('/telegram-handshake', async (req, res) => {
         return res.status(400).json({ success: false, error: 'initData is required.' });
     }
 
-    const validationResult = validateTelegramInitData(initData);
+    try {
+        const validationResult = validateTelegramInitData(initData);
 
-    if (!validationResult.valid || !validationResult.data?.id) {
-        const errorMsg = `Invalid Telegram data: ${validationResult.error || 'Unknown validation error'}`;
-        sendErrorToAdmin({
-            telegramId: validationResult.data?.id,
-            errorContext: 'Telegram Handshake Validation',
-            errorMessage: errorMsg,
-            additionalInfo: { initDataProvided: !!initData }
-        }).catch(notifyErr => console.error("Failed to send admin notification from telegram-handshake validation:", notifyErr));
-        return res.status(403).json({ success: false, error: errorMsg });
-    }
+        if (!validationResult.valid || !validationResult.data?.id) {
+            const errorMsg = `Invalid Telegram data: ${validationResult.error || 'Unknown validation error'}`;
+            sendErrorToAdmin({
+                telegramId: validationResult.data?.id,
+                errorContext: 'Telegram Handshake Validation',
+                errorMessage: errorMsg,
+                additionalInfo: { initDataProvided: !!initData }
+            }).catch(notifyErr => console.error("Failed to send admin notification from telegram-handshake validation:", notifyErr));
+            return res.status(403).json({ success: false, error: errorMsg });
+        }
 
-    const telegramUser = validationResult.data;
-    const telegram_id = telegramUser.id;
+        const telegramUser = validationResult.data;
+        const telegram_id = telegramUser.id;
 
     // --- РЕЖИМ РАЗРАБОТКИ ---
     if (process.env.NODE_ENV === 'development') {
@@ -244,13 +245,19 @@ router.post('/telegram-handshake', async (req, res) => {
 
 
     // --- ПРОДАКШЕН ЛОГИКА ---
-    console.log(`[Auth] Production mode: Processing telegram_id ${telegram_id}`);
+    console.log(`[Auth] Production mode: Processing telegram_id ${telegram_id} (type: ${typeof telegram_id})`);
     
-    let userQuery = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
+    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Приводим telegram_id к строке для консистентности
+    const telegram_id_str = telegram_id.toString();
+    console.log(`[Auth] Searching for telegram_id as string: ${telegram_id_str}`);
+    
+    let userQuery = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegram_id_str]);
     let user = userQuery.rows[0];
     let role = null;
     let owner_id = null;
     let userForResponse = null;
+    
+    console.log(`[Auth] User search result: found=${!!user}, user_id=${user?.id}, has_token=${!!user?.vendista_api_token}`);
 
     // Определяем роль пользователя
     if (user) {
@@ -272,14 +279,17 @@ router.post('/telegram-handshake', async (req, res) => {
         console.log(`[Auth] User not found in users table, checking user_access_rights...`);
         
         // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверяем user_access_rights для admin/service пользователей
+        console.log(`[Auth] Searching in user_access_rights for telegram_id: ${telegram_id_str}`);
         const accessRightsResult = await pool.query(
             `SELECT uar.owner_user_id, uar.access_level, uar.shared_with_name, 
                     u.setup_date, u.tax_system, u.acquiring, u.first_name as owner_first_name
              FROM user_access_rights uar
              JOIN users u ON uar.owner_user_id = u.id
              WHERE uar.shared_with_telegram_id = $1`,
-            [telegram_id]
+            [telegram_id_str]
         );
+        
+        console.log(`[Auth] Access rights search result: found=${accessRightsResult.rows.length > 0}`);
         
         if (accessRightsResult.rows.length > 0) {
             console.log(`[Auth] Found user in access_rights table with role: ${accessRightsResult.rows[0].access_level}`);
@@ -290,7 +300,7 @@ router.post('/telegram-handshake', async (req, res) => {
             // Формируем объект пользователя для admin/service
             userForResponse = {
                 id: owner_id, // ID владельца для токена
-                telegram_id: telegram_id, // Telegram ID admin/service
+                telegram_id: telegram_id_str, // Telegram ID admin/service как строка
                 first_name: accessRecord.shared_with_name, // Имя admin/service
                 user_name: telegramUser.username || '', // Username из Telegram
                 setup_date: accessRecord.setup_date,
@@ -301,9 +311,10 @@ router.post('/telegram-handshake', async (req, res) => {
         } else {
             console.log(`[Auth] User not found in access_rights, creating new user record`);
             // Если пользователь новый, создаем запись и отправляем на регистрацию
+            console.log(`[Auth] Creating new user with telegram_id: ${telegram_id_str}`);
             const newUserQuery = await pool.query(
                 "INSERT INTO users (telegram_id, first_name, user_name) VALUES ($1, $2, $3) RETURNING *",
-                [telegram_id, telegramUser.first_name || '', telegramUser.username || '']
+                [telegram_id_str, telegramUser.first_name || '', telegramUser.username || '']
             );
             const newUser = newUserQuery.rows[0];
             role = 'registration_required';
@@ -337,7 +348,7 @@ router.post('/telegram-handshake', async (req, res) => {
         // Admin/Service пользователи (регистрация уже завершена через владельца)
         console.log(`[Auth] Returning successful auth for ${role}`);
         const token = jwt.sign(
-            { userId: owner_id, telegramId: telegram_id.toString(), accessLevel: role },
+            { userId: owner_id, telegramId: telegram_id_str, accessLevel: role },
             JWT_SECRET,
             { expiresIn: '12h' }
         );
@@ -388,6 +399,40 @@ router.post('/telegram-handshake', async (req, res) => {
             additionalInfo: { role, userForResponse }
         }).catch(console.error);
         return res.status(500).json({ success: false, error: errorMsg });
+    }
+    
+    } catch (err) {
+        // КРИТИЧЕСКАЯ ОШИБКА: Отправляем в Telegram все неожиданные ошибки
+        console.error('[POST /api/auth/telegram-handshake] CRITICAL ERROR:', err);
+        
+        const errorMessage = `CRITICAL telegram-handshake error: ${err.message}`;
+        const additionalInfo = {
+            stack: err.stack,
+            code: err.code,
+            constraint: err.constraint,
+            initDataProvided: !!req.body.initData,
+            hasValidationResult: 'validationResult' in err
+        };
+
+        // Определяем telegram_id для уведомления (если доступен)
+        let telegramIdForNotification = null;
+        try {
+            const validationResult = validateTelegramInitData(req.body.initData);
+            telegramIdForNotification = validationResult.data?.id;
+        } catch {}
+
+        sendErrorToAdmin({
+            telegramId: telegramIdForNotification,
+            errorContext: '💥 CRITICAL telegram-handshake ERROR',
+            errorMessage: errorMessage,
+            errorStack: err.stack,
+            additionalInfo: additionalInfo
+        }).catch(notifyErr => console.error("Failed to send critical error notification:", notifyErr));
+
+        return res.status(500).json({ 
+            success: false, 
+            error: 'Критическая ошибка аутентификации. Администратор уведомлен.' 
+        });
     }
 });
 
