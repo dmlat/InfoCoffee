@@ -900,41 +900,61 @@ router.get('/validate-token', async (req, res) => {
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        
-        // --- ОБЩАЯ ЛОГИКА ДЛЯ ВСЕХ СРЕД ---
-        // Всегда ищем пользователя в базе данных, чтобы отдать на фронтенд актуальные данные.
-        const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.userId]);
-        if (userResult.rows.length === 0) {
-            console.warn(`[validate-token] User with ID ${decoded.userId} from token not found in DB.`);
-            return res.status(401).json({ success: false, error: 'User not found' });
+
+        // --- НОВАЯ ЛОГИКА: Всегда перепроверяем роль пользователя в базе данных ---
+        const { userId, telegramId } = decoded;
+
+        if (!userId || !telegramId) {
+            return res.status(401).json({ success: false, error: 'Invalid token payload' });
         }
-        const user = userResult.rows[0];
 
-        // Определяем роль из токена. В dev-режиме она может быть подменена.
-        const roleOrAccessLevel = decoded.accessLevel || decoded.role || 'owner';
+        let userRole = null;
+        let ownerIdForLookup = userId;
+        let finalUserObject = {};
 
-        // Формируем полный объект пользователя для ответа
-        let userForClient = {
-            ...user, // Полные данные из БД
-            id: user.id, // Убедимся, что ID правильный
-            telegram_id: decoded.telegramId, // <-- Используем telegram_id из токена, он может быть эмулированным
-            role: roleOrAccessLevel,
-            accessLevel: roleOrAccessLevel,
-        };
-
-        // В dev-режиме, если роль не 'owner', нам надо добавить данные о правах доступа
-        if (process.env.NODE_ENV === 'development' && roleOrAccessLevel !== 'owner') {
-             const accessRightsResult = await pool.query(
-                `SELECT uar.shared_with_name
+        // 1. Проверяем, является ли пользователь владельцем
+        const ownerResult = await pool.query('SELECT * FROM users WHERE id = $1 AND telegram_id = $2 AND vendista_api_token IS NOT NULL', [userId, telegramId]);
+        
+        if (ownerResult.rows.length > 0) {
+            userRole = 'owner';
+            finalUserObject = ownerResult.rows[0];
+        } else {
+            // 2. Если не владелец, ищем в правах доступа
+            const accessRightsResult = await pool.query(
+                `SELECT uar.owner_user_id, uar.access_level, uar.shared_with_name,
+                        u.*
                  FROM user_access_rights uar
-                 WHERE uar.owner_user_id = $1 AND uar.shared_with_telegram_id = $2`,
-                [user.id, decoded.telegramId]
+                 JOIN users u ON uar.owner_user_id = u.id
+                 WHERE uar.shared_with_telegram_id = $1 AND uar.owner_user_id = $2`,
+                [telegramId, userId]
             );
-            if(accessRightsResult.rows.length > 0) {
-                userForClient.first_name = accessRightsResult.rows[0].shared_with_name;
-                userForClient.user_name = `dev_${roleOrAccessLevel}`; // Добавляем и username для консистентности
+
+            if (accessRightsResult.rows.length > 0) {
+                const accessRecord = accessRightsResult.rows[0];
+                userRole = accessRecord.access_level;
+                ownerIdForLookup = accessRecord.owner_user_id;
+
+                // Собираем объект пользователя для админа/сервиса
+                finalUserObject = {
+                    ...accessRecord, // Включаем все поля из `users`
+                    first_name: accessRecord.shared_with_name // Перезаписываем имя на то, что указано в правах
+                };
             }
         }
+
+        if (!userRole) {
+            console.warn(`[validate-token] Could not determine role for userId: ${userId}, telegramId: ${telegramId}. Token may be for a deleted or misconfigured user.`);
+            return res.status(401).json({ success: false, error: 'User role could not be verified.' });
+        }
+
+        // 3. Собираем финальный ответ
+        const userForClient = {
+            ...finalUserObject,
+            id: ownerIdForLookup,      // ID всегда от владельца
+            telegram_id: telegramId, // Telegram ID от того, кто авторизован
+            role: userRole,
+            accessLevel: userRole
+        };
         
         res.json({
             success: true,
