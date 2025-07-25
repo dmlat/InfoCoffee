@@ -1,0 +1,88 @@
+-- Table: public.terminals
+
+-- DROP TABLE IF EXISTS public.terminals;
+
+CREATE TABLE IF NOT EXISTS public.terminals
+(
+    id integer NOT NULL DEFAULT nextval('terminals_id_seq'::regclass),
+    user_id integer NOT NULL,
+    vendista_terminal_id integer NOT NULL,
+    name character varying(255) COLLATE pg_catalog."default",
+    serial_number character varying(100) COLLATE pg_catalog."default",
+    last_online_time timestamp with time zone,
+    is_online boolean DEFAULT false,
+    service_interval_sales integer,
+    sales_since_last_service integer DEFAULT 0,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    is_active boolean NOT NULL DEFAULT true,
+    last_synced_at timestamp with time zone,
+    sales_since_cleaning integer NOT NULL DEFAULT 0,
+    CONSTRAINT terminals_pkey PRIMARY KEY (id),
+    CONSTRAINT terminals_user_id_vendista_terminal_id_key UNIQUE (user_id, vendista_terminal_id),
+    CONSTRAINT terminals_user_id_fkey FOREIGN KEY (user_id)
+        REFERENCES public.users (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE CASCADE
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.terminals
+    OWNER to coffee_admin;
+-- Index: idx_terminals_user_id
+
+-- DROP INDEX IF EXISTS public.idx_terminals_user_id;
+
+CREATE INDEX IF NOT EXISTS idx_terminals_user_id
+    ON public.terminals USING btree
+    (user_id ASC NULLS LAST)
+    TABLESPACE pg_default;
+
+-- Table: public.recipes
+
+-- DROP TABLE IF EXISTS public.recipes;
+
+CREATE TABLE IF NOT EXISTS public.recipes
+(
+    id integer NOT NULL DEFAULT nextval('recipes_id_seq'::regclass),
+    terminal_id integer NOT NULL,
+    machine_item_id integer NOT NULL,
+    name character varying(255) COLLATE pg_catalog."default",
+    updated_at timestamp with time zone NOT NULL DEFAULT now(),
+    is_hidden boolean NOT NULL DEFAULT false,
+    CONSTRAINT recipes_pkey PRIMARY KEY (id),
+    CONSTRAINT recipes_terminal_id_machine_item_id_key UNIQUE (terminal_id, machine_item_id),
+    CONSTRAINT recipes_terminal_id_fkey FOREIGN KEY (terminal_id)
+        REFERENCES public.terminals (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE CASCADE
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.recipes
+    OWNER to coffee_admin;
+
+-- Table: public.recipe_items
+
+-- DROP TABLE IF EXISTS public.recipe_items;
+
+CREATE TABLE IF NOT EXISTS public.recipe_items
+(
+    id integer NOT NULL DEFAULT nextval('recipe_items_id_seq'::regclass),
+    recipe_id integer NOT NULL,
+    item_name character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    quantity numeric(10,3) NOT NULL DEFAULT 0,
+    CONSTRAINT recipe_items_pkey PRIMARY KEY (id),
+    CONSTRAINT recipe_items_recipe_id_item_name_key UNIQUE (recipe_id, item_name),
+    CONSTRAINT recipe_items_recipe_id_fkey FOREIGN KEY (recipe_id)
+        REFERENCES public.recipes (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE CASCADE
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.recipe_items
+    OWNER to coffee_admin;

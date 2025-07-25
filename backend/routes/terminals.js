@@ -25,7 +25,6 @@ router.get('/', authMiddleware, async (req, res) => {
                         FROM transactions tr
                         LEFT JOIN recipes r ON r.terminal_id = t.id AND r.machine_item_id = tr.machine_item_id
                         WHERE tr.coffee_shop_id = t.vendista_terminal_id AND tr.user_id = t.user_id AND tr.machine_item_id IS NOT NULL
-                          AND (r.is_hidden IS NULL OR r.is_hidden = false)
                     ) > (
                         -- Подсчет всех рецептов, у которых есть хотя бы один ингредиент
                         SELECT COUNT(DISTINCT r.machine_item_id)

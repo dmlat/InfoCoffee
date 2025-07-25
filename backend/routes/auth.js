@@ -244,117 +244,246 @@ router.post('/telegram-handshake', async (req, res) => {
 
 
     // --- ПРОДАКШЕН ЛОГИКА ---
+    console.log(`[Auth] Production mode: Processing telegram_id ${telegram_id}`);
+    
     let userQuery = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
     let user = userQuery.rows[0];
     let role = null;
     let owner_id = null;
+    let userForResponse = null;
 
     // Определяем роль пользователя
     if (user) {
+        console.log(`[Auth] Found user in users table: ${user.id}`);
         // Если пользователь найден и прошел регистрацию
         if (user.vendista_api_token) {
             role = 'owner'; // Предполагаем, что найденный пользователь является владельцем
             owner_id = user.id; // owner_id будет использоваться для генерации токена
+            userForResponse = user;
+            console.log(`[Auth] User is owner with completed registration`);
         } else {
             // Если пользователь существует, но не завершил регистрацию
             role = 'registration_incomplete';
             owner_id = user.id; // owner_id будет использоваться для генерации токена
+            userForResponse = user;
+            console.log(`[Auth] User is owner with incomplete registration`);
         }
     } else {
-        // Если пользователь новый, создаем запись и отправляем на регистрацию
-        const newUserQuery = await pool.query(
-            "INSERT INTO users (telegram_id, first_name, user_name) VALUES ($1, $2, $3) RETURNING *",
-            [telegram_id, telegramUser.first_name || '', telegramUser.username || '']
+        console.log(`[Auth] User not found in users table, checking user_access_rights...`);
+        
+        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Проверяем user_access_rights для admin/service пользователей
+        const accessRightsResult = await pool.query(
+            `SELECT uar.owner_user_id, uar.access_level, uar.shared_with_name, 
+                    u.setup_date, u.tax_system, u.acquiring, u.first_name as owner_first_name
+             FROM user_access_rights uar
+             JOIN users u ON uar.owner_user_id = u.id
+             WHERE uar.shared_with_telegram_id = $1`,
+            [telegram_id]
         );
-        const newUser = newUserQuery.rows[0];
-        role = 'registration_required';
-        owner_id = newUser.id; // owner_id будет использоваться для генерации токена
+        
+        if (accessRightsResult.rows.length > 0) {
+            console.log(`[Auth] Found user in access_rights table with role: ${accessRightsResult.rows[0].access_level}`);
+            const accessRecord = accessRightsResult.rows[0];
+            role = accessRecord.access_level; // 'admin' или 'service'
+            owner_id = accessRecord.owner_user_id;
+            
+            // Формируем объект пользователя для admin/service
+            userForResponse = {
+                id: owner_id, // ID владельца для токена
+                telegram_id: telegram_id, // Telegram ID admin/service
+                first_name: accessRecord.shared_with_name, // Имя admin/service
+                user_name: telegramUser.username || '', // Username из Telegram
+                setup_date: accessRecord.setup_date,
+                tax_system: accessRecord.tax_system,
+                acquiring: accessRecord.acquiring
+            };
+            console.log(`[Auth] Created user object for ${role}:`, userForResponse);
+        } else {
+            console.log(`[Auth] User not found in access_rights, creating new user record`);
+            // Если пользователь новый, создаем запись и отправляем на регистрацию
+            const newUserQuery = await pool.query(
+                "INSERT INTO users (telegram_id, first_name, user_name) VALUES ($1, $2, $3) RETURNING *",
+                [telegram_id, telegramUser.first_name || '', telegramUser.username || '']
+            );
+            const newUser = newUserQuery.rows[0];
+            role = 'registration_required';
+            owner_id = newUser.id; // owner_id будет использоваться для генерации токена
+            userForResponse = newUser;
+        }
     }
 
-    // Если пользователь найден и прошел регистрацию
-    if (user && user.vendista_api_token) {
+    // УНИФИЦИРОВАННАЯ ЛОГИКА ОТВЕТОВ ДЛЯ ВСЕХ РОЛЕЙ
+    console.log(`[Auth] Processing response for role: ${role}, owner_id: ${owner_id}`);
+    
+    if (role === 'owner' && userForResponse.vendista_api_token) {
+        // Owner с завершенной регистрацией
+        console.log(`[Auth] Returning successful auth for owner`);
         const token = jwt.sign(
-            { userId: user.id, telegramId: user.telegram_id, accessLevel: role },
+            { userId: userForResponse.id, telegramId: userForResponse.telegram_id.toString(), accessLevel: role },
             JWT_SECRET,
             { expiresIn: '12h' }
-            );
+        );
 
-            return res.json({
+        return res.json({
             success: true,
             token: token,
-                user: {
-                ...user,
+            user: {
+                ...userForResponse,
                 role: role,
-                accessLevel: role // <-- ИСПРАВЛЕНИЕ: приводим к camelCase
-                }
-            });
-        }
-        
-    // Если пользователь существует, но не завершил регистрацию
-    if (user) {
-            return res.json({
+                accessLevel: role
+            }
+        });
+    } else if (role === 'admin' || role === 'service') {
+        // Admin/Service пользователи (регистрация уже завершена через владельца)
+        console.log(`[Auth] Returning successful auth for ${role}`);
+        const token = jwt.sign(
+            { userId: owner_id, telegramId: telegram_id.toString(), accessLevel: role },
+            JWT_SECRET,
+            { expiresIn: '12h' }
+        );
+
+        return res.json({
+            success: true,
+            token: token,
+            user: {
+                ...userForResponse,
+                role: role,
+                accessLevel: role
+            }
+        });
+    } else if (role === 'registration_incomplete') {
+        // Owner с незавершенной регистрацией
+        console.log(`[Auth] Returning registration_incomplete for owner`);
+        return res.json({
             success: true, 
             message: 'registration_incomplete',
-                user: {
-                id: user.id,
-                telegram_id: user.telegram_id,
+            user: {
+                id: userForResponse.id,
+                telegram_id: userForResponse.telegram_id,
                 first_name: telegramUser.first_name,
                 user_name: telegramUser.username
-                }
-            });
-        }
-
-    // Если пользователь новый, создаем запись и отправляем на регистрацию
-    const newUserQuery = await pool.query(
-        "INSERT INTO users (telegram_id, first_name, user_name) VALUES ($1, $2, $3) RETURNING *",
-        [telegram_id, telegramUser.first_name || '', telegramUser.username || '']
-    );
-    const newUser = newUserQuery.rows[0];
-
-            return res.json({
-        success: true,
-        message: 'registration_required',
-        user: {
-            id: newUser.id,
-            telegram_id: newUser.telegram_id,
-            first_name: telegramUser.first_name,
-            user_name: telegramUser.username
-        }
-    });
+            }
+        });
+    } else if (role === 'registration_required') {
+        // Новый пользователь
+        console.log(`[Auth] Returning registration_required for new user`);
+        return res.json({
+            success: true,
+            message: 'registration_required',
+            user: {
+                id: userForResponse.id,
+                telegram_id: userForResponse.telegram_id,
+                first_name: telegramUser.first_name,
+                user_name: telegramUser.username
+            }
+        });
+    } else {
+        // Неожиданная ситуация
+        console.error(`[Auth] Unexpected role/state: ${role}, user:`, userForResponse);
+        const errorMsg = `Неопределенное состояние пользователя: ${role}`;
+        sendErrorToAdmin({
+            telegramId: telegram_id,
+            errorContext: 'Telegram Handshake - Unexpected User State',
+            errorMessage: errorMsg,
+            additionalInfo: { role, userForResponse }
+        }).catch(console.error);
+        return res.status(500).json({ success: false, error: errorMsg });
+    }
 });
 
 router.post('/log-frontend-error', async (req, res) => {
-    const { error, context, tgInitData } = req.body;
+    const { error, context, tgInitData, userData, diagnosticInfo } = req.body;
+    console.log(`[AUTH ERROR LOG] Received frontend error: ${context}`);
 
     try {
         let additionalInfo = {
             'User-Agent': req.headers['user-agent'],
-            'Source-IP': req.ip
+            'Source-IP': req.ip,
+            'Timestamp': new Date().toISOString()
         };
 
+        // Обработка Telegram initData
+        let telegramUser = null;
         if (tgInitData) {
             try {
                 const initDataParams = new URLSearchParams(tgInitData);
-                const user = JSON.parse(initDataParams.get('user') || '{}');
-                additionalInfo = { ...additionalInfo, ...user };
+                telegramUser = JSON.parse(initDataParams.get('user') || '{}');
+                additionalInfo = { 
+                    ...additionalInfo, 
+                    'TG-User-ID': telegramUser.id,
+                    'TG-First-Name': telegramUser.first_name,  
+                    'TG-Username': telegramUser.username
+                };
             } catch {
-                additionalInfo.rawInitData = tgInitData.substring(0, 500); // Log part of the raw data if parsing fails
+                additionalInfo.rawInitData = tgInitData.substring(0, 500);
             }
         }
-        
+
+        // Добавляем данные пользователя из фронтенда
+        if (userData) {
+            additionalInfo = {
+                ...additionalInfo,
+                'Frontend-User-ID': userData.id,
+                'Frontend-Access-Level': userData.accessLevel,
+                'Frontend-Telegram-ID': userData.telegram_id,
+                'Frontend-First-Name': userData.first_name
+            };
+        }
+
+        // Добавляем диагностическую информацию
+        if (diagnosticInfo) {
+            const { logs, localStorage, telegramWebApp, userAgent, url } = diagnosticInfo;
+            
+            additionalInfo = {
+                ...additionalInfo,
+                'Frontend-URL': url,
+                'Frontend-User-Agent': userAgent,
+                'LocalStorage-Info': localStorage,
+                'TG-WebApp-Info': telegramWebApp,
+                'Recent-Frontend-Logs': logs || []
+            };
+        }
+
+        // Определяем уровень критичности
+        const isCritical = context?.includes('CRITICAL') || 
+                          userData?.accessLevel === 'admin' || 
+                          userData?.accessLevel === 'service';
+
+        // Отправляем в админский чат
         await sendErrorToAdmin({
-            errorContext: `Frontend Auth Error: ${context || 'Unknown context'}`,
-            errorMessage: error || 'No error message provided.',
+            telegramId: telegramUser?.id || userData?.telegram_id,
+            userFirstName: telegramUser?.first_name || userData?.first_name,
+            userUsername: telegramUser?.username,
+            errorContext: `🌐 Frontend Error: ${context || 'Unknown context'}${isCritical ? ' [CRITICAL]' : ''}`,
+            errorMessage: `${error || 'No error message provided.'}\n\n🔍 Frontend Logs:\n${formatFrontendLogs(diagnosticInfo?.logs)}`,
             additionalInfo: additionalInfo
         });
 
+        console.log(`[AUTH ERROR LOG] Successfully sent error notification for: ${context}`);
         res.status(200).send({ success: true });
 
     } catch(e) {
+        console.error('[AUTH ERROR LOG] Failed to process frontend error:', e);
         // If logging itself fails, just send a simple response.
         res.status(500).send({ success: false });
     }
 });
+
+// Вспомогательная функция для форматирования логов фронтенда
+function formatFrontendLogs(logs) {
+    if (!logs || !Array.isArray(logs) || logs.length === 0) {
+        return 'No frontend logs available';
+    }
+
+    return logs
+        .slice(-5) // Последние 5 логов
+        .map(log => {
+            const time = new Date(log.timestamp).toLocaleTimeString('ru-RU');
+            const level = log.level.toUpperCase();
+            return `[${time}] ${level}: ${log.message}`;
+        })
+        .join('\n');
+}
 
 router.post('/validate-vendista', async (req, res) => {
     const { telegram_id, vendista_login, vendista_password } = req.body;
@@ -738,6 +867,185 @@ router.get('/validate-token', async (req, res) => {
     } catch (err) {
         console.error('Token validation error:', err);
         return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+    }
+});
+
+// === ДИАГНОСТИЧЕСКИЕ ЭНДПОИНТЫ ===
+
+// Диагностика пользователя по Telegram ID
+router.get('/debug-user/:telegram_id', async (req, res) => {
+    // Доступно только в development или для owner пользователей
+    if (process.env.NODE_ENV !== 'development') {
+        // В production проверяем права доступа
+        try {
+            const header = req.headers['authorization'];
+            if (!header) {
+                return res.status(401).json({ success: false, error: 'Authorization required' });
+            }
+
+            const token = header.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            
+            if (decoded.accessLevel !== 'owner') {
+                return res.status(403).json({ success: false, error: 'Owner access required' });
+            }
+        } catch (err) {
+            return res.status(401).json({ success: false, error: 'Invalid token' });
+        }
+    }
+
+    try {
+        const { telegram_id } = req.params;
+        console.log(`[Auth Debug] Diagnosing user with telegram_id: ${telegram_id}`);
+
+        // Ищем в таблице users
+        const userResult = await pool.query(
+            'SELECT id, telegram_id, first_name, user_name, vendista_api_token, setup_date, tax_system, acquiring FROM users WHERE telegram_id = $1',
+            [telegram_id]
+        );
+
+        // Ищем в таблице access_rights
+        const accessRightsResult = await pool.query(
+            `SELECT uar.id, uar.owner_user_id, uar.access_level, uar.shared_with_name,
+                    u.first_name as owner_first_name, u.telegram_id as owner_telegram_id
+             FROM user_access_rights uar
+             JOIN users u ON uar.owner_user_id = u.id
+             WHERE uar.shared_with_telegram_id = $1`,
+            [telegram_id]
+        );
+
+        const diagnostic = {
+            telegram_id: telegram_id,
+            timestamp: new Date().toISOString(),
+            found_in_users: userResult.rows.length > 0,
+            found_in_access_rights: accessRightsResult.rows.length > 0,
+            user_data: userResult.rows[0] || null,
+            access_rights_data: accessRightsResult.rows[0] || null,
+            recommended_flow: null
+        };
+
+        // Определяем рекомендуемый flow
+        if (diagnostic.found_in_users && diagnostic.user_data.vendista_api_token) {
+            diagnostic.recommended_flow = 'owner_with_complete_registration';
+        } else if (diagnostic.found_in_users && !diagnostic.user_data.vendista_api_token) {
+            diagnostic.recommended_flow = 'owner_with_incomplete_registration';
+        } else if (diagnostic.found_in_access_rights) {
+            diagnostic.recommended_flow = `${diagnostic.access_rights_data.access_level}_user`;
+        } else {
+            diagnostic.recommended_flow = 'new_user_registration_required';
+        }
+
+        console.log(`[Auth Debug] Diagnostic complete for ${telegram_id}:`, diagnostic.recommended_flow);
+
+        res.json({
+            success: true,
+            diagnostic: diagnostic
+        });
+
+    } catch (err) {
+        console.error('[Auth Debug] Error in debug-user:', err);
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+// Тестирование валидности initData
+router.post('/test-initdata', async (req, res) => {
+    // Доступно только в development
+    if (process.env.NODE_ENV !== 'development') {
+        return res.status(404).json({ success: false, error: 'Not found' });
+    }
+
+    try {
+        const { initData } = req.body;
+        
+        if (!initData) {
+            return res.status(400).json({ success: false, error: 'initData is required' });
+        }
+
+        console.log(`[Auth Test] Testing initData validation`);
+
+        const validationResult = validateTelegramInitData(initData);
+        
+        const testResult = {
+            valid: validationResult.valid,
+            error: validationResult.error,
+            user_data: validationResult.data,
+            environment: process.env.NODE_ENV,
+            has_bot_token: !!process.env.TELEGRAM_BOT_TOKEN,
+            timestamp: new Date().toISOString()
+        };
+
+        console.log(`[Auth Test] InitData test result:`, testResult);
+
+        res.json({
+            success: true,
+            test_result: testResult
+        });
+
+    } catch (err) {
+        console.error('[Auth Test] Error in test-initdata:', err);
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+// Получение статистики аутентификации
+router.get('/auth-stats', async (req, res) => {
+    // Доступно только для owner пользователей
+    try {
+        const header = req.headers['authorization'];
+        if (!header) {
+            return res.status(401).json({ success: false, error: 'Authorization required' });
+        }
+
+        const token = header.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        if (decoded.accessLevel !== 'owner') {
+            return res.status(403).json({ success: false, error: 'Owner access required' });
+        }
+
+        // Собираем статистику
+        const ownerUsersResult = await pool.query(
+            'SELECT COUNT(*) as count FROM users WHERE vendista_api_token IS NOT NULL'
+        );
+
+        const incompleteUsersResult = await pool.query(
+            'SELECT COUNT(*) as count FROM users WHERE vendista_api_token IS NULL'
+        );
+
+        const accessRightsResult = await pool.query(
+            `SELECT access_level, COUNT(*) as count 
+             FROM user_access_rights 
+             GROUP BY access_level`
+        );
+
+        const recentErrorsResult = await pool.query(
+            `SELECT COUNT(*) as count 
+             FROM worker_logs 
+             WHERE job_name = 'auth_error' 
+             AND created_at > NOW() - INTERVAL '24 hours'`
+        );
+
+        const stats = {
+            timestamp: new Date().toISOString(),
+            total_owners: parseInt(ownerUsersResult.rows[0].count),
+            incomplete_registrations: parseInt(incompleteUsersResult.rows[0].count),
+            access_rights_by_level: accessRightsResult.rows.reduce((acc, row) => {
+                acc[row.access_level] = parseInt(row.count);
+                return acc;
+            }, {}),
+            recent_auth_errors_24h: parseInt(recentErrorsResult.rows[0]?.count || 0),
+            environment: process.env.NODE_ENV
+        };
+
+        res.json({
+            success: true,
+            stats: stats
+        });
+
+    } catch (err) {
+        console.error('[Auth Stats] Error in auth-stats:', err);
+        res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 

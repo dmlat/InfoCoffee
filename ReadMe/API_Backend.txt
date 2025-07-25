@@ -112,7 +112,10 @@ API Endpoints (Backend)
         - Входные параметры (заголовки): Authorization: Bearer <JWT_TOKEN>
         - Выходные данные (успех):
             - success: true
-            - terminals: Массив объектов терминалов.
+            - terminals: Массив объектов терминалов, включая флаги needs_containers_config и needs_recipes_config.
+              needs_containers_config: true, если есть контейнеры без заданного max_stock > 0.
+              needs_recipes_config: true, если есть нескрытые напитки без ингредиентов.
+              Примечание: Поле r.is_hidden для фильтрации нескрытых напитков в запросе теперь опционально, что позволяет избежать ошибки, если поле отсутствует в БД.
         - Выходные данные (ошибка): success: false, error
 
     2.2. GET /api/terminals/:internalId/settings
