@@ -391,17 +391,25 @@
     padding-bottom: 20px; /* Increased padding to prevent ingredient pill clipping */
 }
 .tasks-table .task-cell > div {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    text-overflow: ellipsis;
+    /* These styles are removed as they conflict with flex-wrap for ingredient pills */
 }
 .task-terminal-name {
     font-weight: 500;
     color: #e0e0e0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: 2; /* Limit to 2 lines for truncation */
 }
 .task-type-name {
     font-size: 0.9em;
     color: #8ae6ff;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: 1; /* Limit to 1 line for truncation */
 }
 .task-details {
     font-size: 0.8em;

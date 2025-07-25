@@ -15,7 +15,7 @@ const notificationCache = new Map();
 const NOTIFICATION_COOLDOWN_MS = 5 * 60 * 1000; // 5 минут
 const MAX_MESSAGES_PER_HOUR = 20; // Максимум сообщений админам в час
 const ERROR_QUEUE = []; // Очередь ошибок для группировки
-const BATCH_SEND_DELAY_MS = 10000; // 10 секунд для группировки похожих ошибок
+const BATCH_SEND_DELAY_MS = 60 * 1000; // 1 минута для группировки похожих ошибок и проверки очереди
 
 let hourlyMessageCount = 0;
 let hourlyResetTime = Date.now() + 60 * 60 * 1000; // Сброс каждый час
