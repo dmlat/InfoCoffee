@@ -17,11 +17,15 @@ const getTimestamp = () => moment().tz(TIMEZONE).format('YYYY-MM-DD HH:mm:ss.SSS
 
 // Переопределяем стандартные методы console
 console.log = (...args) => {
-    originalConsole.log(`[${getTimestamp()}] [LOG]  `, ...args);
+    if (process.env.NODE_ENV !== 'production') {
+        originalConsole.log(`[${getTimestamp()}] [LOG]  `, ...args);
+    }
 };
 
 console.info = (...args) => {
-    originalConsole.info(`[${getTimestamp()}] [INFO] `, ...args);
+    if (process.env.NODE_ENV !== 'production') {
+        originalConsole.info(`[${getTimestamp()}] [INFO] `, ...args);
+    }
 };
 
 console.warn = (...args) => {

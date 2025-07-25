@@ -252,7 +252,6 @@ async function sendNotificationsBatch(notifications, priority = false, context =
         
         // Задержка между группами если есть еще уведомления
         if (i + NOTIFICATION_BATCH_SIZE < notifications.length) {
-            console.log(`[Import Worker] Sent batch ${Math.floor(i / NOTIFICATION_BATCH_SIZE) + 1}, waiting before next batch...`);
             await delay(NOTIFICATION_BATCH_DELAY_MS);
         }
     }
@@ -274,10 +273,10 @@ async function fetchTransactionPage(api, page, retries = 2) {
     };
     
     if (page === 1) {
-        console.log(`[Import Worker] Requesting page 1 for user ${api.user_id}`);
-        console.log(`[Import Worker] Request params:`, requestParams);
+        // console.log(`[Import Worker] Requesting page 1 for user ${api.user_id}`);
+        // console.log(`[Import Worker] Request params:`, requestParams);
     } else if (page % 10 === 0) {
-        console.log(`[Import Worker] Requesting page ${page} for user ${api.user_id}...`);
+        // console.log(`[Import Worker] Requesting page ${page} for user ${api.user_id}...`);
     }
 
     try {
@@ -288,7 +287,7 @@ async function fetchTransactionPage(api, page, retries = 2) {
         
         // Логируем информацию о ответе
         if (page === 1 || page % 10 === 0) {
-            console.log(`[Import Worker] Page ${page} response - items: ${response.data.items?.length || 0}, total: ${response.data.items_count || 'N/A'}, success: ${response.data.success}`);
+            // console.log(`[Import Worker] Page ${page} response - items: ${response.data.items?.length || 0}, total: ${response.data.items_count || 'N/A'}, success: ${response.data.success}`);
         }
         
         return response.data; // Success
@@ -311,7 +310,7 @@ async function fetchTransactionPage(api, page, retries = 2) {
 
         // For 401 (Unauthorized) or 404 (Not Found), we attempt a token refresh.
         if ((status === 401 || status === 404) && retries > 0) {
-            console.log(`[User ${api.user_id}] Token might be expired (status ${status}). Attempting refresh. Retries left: ${retries}`);
+            console.warn(`[User ${api.user_id}] Token might be expired (status ${status}). Attempting refresh. Retries left: ${retries}`);
             
             // Mark token as expired before attempting refresh
             await pool.query("UPDATE users SET vendista_token_status = 'expired' WHERE id = $1", [api.user_id]);
@@ -319,7 +318,7 @@ async function fetchTransactionPage(api, page, retries = 2) {
             const refreshResult = await refreshToken(api.user_id);
 
             if (refreshResult.success) {
-                console.log(`[User ${api.user_id}] Token refreshed successfully. Retrying the request.`);
+                // console.log(`[User ${api.user_id}] Token refreshed successfully. Retrying the request.`);
                 // Update the Authorization header in the existing axios instance for the retry
                 api.defaults.headers.common['Authorization'] = `Bearer ${refreshResult.token}`;
                 return fetchTransactionPage(api, page, retries - 1); // Recursive call with one less retry
@@ -378,11 +377,11 @@ async function importTransactionsForPeriod({
             const pageStartTime = Date.now();
             
             // ИСПРАВЛЕНИЕ: Передаем созданный 'api' объект, а не undefined
-            console.log(`${logPrefix}: 🌐 Requesting page ${currentPage}...`);
+            // console.log(`${logPrefix}: 🌐 Requesting page ${currentPage}...`);
             const apiStartTime = Date.now();
             const response = await fetchTransactionPage(api, currentPage);
             const apiDuration = Date.now() - apiStartTime;
-            console.log(`${logPrefix}: ⏱️ API request took ${apiDuration}ms`);
+            // console.log(`${logPrefix}: ⏱️ API request took ${apiDuration}ms`);
 
             if (response.error === 'token_refresh_failed') {
                 console.error(`${logPrefix}: Halting import for user due to token refresh failure.`);
@@ -391,7 +390,7 @@ async function importTransactionsForPeriod({
             }
 
             const transactions = response.items;
-            console.log(`${logPrefix}: Page ${currentPage} - received ${transactions ? transactions.length : 0} transactions`);
+            // console.log(`${logPrefix}: Page ${currentPage} - received ${transactions ? transactions.length : 0} transactions`);
 
             if (!transactions || transactions.length === 0) {
                 console.log(`${logPrefix}: No more transactions on page ${currentPage}. Stopping.`);
@@ -399,11 +398,11 @@ async function importTransactionsForPeriod({
                 continue;
             }
             
-            console.log(`${logPrefix}: 🔄 Processing ${transactions.length} transactions...`);
+            // console.log(`${logPrefix}: 🔄 Processing ${transactions.length} transactions...`);
             const processStartTime = Date.now();
             await processTransactions(ownerUserId, transactions, client, results, isHistoricalImport);
             const processDuration = Date.now() - processStartTime;
-            console.log(`${logPrefix}: ⏱️ Processing took ${processDuration}ms`);
+            // console.log(`${logPrefix}: ⏱️ Processing took ${processDuration}ms`);
 
             // ИСПРАВЛЕНО: Улучшенная логика пагинации
             // Проверяем есть ли еще страницы через metadata или через размер текущей страницы
@@ -411,23 +410,23 @@ async function importTransactionsForPeriod({
                 // Используем metadata если доступны
                 const totalPages = Math.ceil(response.items_count / response.items_per_page);
                 hasMore = currentPage < totalPages;
-                console.log(`${logPrefix}: Using metadata - page ${currentPage}/${totalPages}, total items: ${response.items_count}`);
+                // console.log(`${logPrefix}: Using metadata - page ${currentPage}/${totalPages}, total items: ${response.items_count}`);
             } else {
                 // Fallback: продолжаем пока получаем полную страницу (500 записей)
                 hasMore = transactions.length === 1000; // ItemsOnPage из fetchTransactionPage
-                console.log(`${logPrefix}: Using transaction count logic - hasMore: ${hasMore} (received ${transactions.length} items)`);
+                // console.log(`${logPrefix}: Using transaction count logic - hasMore: ${hasMore} (received ${transactions.length} items)`);
             }
             
             currentPage++;
 
             const pageTotalTime = Date.now() - pageStartTime;
-            console.log(`${logPrefix}: ✅ Page ${currentPage-1} completed in ${pageTotalTime}ms (API: ${apiDuration}ms, Processing: ${processDuration}ms)`);
+            // console.log(`${logPrefix}: ✅ Page ${currentPage-1} completed in ${pageTotalTime}ms (API: ${apiDuration}ms, Processing: ${processDuration}ms)`);
             
             if (hasMore) {
-                console.log(`${logPrefix}: Moving to page ${currentPage} after ${PAGE_FETCH_DELAY_MS}ms delay...`);
+                // console.log(`${logPrefix}: Moving to page ${currentPage} after ${PAGE_FETCH_DELAY_MS}ms delay...`);
                 await delay(PAGE_FETCH_DELAY_MS);
             } else {
-                console.log(`${logPrefix}: No more pages to fetch.`);
+                // console.log(`${logPrefix}: No more pages to fetch.`);
             }
         }
         
@@ -458,7 +457,7 @@ async function importTransactionsForPeriod({
 // A new helper function to isolate the transaction processing logic
 async function processTransactions(ownerUserId, transactions, client, results, isHistoricalImport = false) {
     const batchStartTime = Date.now();
-    console.log(`🔄 Processing batch of ${transactions.length} transactions${isHistoricalImport ? ' (HISTORICAL - inventory updates SKIPPED)' : ' (SCHEDULED - inventory updates ENABLED)'}...`);
+    // console.log(`🔄 Processing batch of ${transactions.length} transactions${isHistoricalImport ? ' (HISTORICAL - inventory updates SKIPPED)' : ' (SCHEDULED - inventory updates ENABLED)'}...`);
     
     let dbTime = 0;
     let inventoryTime = 0;
@@ -599,16 +598,16 @@ async function processTransactions(ownerUserId, transactions, client, results, i
     }
     
     const totalBatchTime = Date.now() - batchStartTime;
-    console.log(`✅ Batch processed in ${totalBatchTime}ms:`);
-    console.log(`   📊 DB operations: ${dbTime}ms (${Math.round(dbTime/totalBatchTime*100)}%)`);
-    console.log(`   🏪 Inventory updates: ${inventoryTime}ms (${Math.round(inventoryTime/totalBatchTime*100)}%) - ${salesWithInventoryUpdates} sales processed`);
-    console.log(`   📋 Task creation: ${taskTime}ms (${Math.round(taskTime/totalBatchTime*100)}%)`);
-    console.log(`   🔄 Processed/Added/Updated: ${results.processed}/${results.added}/${results.updated}`);
-    console.log(`   💰 Sales: ${newSalesCount + updatedSalesCount} total (${newSalesCount} new, ${updatedSalesCount} updated)`);
+    // console.log(`✅ Batch processed in ${totalBatchTime}ms:`);
+    // console.log(`   📊 DB operations: ${dbTime}ms (${Math.round(dbTime/totalBatchTime*100)}%)`);
+    // console.log(`   🏪 Inventory updates: ${inventoryTime}ms (${Math.round(inventoryTime/totalBatchTime*100)}%) - ${salesWithInventoryUpdates} sales processed`);
+    // console.log(`   📋 Task creation: ${taskTime}ms (${Math.round(taskTime/totalBatchTime*100)}%)`);
+    // console.log(`   🔄 Processed/Added/Updated: ${results.processed}/${results.added}/${results.updated}`);
+    // console.log(`   💰 Sales: ${newSalesCount + updatedSalesCount} total (${newSalesCount} new, ${updatedSalesCount} updated)`);
     if (isHistoricalImport) {
-        console.log(`   🚫 Historical import: inventory updates skipped for better performance`);
+        // console.log(`   🚫 Historical import: inventory updates skipped for better performance`);
     } else {
-        console.log(`   ✅ Scheduled import: inventory updated ONLY for ${newSalesCount} new sales (duplicates avoided)`);
+        // console.log(`   ✅ Scheduled import: inventory updated ONLY for ${newSalesCount} new sales (duplicates avoided)`);
     }
 }
 

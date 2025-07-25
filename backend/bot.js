@@ -90,15 +90,12 @@ const userState = {};
 async function getUser(telegramId) {
     const ownerRes = await pool.query('SELECT id FROM users WHERE telegram_id = $1 AND vendista_api_token IS NOT NULL', [telegramId]);
     if (ownerRes.rows.length > 0) {
-        console.log(`[Bot GetUser] TG ID ${telegramId} is an OWNER (User ID: ${ownerRes.rows[0].id})`);
         return { type: 'owner', ownerUserId: ownerRes.rows[0].id };
     }
     const accessRes = await pool.query('SELECT owner_user_id, access_level FROM user_access_rights WHERE shared_with_telegram_id = $1', [telegramId]);
     if (accessRes.rows.length > 0 && accessRes.rows[0].access_level === 'admin') {
-        console.log(`[Bot GetUser] TG ID ${telegramId} is an ADMIN for User ID: ${accessRes.rows[0].owner_user_id}`);
         return { type: 'admin', ownerUserId: accessRes.rows[0].owner_user_id };
     }
-    console.log(`[Bot GetUser] TG ID ${telegramId} is UNAUTHORIZED.`);
     return { type: 'unauthorized', ownerUserId: null };
 }
 
@@ -358,28 +355,20 @@ bot.on('callback_query', async (query) => {
 // === ЗАЩИЩЕННАЯ ИНИЦИАЛИЗАЦИЯ БОТА ===
 async function initializeBotSafely() {
     if (isInitialized) {
-        console.log('[Bot] Already initialized, skipping...');
         return true;
     }
 
-    console.log('[Bot] Starting safe initialization...');
-    
     try {
         // Добавляем задержку перед первым API вызовом для предотвращения rate limiting
-        console.log(`[Bot] Waiting ${INITIALIZATION_DELAY}ms before initialization...`);
         await new Promise(resolve => setTimeout(resolve, INITIALIZATION_DELAY));
 
-        console.log('[Bot] Getting bot info...');
         const me = await bot.getMe();
         BOT_USERNAME = me.username;
-        console.log(`[Bot] Got username: @${BOT_USERNAME}`);
 
         // Инициализируем клавиатуры
         initializeKeyboards();
-        console.log('[Bot] Keyboards initialized.');
 
         // Устанавливаем команды с задержкой для предотвращения rate limiting
-        console.log('[Bot] Setting up basic commands...');
         
         const baseCommands = [
             { command: '/start', description: '🚀 Запустить/Перезапустить бота' },
@@ -391,11 +380,9 @@ async function initializeBotSafely() {
         ];
 
         await bot.setMyCommands(baseCommands);
-        console.log('[Bot] Basic commands set.');
 
         // Дополнительные команды для development с задержкой
         if (IS_DEV) {
-            console.log(`[Bot] Waiting ${COMMAND_SETUP_DELAY}ms before setting dev commands...`);
             await new Promise(resolve => setTimeout(resolve, COMMAND_SETUP_DELAY));
             
             const devCommands = [
@@ -405,10 +392,8 @@ async function initializeBotSafely() {
             
             const allCommands = [...baseCommands, ...devCommands];
             await bot.setMyCommands(allCommands);
-            console.log('[Bot] Development commands added.');
         }
 
-        console.log('[Bot] All commands configured successfully.');
         isInitialized = true;
         return true;
 
@@ -418,7 +403,7 @@ async function initializeBotSafely() {
         // Если это ошибка rate limiting, ждем и пытаемся снова
         if (error.code === 429 || (error.response && error.response.statusCode === 429)) {
             const retryAfter = error.parameters?.retry_after || 30;
-            console.log(`[Bot] Rate limited. Waiting ${retryAfter} seconds before retry...`);
+            console.warn(`[Bot] Rate limited. Waiting ${retryAfter} seconds before retry...`);
             await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
             return false; // Вернем false, чтобы startPolling мог повторить попытку
         }
@@ -429,7 +414,6 @@ async function initializeBotSafely() {
 
 // === ИСПРАВЛЕННАЯ ФУНКЦИЯ startPolling ===
 const startPolling = async () => {
-    console.log('[Bot] Starting polling process...');
     
     // Инициализация бота происходит только один раз
     let initAttempts = 0;
@@ -437,7 +421,6 @@ const startPolling = async () => {
     
     while (!isInitialized && initAttempts < maxInitAttempts) {
         initAttempts++;
-        console.log(`[Bot] Initialization attempt ${initAttempts}/${maxInitAttempts}...`);
         
         try {
             const success = await initializeBotSafely();
@@ -458,7 +441,6 @@ const startPolling = async () => {
     // Подключаем dev handlers если нужно
     if (IS_DEV && isInitialized) {
         require('./devBotHandlers')(bot);
-        console.log('[Bot] DEV handlers attached.');
     }
 
     // Запускаем polling только если еще не запущен
@@ -466,13 +448,11 @@ const startPolling = async () => {
         try {
             await bot.startPolling();
             isPollingStarted = true;
-            console.log('[Bot] Polling started successfully.');
         } catch (pollError) {
             console.error('[Bot] Polling start failed:', pollError.message);
             throw pollError;
         }
     } else {
-        console.log('[Bot] Polling already started.');
     }
 };
 
@@ -483,7 +463,7 @@ bot.on('polling_error', (error) => {
     // Логируем детали для 429 ошибок
     if (error.code === 429) {
         const retryAfter = error.parameters?.retry_after || 'unknown';
-        console.error(`[Bot] Rate limit exceeded. Retry after: ${retryAfter}s`);
+        console.warn(`[Bot] Rate limit exceeded. Retry after: ${retryAfter}s`);
     }
 });
 

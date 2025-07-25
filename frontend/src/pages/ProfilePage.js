@@ -32,8 +32,6 @@ function formatSyncTimestamp(timestamp) {
 export default function ProfilePage() {
   const { user, updateUserInContext: updateUser, isLoading: isAuthLoading } = useAuth();
 
-  console.log('[ProfilePage] Render start. Auth loading:', isAuthLoading, 'User exists:', !!user);
-
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -51,7 +49,6 @@ export default function ProfilePage() {
   const [syncStatusError, setSyncStatusError] = useState('');
 
   useEffect(() => {
-    console.log('[ProfilePage] User effect triggered. User:', user);
     if (user && user.business_profile) {
       const { setup_date, tax_system, acquiring } = user.business_profile;
       setSetupDate(setup_date ? formatDateForInput(new Date(setup_date)) : '');
@@ -61,7 +58,6 @@ export default function ProfilePage() {
   }, [user]);
 
   const fetchSyncStatus = useCallback(async () => {
-    console.log('[ProfilePage] Fetching sync status...');
     setSyncStatusLoading(true);
     setSyncStatusError('');
     try {
@@ -79,7 +75,6 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    console.log('[ProfilePage] Sync status effect triggered.');
     fetchSyncStatus();
   }, [fetchSyncStatus]);
 

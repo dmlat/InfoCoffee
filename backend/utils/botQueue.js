@@ -67,7 +67,7 @@ function setChatCooldown(chatId, ms = TELEGRAM_LIMITS.BACKOFF_BASE_MS) {
 
 function setGlobalCooldown(ms = TELEGRAM_LIMITS.COOLDOWN_429_MS) {
     globalCooldownUntil = Date.now() + ms;
-    console.log(`[BotQueue] Global cooldown set for ${ms}ms`);
+    // console.log(`[BotQueue] Global cooldown set for ${ms}ms`); // Удален информационный лог
 }
 
 // === ОСНОВНЫЕ ФУНКЦИИ ОЧЕРЕДИ ===
@@ -99,10 +99,10 @@ function queueMessage(chatId, text, options = {}, priority = false, context = 'g
 
     if (priority) {
         priorityQueue.push(message);
-        console.log(`[BotQueue] Added priority message to queue: ${context} (queue: ${priorityQueue.length})`);
+        // console.log(`[BotQueue] Added priority message to queue: ${context} (queue: ${priorityQueue.length})`); // Удален информационный лог
     } else {
         messageQueue.push(message);
-        console.log(`[BotQueue] Added message to queue: ${context} (queue: ${messageQueue.length})`);
+        // console.log(`[BotQueue] Added message to queue: ${context} (queue: ${messageQueue.length})`); // Удален информационный лог
     }
 
     // Запускаем обработку очереди если она не активна
@@ -133,7 +133,7 @@ async function processQueue() {
     }
 
     isProcessing = true;
-    console.log(`[BotQueue] Starting queue processing...`);
+    // console.log(`[BotQueue] Starting queue processing...`); // Удален информационный лог
 
     try {
         while (priorityQueue.length > 0 || messageQueue.length > 0 || failedMessages.length > 0) {
@@ -180,7 +180,7 @@ async function processQueue() {
             
             if (success) {
                 globalMessageCount++;
-                console.log(`[BotQueue] Sent ${source} message: ${message.context} (${message.chatId})`);
+                // console.log(`[BotQueue] Sent ${source} message: ${message.context} (${message.chatId})`); // Удален информационный лог
             } else {
                 // Handle failure
                 message.attempts++;
@@ -191,7 +191,7 @@ async function processQueue() {
                     setChatCooldown(message.chatId, backoffDelay);
                     
                     failedMessages.push(message);
-                    console.log(`[BotQueue] Message failed, will retry: ${message.context} (attempt ${message.attempts})`);
+                    console.warn(`[BotQueue] Message failed, will retry: ${message.context} (attempt ${message.attempts})`); // Изменен на warn
                 } else {
                     console.error(`[BotQueue] Message permanently failed after ${message.attempts} attempts: ${message.context}`);
                     
@@ -215,7 +215,7 @@ async function processQueue() {
         console.error('[BotQueue] Error in queue processing:', error);
     } finally {
         isProcessing = false;
-        console.log(`[BotQueue] Queue processing finished. Remaining: ${messageQueue.length} regular, ${priorityQueue.length} priority, ${failedMessages.length} failed`);
+        // console.log(`[BotQueue] Queue processing finished. Remaining: ${messageQueue.length} regular, ${priorityQueue.length} priority, ${failedMessages.length} failed`); // Удален информационный лог
         
         // Schedule next processing if there are still messages
         if (messageQueue.length > 0 || priorityQueue.length > 0 || failedMessages.length > 0) {
@@ -238,7 +238,7 @@ async function sendMessageSafely(message) {
         if (error.code === 429 || (error.response && error.response.statusCode === 429)) {
             // Rate limit exceeded
             const retryAfter = error.parameters?.retry_after || 30;
-            console.log(`[BotQueue] Rate limited. Setting global cooldown: ${retryAfter}s`);
+            console.warn(`[BotQueue] Rate limited. Setting global cooldown: ${retryAfter}s`); // Изменен на warn
             setGlobalCooldown(retryAfter * 1000);
             return false;
         } else if (error.code === 403) {
@@ -283,13 +283,13 @@ function getQueueStats() {
     };
 }
 
-function logQueueStats() {
-    const stats = getQueueStats();
-    console.log(`[BotQueue Stats] Regular: ${stats.regularQueue}, Priority: ${stats.priorityQueue}, Failed: ${stats.failedMessages}, Processing: ${stats.isProcessing}`);
-}
+// function logQueueStats() { // Удалена функция logQueueStats
+//     const stats = getQueueStats();
+//     console.log(`[BotQueue Stats] Regular: ${stats.regularQueue}, Priority: ${stats.priorityQueue}, Failed: ${stats.failedMessages}, Processing: ${stats.isProcessing}`);
+// }
 
 // Логирование статистики каждые 5 минут (было 60000)
-setInterval(logQueueStats, 5 * 60 * 1000);
+// setInterval(logQueueStats, 5 * 60 * 1000); // Удален setInterval
 
 // === ЭКСПОРТ ===
 module.exports = {
@@ -298,7 +298,7 @@ module.exports = {
     sendNotification,           // Legacy compatibility
     sendNotificationWithKeyboard, // Legacy compatibility
     getQueueStats,
-    logQueueStats,
+    // logQueueStats, // Удален из экспорта
     
     // For testing
     _internal: {

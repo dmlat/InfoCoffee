@@ -20,9 +20,15 @@ class AuthLogger {
 
         this.logs.push(logEntry);
         
-        // В development режиме выводим все логи в консоль
-        if (this.isDebugging) {
-            console.log(`[AuthLogger:${level.toUpperCase()}] ${message}`, data || '');
+        // В development режиме выводим все логи в консоль, но в продакшене только ошибки и предупреждения
+        if (this.isDebugging || (level === 'error' || level === 'warn')) {
+            if (level === 'error') {
+                console.error(`[AuthLogger:${level.toUpperCase()}] ${message}`, data || '');
+            } else if (level === 'warn') {
+                console.warn(`[AuthLogger:${level.toUpperCase()}] ${message}`, data || '');
+            } else if (this.isDebugging) {
+                console.log(`[AuthLogger:${level.toUpperCase()}] ${message}`, data || '');
+            }
         }
 
         // Ограничиваем размер лога (последние 50 записей)
@@ -40,13 +46,13 @@ class AuthLogger {
     }
 
     info(message, data = null) {
+        // В продакшене info логи не выводятся в консоль
         this.log(message, 'info', data);
     }
 
     debug(message, data = null) {
-        if (this.isDebugging) {
-            this.log(message, 'debug', data);
-        }
+        // debug логи выводятся только в режиме разработки
+        this.log(message, 'debug', data);
     }
 
     // Отправка критических ошибок аутентификации в Telegram

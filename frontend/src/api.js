@@ -70,7 +70,7 @@ apiClient.interceptors.response.use(
 
             const tgInitData = window.Telegram?.WebApp?.initData;
             if (!tgInitData) {
-                console.log('[API Interceptor] 401: No Telegram initData for refresh.');
+                console.warn('[API Interceptor] 401: No Telegram initData for refresh.'); // Изменен на warn
                 clearUserDataAndRedirect('no_telegram_data_for_refresh');
                 isRefreshing = false;
                 return Promise.reject(error);

@@ -52,7 +52,6 @@ async function handleVendistaPaymentError(userId, errorMessage) {
             console.log(`[Terminal Sync] User ${userId} marked as payment_required. Notification sent.`);
         } else {
             // Если пользователь уже уведомлен, просто логируем
-            console.log(`[Terminal Sync] User ${userId} already marked as payment_required. Skipping notification.`);
         }
 
     } catch (error) {

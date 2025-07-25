@@ -9,28 +9,41 @@ API Integration (frontend/src/api.js)
   All requests are routed through this file to ensure consistent handling of headers, authentication tokens, and error responses.
   It handles the attachment of the JWT token to outgoing requests.
 
-Authentication Flow (frontend/src/App.js, frontend/src/utils/user.js, frontend/src/pages/DevEntryPage.js)
+Authentication Flow (frontend/src/App.js, frontend/src/utils/user.js, frontend/src/utils/authLogger.js, frontend/src/utils/retryHelper.js, frontend/src/pages/DevEntryPage.js)
 
   Initial Login:
     When a user attempts to log in, especially via role emulation in development, the process starts in frontend/src/pages/DevEntryPage.js (for dev mode) or the standard login form.
-    Login data is sent to the /auth/login endpoint.
+    Login data is sent to the /auth/login endpoint (implicitly handled by telegram-handshake).
+
+  **Ключевые изменения в потоке аутентификации (ВАЖНО!):**
+    - **Централизованное логирование (`authLogger.js`):** Все шаги и результаты аутентификации на фронтенде теперь фиксируются с помощью `authLogger`. В Development режиме логи выводятся в консоль браузера, а в Production режиме критические ошибки автоматически отправляются на бэкенд (`/api/auth/log-frontend-error`) для последующей пересылки администраторам в Telegram. Это позволяет получать полную диагностику проблемы, включая состояние `localStorage` и `window.Telegram.WebApp`.
+    - **Механизм повторных попыток (`retryHelper.js`):** Для сетевых операций (например, запросов к `/auth/validate-token`, `/auth/refresh-app-token`, `/auth/telegram-handshake`) внедрена логика повторных попыток с экспоненциальной задержкой. Это повышает устойчивость приложения к временным сетевым сбоям и таймаутам.
+    - **Категоризация ошибок:** Ошибки теперь категоризируются как `TEMPORARY` (временные, подлежащие повтору), `CRITICAL` (критические, требующие немедленного уведомления администратора) и `PERMANENT` (постоянные).
+    - **Улучшенная обработка ошибок на фронтенде:** Сообщения об ошибках для пользователя стали более информативными, различая временные проблемы от постоянных. В случае `CRITICAL` ошибок (например, для `admin`/`service` пользователей, которые не смогли обновить токен) активируется отправка логов администратору.
 
   Token Validation:
     Upon successful login, a JWT token is received.
     The App.js component uses an AuthProvider to manage the authentication state.
-    After receiving a token, App.js calls the /auth/validate-token endpoint to verify the token's authenticity and retrieve user details.
+    After receiving a token, App.js calls the /auth/validate-token endpoint to verify the token's authenticity and retrieve user details. Этот запрос теперь выполняется с использованием `authRetryHelper` для устойчивости.
     The AuthProvider now includes an isLoading state to prevent premature rendering of authenticated components before the token is validated.
 
   **Silent Session Refresh (Token Expiration Flow):**
-    - **Context**: When a user returns to the app after their JWT has expired, `GET /auth/validate-token` will fail.
+    - **Context**: When a user returns to the app after their JWT has expired, `GET /auth/validate-token` will fail. Этот сбой теперь обрабатывается `authRetryHelper`.
     - **Correct Flow**: The `AuthProvider` catches this specific error and must initiate a silent refresh.
-    - **Implementation**: It calls the `POST /api/auth/refresh-app-token` endpoint, sending the current `initData` from Telegram. This endpoint is designed to issue a new token for any valid user (`owner`, `admin`, `service`) without re-triggering the registration flow.
-    - **Mistake to Avoid**: Never use `POST /api/auth/telegram-handshake` for refreshing an expired token. The `telegram-handshake` endpoint is **only for initial login**. Using it for an existing `admin` or `service` user will cause the backend to misinterpret them as a new, unregistered user, leading to critical frontend failures ("grey screen"). This was the root cause of the authentication bug.
+    - **Implementation**: It calls the `POST /api/auth/refresh-app-token` endpoint, sending the current `initData` from Telegram. Этот запрос также выполняется с `authRetryHelper`. Этот эндпоинт разработан для выдачи нового токена для любого действительного пользователя (`owner`, `admin`, `service`) без повторного запуска процесса регистрации.
+
+  **Mistake to Avoid (Повторяется и усиливается):**
+    - **НИКОГДА не используйте `POST /api/auth/telegram-handshake` для обновления истекшего токена.** Эндпоинт `telegram-handshake` предназначен **только для первичного входа**. Использование его для существующего `admin` или `service` пользователя (даже с истекшим токеном) приведет к тому, что бэкенд будет интерпретировать их как нового, незарегистрированного пользователя, что вызывает ошибку `duplicate key` и приводит к критическим сбоям фронтенда ("серый экран"). Это была корневая причина многих проблем аутентификации.
 
   Persistent Authentication:
     The JWT token is stored locally (e.g., in localStorage) for session persistence.
     Subsequent requests include this token in the Authorization header.
     The AuthProvider ensures the user context and token are available across the application.
+
+  **Mistake to Avoid (Новые и усиленные):**
+    - **Не игнорируйте `isLoading` флаг в `AuthContext`.** Всегда проверяйте `if (isLoading)` перед попыткой доступа к объекту `user` из хука `useAuth()`. Компоненты часто рендерятся до завершения асинхронного процесса аутентификации, и попытка доступа к `user.accessLevel` до загрузки `user` является распространенным источником сбоев.
+    - **Проверяйте наличие `window.Telegram?.WebApp?.initData` перед вызовом API, требующих `initData`.** Отсутствие этих данных в некоторых сценариях Telegram WebApp или в десктопной версии может привести к ошибкам. Фронтенд теперь более явно логирует эти ситуации.
+    - **Понимайте логику `retryHelper` и `authLogger`.** Не пытайтесь реализовать собственную логику повторных попыток или логирования ошибок аутентификации. Используйте предоставленные утилиты, так как они централизованно обрабатывают дедупликацию, задержки и отправку критических ошибок администраторам.
 
 Data Handling and Page-Specific Interactions
 

@@ -57,7 +57,6 @@ async function refreshToken(userId) {
                 [encryptedToken, userId]
             );
             await client.query('COMMIT');
-            console.log(`[refreshToken] Successfully refreshed and updated token for user ${userId}.`);
             return { success: true, token: newToken };
         } else {
             await client.query("UPDATE users SET vendista_token_status = 'invalid_creds' WHERE id = $1", [userId]);

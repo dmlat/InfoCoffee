@@ -4,15 +4,10 @@ const path = require('path');
 
 // Определяем режим работы. По умолчанию - development.
 if (process.env.NODE_ENV === 'production') {
-    console.log('[ENV] Production mode detected. Loading .env');
     require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 } else {
     process.env.NODE_ENV = 'development'; // Принудительно устанавливаем для надежности
-    console.log('[ENV] Defaulting to development mode. Loading .env.development');
     require('dotenv').config({ path: path.resolve(__dirname, '.env.development') });
-    console.log('[ENV] DEV_OWNER_TELEGRAM_ID:', process.env.DEV_OWNER_TELEGRAM_ID ? 'Loaded' : 'NOT LOADED');
-    console.log('[ENV] DEV_ADMIN_TELEGRAM_ID:', process.env.DEV_ADMIN_TELEGRAM_ID ? 'Loaded' : 'NOT LOADED');
-    console.log('[ENV] DEV_SERVICE_TELEGRAM_ID:', process.env.DEV_SERVICE_TELEGRAM_ID ? 'Loaded' : 'NOT LOADED');
 }
 
 const express = require('express');
@@ -109,20 +104,13 @@ const server = app.listen(PORT, async () => {
     
     try {
         // Запускаем бот с задержкой для стабильности
-        console.log('[App] Starting bot services...');
         await startPolling();
-        console.log('[App] Bot services started successfully');
         
         // Запускаем мониторинг после успешного запуска бота
-        console.log('[App] Starting monitoring system...');
         startMonitoring();
         
         // Schedule the inventory notifier worker to run every hour
         setInterval(processInventoryChanges, 60 * 60 * 1000); // 1 раз в час
-        console.log('[App] Background workers scheduled');
-        
-        console.log('[App] ✅ All systems initialized successfully');
-        console.log('[App] 📊 Bot monitoring: http://localhost:' + PORT + '/api/bot-status');
         
     } catch (error) {
         console.error('[App] ❌ Failed to start bot services:', error.message);

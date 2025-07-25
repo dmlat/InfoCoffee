@@ -7,10 +7,11 @@
 const moment = require('moment-timezone');
 const { getQueueStats } = require('./botQueue');
 const { getNotificationStats } = require('./adminErrorNotifier');
+const { sendErrorToAdmin } = require('./adminErrorNotifier'); // Импортируем для отправки уведомлений
 
 // === КОНФИГУРАЦИЯ МОНИТОРИНГА ===
 const MONITOR_CONFIG = {
-    LOG_INTERVAL_MS: 5 * 60 * 1000,      // Логирование каждые 5 минут
+    LOG_INTERVAL_MS: 24 * 60 * 60 * 1000, // Логирование каждые 24 часа
     HEALTH_CHECK_INTERVAL_MS: 60 * 1000,  // Проверка здоровья каждую минуту
     WARNING_THRESHOLDS: {
         QUEUE_SIZE: 50,                   // Предупреждение при размере очереди > 50
@@ -30,6 +31,7 @@ const MONITOR_CONFIG = {
 let monitoringActive = false;
 let lastHealthCheck = null;
 let healthStatus = 'unknown';
+let lastNotifiedHealthStatus = 'healthy'; // Инициализируем 'healthy' для предотвращения ложных уведомлений о восстановлении
 let performanceStats = {
     totalMessagesSent: 0,
     totalMessagesFailed: 0,
@@ -141,7 +143,45 @@ function performHealthCheck() {
 
     // Сохраняем результат
     lastHealthCheck = health;
-    healthStatus = health.status;
+    
+    // Проверяем, нужно ли отправить уведомление администратору
+    if ( (health.status === 'warning' || health.status === 'critical') && 
+         health.status !== lastNotifiedHealthStatus ) {
+        
+        const context = `System Health: ${health.status.toUpperCase()}`;
+        let message = `Обнаружена проблема в системе InfoCoffee!\nСтатус: <b>${health.status.toUpperCase()}</b>\n\n`;
+        
+        if (health.critical.length > 0) {
+            message += `<b>Критические проблемы:</b>\n${health.critical.map(m => ` - ${m}`).join('\n')}\n\n`;
+        }
+        if (health.warnings.length > 0) {
+            message += `<b>Предупреждения:</b>\n${health.warnings.map(m => ` - ${m}`).join('\n')}\n\n`;
+        }
+
+        message += `Текущие метрики:\n`;
+        message += ` - Очередь сообщений: ${health.metrics.queue.regularQueue} (обычная), ${health.metrics.queue.priorityQueue} (приоритетная)\n`;
+        message += ` - Очередь ошибок: ${health.metrics.errors.queueLength}\n`;
+        message += ` - Использование памяти: ${formatBytes(health.metrics.system.memoryUsage.rss)}\n`;
+        message += ` - Аптайм: ${formatDuration(health.metrics.system.uptime)}\n`;
+        message += `\nПожалуйста, проверьте логи или эндпоинт /api/bot-status для деталей.`;
+
+        sendErrorToAdmin({
+            errorContext: context,
+            errorMessage: message,
+            additionalInfo: { healthMetrics: health.metrics, warnings: health.warnings, critical: health.critical }
+        }).catch(err => console.error('[BotMonitor] Failed to send health notification:', err));
+
+        lastNotifiedHealthStatus = health.status; // Обновляем статус последнего уведомления
+    } else if (health.status === 'healthy' && lastNotifiedHealthStatus !== 'healthy') {
+        // Если статус вернулся к Healthy, отправляем уведомление о восстановлении
+        sendErrorToAdmin({
+            errorContext: 'System Health: RECOVERED',
+            errorMessage: '✅ Система InfoCoffee вернулась в здоровое состояние.'
+        }).catch(err => console.error('[BotMonitor] Failed to send recovery notification:', err));
+        lastNotifiedHealthStatus = 'healthy';
+    }
+
+    healthStatus = health.status; // Обновляем общий статус после всех проверок
     
     // Добавляем в историю
     healthHistory.push({
@@ -236,11 +276,11 @@ function getMonitoringData() {
 // === ЗАПУСК МОНИТОРИНГА ===
 function startMonitoring() {
     if (monitoringActive) {
-        console.log('[BotMonitor] Monitoring already active');
+        // console.log('[BotMonitor] Monitoring already active'); // Удаляем временный лог
         return;
     }
 
-    console.log('[BotMonitor] Starting bot monitoring system...');
+    // console.log('[BotMonitor] Starting bot monitoring system...'); // Удаляем временный лог
     monitoringActive = true;
     
     // Первоначальная проверка здоровья
@@ -264,10 +304,10 @@ function startMonitoring() {
         }
     }, MONITOR_CONFIG.LOG_INTERVAL_MS);
     
-    // Начальное логирование
-    setTimeout(logPerformanceStats, 5000);
+    // Начальное логирование удалено, чтобы не захламлять диск.
+    // setTimeout(logPerformanceStats, 5000); // Удаляем эту строку
     
-    console.log(`[BotMonitor] Monitoring started. Health checks every ${MONITOR_CONFIG.HEALTH_CHECK_INTERVAL_MS/1000}s, stats every ${MONITOR_CONFIG.LOG_INTERVAL_MS/60000}min`);
+    console.log(`[BotMonitor] Monitoring started. Health checks every ${MONITOR_CONFIG.HEALTH_CHECK_INTERVAL_MS/1000}s, stats every ${MONITOR_CONFIG.LOG_INTERVAL_MS/(60 * 60 * 1000)}h`);
 }
 
 function stopMonitoring() {
