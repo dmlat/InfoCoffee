@@ -195,6 +195,7 @@ export default function StandDetailModal({ terminal, allTerminals, onTerminalCha
 
             {isTerminalListModalOpen && (
                 <TerminalListModal
+                    isOpen={isTerminalListModalOpen}
                     terminals={allTerminals}
                     onSelect={handleSelectAndClose}
                     onClose={() => setIsTerminalListModalOpen(false)}

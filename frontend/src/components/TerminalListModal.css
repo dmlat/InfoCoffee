@@ -30,7 +30,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-bottom: 1rem;
+    padding-bottom: 0.75rem; /* Adjusted for better alignment with close button */
     border-bottom: 1px solid #3a3f48;
     margin-bottom: 1rem;
 }
@@ -39,6 +39,7 @@
     margin: 0;
     font-size: 1.4em;
     color: #f0f0f0;
+    line-height: 1; /* Ensure text sits tight in its line box */
 }
 
 .modal-close-btn {
@@ -69,7 +70,7 @@
     border: 0;
     height: 1px;
     background-color: #3a3f48;
-    margin: 1.5rem 0;
+    margin: 1rem 0; /* Reduced margin to decrease space between sections */
 }
 
 .terminal-card {
@@ -127,8 +128,8 @@
 }
 
 .terminal-name {
-    font-size: 1.1em;
-    font-weight: 500;
+    font-size: 0.85em; /* Adjusted to match StandsPage h3.stand-name */
+    font-weight: 600; /* Adjusted to match StandsPage h3.stand-name */
     color: #f0f0f0;
 }
 
@@ -157,5 +158,18 @@
         max-height: none;
         border-radius: 0;
         padding: 1rem;
+    }
+}
+
+@media (min-width: 768px) {
+    .terminal-name {
+        font-size: 0.95em; /* Slightly larger on desktop, matches StandsPage */
+    }
+
+    .modal-content.terminal-list-modal {
+        max-width: 37.5rem; /* 600px */
+        max-height: 90%;
+        width: 90%; /* Restore width for desktop */
+        height: auto; /* Allow height to adjust based on content */
     }
 }
