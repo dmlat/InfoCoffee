@@ -670,12 +670,12 @@ router.post('/complete-registration', async (req, res) => {
             UPDATE users 
             SET vendista_api_token = $1, 
                 setup_date = $2, 
-                tax_system = $3, 
-                acquiring = $4,
-                first_name = $5,
-                user_name = $6,
-                vendista_login = $7,
-                vendista_password = $8,
+                tax_system = COALESCE($3, tax_system), 
+                acquiring = COALESCE($4, acquiring),
+                first_name = COALESCE($5, first_name),
+                user_name = COALESCE($6, user_name),
+                vendista_login = COALESCE($7, vendista_login),
+                vendista_password = COALESCE($8, vendista_password),
                 vendista_token_status = 'valid'
             WHERE telegram_id = $9
             RETURNING *;

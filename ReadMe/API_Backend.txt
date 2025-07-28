@@ -354,6 +354,7 @@ API Endpoints (Backend)
         - Входные параметры (URL-параметры):
             - from: Начальная дата периода (YYYY-MM-DD).
             - to: Конечная дата периода (YYYY-MM-DD).
+            - terminalId: (Опционально) Внутренний ID терминала для фильтрации транзакций по конкретной кофейне. Использует `coffee_shop_id` из таблицы `transactions`.
         - Входные параметры (заголовки): Authorization: Bearer <JWT_TOKEN>
         - Выходные данные (успех):
             - success: true

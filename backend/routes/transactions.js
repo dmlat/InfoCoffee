@@ -20,12 +20,12 @@ router.get('/stats', authMiddleware, async (req, res) => {
         let dateFrom, dateTo;
 
         if (from && to && moment(from, 'YYYY-MM-DD', true).isValid() && moment(to, 'YYYY-MM-DD', true).isValid()) {
-            dateFrom = moment.tz(from, TIMEZONE).startOf('day').format('YYYY-MM-DD HH:mm:ss');
-            dateTo = moment.tz(to, TIMEZONE).endOf('day').format('YYYY-MM-DD HH:mm:ss');
+            dateFrom = moment.tz(from, TIMEZONE).startOf('day').toISOString();
+            dateTo = moment.tz(to, TIMEZONE).endOf('day').toISOString();
         } else {
             const todayMoscow = moment().tz(TIMEZONE);
-            dateFrom = todayMoscow.clone().startOf('month').format('YYYY-MM-DD HH:mm:ss');
-            dateTo = todayMoscow.endOf('month').format('YYYY-MM-DD HH:mm:ss');
+            dateFrom = todayMoscow.clone().startOf('month').toISOString();
+            dateTo = todayMoscow.endOf('month').toISOString();
         }
         
         // ИСПОЛЬЗУЕМ НОВУЮ УТИЛИТУ
@@ -62,13 +62,13 @@ router.get('/coffee-stats', authMiddleware, async (req, res) => {
         console.log(`[GET /api/transactions/coffee-stats] UserID: ${ownerUserId}, Raw query params: from=${from}, to=${to}`);
         let dateFrom, dateTo;
         if (from && to && moment(from, 'YYYY-MM-DD', true).isValid() && moment(to, 'YYYY-MM-DD', true).isValid()) {
-            dateFrom = moment.tz(from, TIMEZONE).startOf('day').format('YYYY-MM-DD HH:mm:ss');
-            dateTo = moment.tz(to, TIMEZONE).endOf('day').format('YYYY-MM-DD HH:mm:ss');
+            dateFrom = moment.tz(from, TIMEZONE).startOf('day').toISOString();
+            dateTo = moment.tz(to, TIMEZONE).endOf('day').toISOString();
         } else {
             console.log(`[GET /api/transactions/coffee-stats] Invalid or missing date params, defaulting to current month in ${TIMEZONE}`);
             const todayMoscow = moment().tz(TIMEZONE);
-            dateFrom = todayMoscow.clone().startOf('month').format('YYYY-MM-DD HH:mm:ss');
-            dateTo = todayMoscow.endOf('month').format('YYYY-MM-DD HH:mm:ss');
+            dateFrom = todayMoscow.clone().startOf('month').toISOString();
+            dateTo = todayMoscow.endOf('month').toISOString();
         }
         console.log(`[GET /api/transactions/coffee-stats] SQL Date Range: from='${dateFrom}', to='${dateTo}'`);
 
@@ -115,7 +115,7 @@ router.get('/', authMiddleware, async (req, res) => {
             SELECT 
                 t.id, t.user_id, t.coffee_shop_id, t.amount, t.transaction_time, t.result, t.reverse_id, 
                 t.terminal_comment, t.card_number, t.status, t.bonus, t.left_sum, t.left_bonus, t.machine_item_id,
-                t.vendista_terminal_id, t.last_updated_at
+                t.last_updated_at
             FROM transactions t
             WHERE t.user_id = $1
               AND t.transaction_time >= $2 AND t.transaction_time <= $3
@@ -123,7 +123,7 @@ router.get('/', authMiddleware, async (req, res) => {
         const queryParams = [ownerUserId, dateFrom, dateTo];
 
         if (terminalId) {
-            query += ` AND t.vendista_terminal_id = $${queryParams.length + 1}`;
+            query += ` AND t.coffee_shop_id = $${queryParams.length + 1}`;
             queryParams.push(terminalId);
         }
 

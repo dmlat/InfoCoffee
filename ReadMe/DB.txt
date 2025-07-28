@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.terminals
 (
     id integer NOT NULL DEFAULT nextval('terminals_id_seq'::regclass),
     user_id integer NOT NULL,
-    vendista_terminal_id integer NOT NULL,
+    vendista_terminal_id integer NOT NULL, -- Соответствует Vendista ID терминала
     name character varying(255) COLLATE pg_catalog."default",
     serial_number character varying(100) COLLATE pg_catalog."default",
     last_online_time timestamp with time zone,
@@ -62,6 +62,36 @@ CREATE TABLE IF NOT EXISTS public.recipes
 TABLESPACE pg_default;
 
 ALTER TABLE IF EXISTS public.recipes
+    OWNER to coffee_admin;
+
+-- Table: public.transactions
+      Column      |           Type           | Collation | Nullable |                 Default
+------------------+--------------------------+-----------+----------+------------------------------------------
+ id               | integer                  |           | not null | nextval('transactions_id_seq'::regclass)
+ coffee_shop_id   | integer                  |           |          |
+ amount           | numeric                  |           |          |
+ transaction_time | timestamp with time zone |           |          |
+ result           | character varying(255)   |           |          |
+ reverse_id       | integer                  |           |          |
+ terminal_comment | character varying(255)   |           |          |
+ card_number      | character varying(32)    |           |          |
+ status           | character varying(64)    |           |          |
+ bonus            | numeric                  |           |          |
+ left_sum         | numeric                  |           |          |
+ left_bonus       | numeric                  |           |          |
+ user_id          | integer                  |           |          |
+ machine_item_id  | integer                  |           |          |
+ last_updated_at  | timestamp with time zone |           |          | now()
+Indexes:
+    "transactions_pkey" PRIMARY KEY, btree (id)
+Foreign-key constraints:
+    "transactions_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Примечание: coffee_shop_id в таблице transactions соответствует vendista_terminal_id в таблице terminals.
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.transactions
     OWNER to coffee_admin;
 
 -- Table: public.recipe_items

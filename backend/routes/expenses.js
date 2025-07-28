@@ -5,6 +5,9 @@ const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const db = require('../db');
 const { sendErrorToAdmin } = require('../utils/adminErrorNotifier'); // <--- НОВЫЙ ИМПОРТ
+const moment = require('moment-timezone');
+
+const TIMEZONE = 'Europe/Moscow';
 
 // Получить все расходы пользователя
 router.get('/', authMiddleware, async (req, res) => {
@@ -44,10 +47,17 @@ router.post('/', authMiddleware, async (req, res) => {
 
         const numericAmount = parseFloat(amount);
 
+        // Явно обрабатываем время в московской зоне, чтобы избежать неоднозначности
+        const expenseMoment = moment.tz(expense_time, TIMEZONE);
+        if (!expenseMoment.isValid()) {
+            return res.status(400).json({ success: false, error: 'Неверный формат даты расхода.' });
+        }
+        const expenseTimestampForDb = expenseMoment.toISOString();
+
         const resultDb = await db.query(
             `INSERT INTO expenses (user_id, amount, expense_time, comment)
              VALUES ($1, $2, $3, $4) RETURNING *`,
-            [ownerUserId, numericAmount, expense_time, comment || '']
+            [ownerUserId, numericAmount, expenseTimestampForDb, comment || '']
         );
         res.status(201).json({ success: true, expense: resultDb.rows[0] });
     } catch (err) {

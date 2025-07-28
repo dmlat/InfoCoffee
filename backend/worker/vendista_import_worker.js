@@ -75,7 +75,7 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
             `SELECT
                 t.name as terminal_name,
                 t.user_id,
-                t.vendista_id,
+                t.vendista_terminal_id,
                 u.telegram_id as owner_telegram_id,
                 s.assignee_id_restock,
                 t.sales_since_cleaning,
@@ -90,7 +90,7 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
             LEFT JOIN users u ON t.user_id = u.id
             LEFT JOIN recipe_items ri ON t.id = ri.recipe_id
             WHERE t.id = $1
-            GROUP BY t.id, t.name, t.user_id, t.vendista_id, u.telegram_id, s.assignee_id_restock, t.sales_since_cleaning`,
+            GROUP BY t.id, t.name, t.user_id, t.vendista_terminal_id, u.telegram_id, s.assignee_id_restock, t.sales_since_cleaning`,
             [internalTerminalId]
         );
 
