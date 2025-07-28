@@ -70,7 +70,7 @@ apiClient.interceptors.response.use(
 
             const tgInitData = window.Telegram?.WebApp?.initData;
             if (!tgInitData) {
-                console.warn('[API Interceptor] 401: No Telegram initData for refresh.'); // Изменен на warn
+                console.warn('[API Interceptor] 401: No Telegram initData for refresh.');
                 clearUserDataAndRedirect('no_telegram_data_for_refresh');
                 isRefreshing = false;
                 return Promise.reject(error);
@@ -86,10 +86,19 @@ apiClient.interceptors.response.use(
 
                 if (rs.data.success && rs.data.token) {
                     const newAppToken = rs.data.token;
+                    const newUserData = rs.data.user;
+
                     localStorage.setItem('app_token', newAppToken);
-                    if (rs.data.user) {
-                        saveUserDataToLocalStorage(rs.data.user); // <-- Используем новую функцию
+                    if (newUserData) {
+                        // Используем новую функцию для сохранения, она обновляет все данные
+                        saveUserDataToLocalStorage({ token: newAppToken, user: newUserData });
                     }
+                    
+                    // Уведомляем приложение о обновлении токена и данных пользователя
+                    window.dispatchEvent(new CustomEvent('tokenRefreshed', { 
+                        detail: { user: newUserData, token: newAppToken } 
+                    }));
+
                     apiClient.defaults.headers.common['Authorization'] = 'Bearer ' + newAppToken;
                     originalRequest.headers['Authorization'] = 'Bearer ' + newAppToken;
                     processQueue(null, newAppToken);

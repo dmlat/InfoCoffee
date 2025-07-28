@@ -898,6 +898,12 @@ router.get('/validate-token', async (req, res) => {
         return res.status(401).json({ success: false, error: 'No token provided' });
     }
 
+    console.log('[DEBUG AUTH] Validating token', { 
+      hasToken: !!token, 
+      tokenLength: token?.length,
+      timestamp: new Date().toISOString() 
+    });
+
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
 
@@ -919,51 +925,60 @@ router.get('/validate-token', async (req, res) => {
             userRole = 'owner';
             finalUserObject = ownerResult.rows[0];
         } else {
-            // 2. Если не владелец, ищем в правах доступа
-            const accessRightsResult = await pool.query(
-                `SELECT uar.owner_user_id, uar.access_level, uar.shared_with_name,
-                        u.*
-                 FROM user_access_rights uar
-                 JOIN users u ON uar.owner_user_id = u.id
-                 WHERE uar.shared_with_telegram_id = $1 AND uar.owner_user_id = $2`,
-                [telegramId, userId]
-            );
-
-            if (accessRightsResult.rows.length > 0) {
-                const accessRecord = accessRightsResult.rows[0];
-                userRole = accessRecord.access_level;
-                ownerIdForLookup = accessRecord.owner_user_id;
-
-                // Собираем объект пользователя для админа/сервиса
-                finalUserObject = {
-                    ...accessRecord, // Включаем все поля из `users`
-                    first_name: accessRecord.shared_with_name // Перезаписываем имя на то, что указано в правах
-                };
+            // 2. Если не владелец, ищем в правах доступа (admin/service)
+            if (!userRole) {
+                const accessResult = await pool.query(
+                    `SELECT uar.*, u.id as owner_user_id 
+                     FROM user_access_rights uar 
+                     JOIN users u ON uar.owner_user_id = u.id 
+                     WHERE uar.shared_with_telegram_id = $1`,
+                    [telegramId]
+                );
+                
+                if (accessResult.rows.length > 0) {
+                    const accessRecord = accessResult.rows[0];
+                    userRole = accessRecord.access_level;
+                    ownerIdForLookup = accessRecord.owner_user_id; // Используем ID владельца для поиска данных
+                    
+                    // Для admin/service используем их имя из таблицы прав
+                    finalUserObject = {
+                        id: userId, // ID из токена (соответствует accessId)
+                        telegram_id: telegramId,
+                        first_name: accessRecord.shared_with_name,
+                        // Добавляем остальные поля, чтобы объект был консистентным
+                    };
+                }
             }
         }
 
+        // 3. Если роль так и не определена, токен недействителен
         if (!userRole) {
-            console.warn(`[validate-token] Could not determine role for userId: ${userId}, telegramId: ${telegramId}. Token may be for a deleted or misconfigured user.`);
-            return res.status(401).json({ success: false, error: 'User role could not be verified.' });
+            return res.status(401).json({ success: false, error: 'User role not found for this token' });
         }
-
-        // 3. Собираем финальный ответ
-        const userForClient = {
-            ...finalUserObject,
-            id: ownerIdForLookup,      // ID всегда от владельца
-            telegram_id: telegramId, // Telegram ID от того, кто авторизован
-            role: userRole,
-            accessLevel: userRole
-        };
         
+        req.user = {
+            ...decoded,
+            ...finalUserObject, // Добавляем или перезаписываем данные из БД
+            accessLevel: userRole,
+            ownerId: ownerIdForLookup // ID владельца, для которого выполняются запросы
+        };
+
         res.json({
             success: true,
-            user: userForClient
+            user: req.user
         });
 
     } catch (err) {
-        console.error('Token validation error:', err);
-        return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+        console.error('Token validation error:', err.message);
+        console.log('[DEBUG AUTH] JWT verification failed', {
+            error: err.message,
+            expiredAt: err.expiredAt,
+            timestamp: new Date().toISOString()
+        });
+        if (err.name === 'TokenExpiredError') {
+            return res.status(401).json({ success: false, error: 'Token expired', expiredAt: err.expiredAt });
+        }
+        return res.status(401).json({ success: false, error: 'Invalid token' });
     }
 });
 

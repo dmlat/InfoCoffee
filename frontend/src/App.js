@@ -279,6 +279,33 @@ function AuthProvider({ children }) {
 
   useEffect(() => {
     initApp();
+
+    const handleAuthError = (event) => {
+      const { reason } = event.detail;
+      authLogger.error('🚨 Auth error redirect received', { reason });
+      
+      setUser(null);
+      setAuthStatus('error');
+      setError(`Сессия была завершена (${reason}). Пожалуйста, перезагрузите приложение.`);
+      delete api.defaults.headers.common['Authorization'];
+    };
+
+    const handleTokenRefresh = (event) => {
+        const { user: newUserData, token: newToken } = event.detail;
+        if (newUserData) {
+            authLogger.info('✅ Interceptor refreshed token, updating AuthContext.', { userId: newUserData.id });
+            setUser(newUserData);
+            saveUserDataToLocalStorage({ token: newToken, user: newUserData });
+        }
+    };
+  
+    window.addEventListener('authErrorRedirect', handleAuthError);
+    window.addEventListener('tokenRefreshed', handleTokenRefresh);
+    
+    return () => {
+      window.removeEventListener('authErrorRedirect', handleAuthError);
+      window.removeEventListener('tokenRefreshed', handleTokenRefresh);
+    };
   }, []);
 
   const reAuthenticate = async () => {
