@@ -23,7 +23,7 @@ API Endpoints (Backend)
         - Выходные данные (успех):
             - success: true
             - token: JWT-токен для последующих авторизованных запросов.
-            - user: Объект пользователя с `id`, `telegram_id`, `role` (owner, admin, service), `access_level`.
+            - user: Объект пользователя с `id`, `telegram_id`, `access_level`.
             - message: (Только в Production) `registration_required` или `registration_incomplete`, если пользователь не завершил регистрацию `owner`.
         - Выходные данные (ошибка):
             - success: false
@@ -38,7 +38,7 @@ API Endpoints (Backend)
             - Authorization: Bearer <JWT_TOKEN>
         - Особенности:
             - Всегда ищет пользователя в базе данных, чтобы вернуть актуальные данные на фронтенд.
-            - В Development-режиме эндпоинт корректно обрабатывает эмулированные роли из токена. Если в токене указан `accessLevel` 'admin' или 'service', эндпоинт вернет объект пользователя с соответствующими данными (имя, `telegram_id`), а не данные владельца.
+            - В Development-режиме эндпоинт **дополнительно обрабатывает заголовок `x-emulated-role`** для эмуляции ролей (`owner`, `admin`, `service`), что позволяет тестировать различные уровни доступа без реальной смены аккаунта. Если в токене указан `accessLevel` 'admin' или 'service', эндпоинт вернет объект пользователя с соответствующими данными (имя, `telegram_id`), а не данные владельца.
         - Выходные данные (успех):
             - success: true
             - user: Полный объект пользователя из БД, дополненный `accessLevel` из токена.

@@ -15,7 +15,6 @@ const TIMEZONE = 'Europe/Moscow';
 router.get('/stats', authMiddleware, async (req, res) => {
     const { ownerUserId, telegramId } = req.user;
     const { from, to } = req.query;
-    console.log(`[GET /api/transactions/stats] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching dashboard stats.`);
     try {
         let dateFrom, dateTo;
 
@@ -57,20 +56,23 @@ router.get('/stats', authMiddleware, async (req, res) => {
 router.get('/coffee-stats', authMiddleware, async (req, res) => {
     const { ownerUserId, telegramId } = req.user;
     let { from, to } = req.query;
-    console.log(`[GET /api/transactions/coffee-stats] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Raw query params: from=${from}, to=${to}`);
     try {
-        console.log(`[GET /api/transactions/coffee-stats] UserID: ${ownerUserId}, Raw query params: from=${from}, to=${to}`);
         let dateFrom, dateTo;
-        if (from && to && moment(from, 'YYYY-MM-DD', true).isValid() && moment(to, 'YYYY-MM-DD', true).isValid()) {
-            dateFrom = moment.tz(from, TIMEZONE).startOf('day').toISOString();
-            dateTo = moment.tz(to, TIMEZONE).endOf('day').toISOString();
-        } else {
-            console.log(`[GET /api/transactions/coffee-stats] Invalid or missing date params, defaulting to current month in ${TIMEZONE}`);
-            const todayMoscow = moment().tz(TIMEZONE);
-            dateFrom = todayMoscow.clone().startOf('month').toISOString();
-            dateTo = todayMoscow.endOf('month').toISOString();
+        
+        try {
+            if (!from || !to) {
+                const now = moment().tz(TIMEZONE);
+                dateFrom = now.startOf('month').toISOString();
+                dateTo = now.endOf('month').toISOString();
+            } else {
+                dateFrom = moment.tz(from, TIMEZONE).startOf('day').toISOString();
+                dateTo = moment.tz(to, TIMEZONE).endOf('day').toISOString();
+            }
+        } catch (dateError) {
+            console.error('[GET /api/transactions/coffee-stats] Date parsing error:', dateError);
+            res.status(400).json({ success: false, error: 'Неверный формат даты' });
+            return;
         }
-        console.log(`[GET /api/transactions/coffee-stats] SQL Date Range: from='${dateFrom}', to='${dateTo}'`);
 
         const result = await db.query(`
             SELECT 
@@ -103,8 +105,6 @@ router.get('/coffee-stats', authMiddleware, async (req, res) => {
 router.get('/', authMiddleware, async (req, res) => {
     const { ownerUserId, telegramId } = req.user;
     let { dateFrom, dateTo, terminalId } = req.query;
-
-    console.log(`[GET /api/transactions] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching transactions from ${dateFrom} to ${dateTo}, TerminalID: ${terminalId || 'All'}.`);
 
     if (!dateFrom || !dateTo) {
         return res.status(400).json({ success: false, error: 'Date range is required.' });
@@ -147,7 +147,6 @@ router.get('/', authMiddleware, async (req, res) => {
 // POST transaction (example for manual addition)
 router.post('/', authMiddleware, async (req, res) => {
     const { ownerUserId, telegramId } = req.user;
-    console.log(`[POST /api/transactions] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Manually adding transaction.`);
     try {
         const {
             coffee_shop_id, amount, transaction_time, result: tr_result, 

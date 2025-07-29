@@ -394,14 +394,6 @@ const RestockSettingsBlock = ({ restockInfo, settings, users, isLoading, onOpenM
 export default function TasksPage() {
     const { user } = useAuth();
 
-    // Диагностическое логирование
-    console.log('[TasksPage] User object:', { 
-        accessLevel: user?.accessLevel, 
-        role: user?.role,
-        id: user?.id,
-        telegram_id: user?.telegram_id 
-    });
-    
     // const navigate = useNavigate();  // Unused in this component
 
     const [myTasks, setMyTasks] = useState([]);

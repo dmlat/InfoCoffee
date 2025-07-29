@@ -15,7 +15,6 @@ const formatAccessLevelName = (level) => {
 // Получить список всех, кому предоставлен доступ
 router.get('/', authMiddleware, async (req, res) => {
     const { ownerUserId, telegramId, accessLevel } = req.user;
-    console.log(`[GET /api/access] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, Level: ${accessLevel} - Fetching access list.`);
 
     if (accessLevel !== 'owner' && accessLevel !== 'admin') {
         return res.status(403).json({ success: false, error: 'Недостаточно прав для просмотра доступов' });
@@ -44,8 +43,6 @@ router.post('/', authMiddleware, async (req, res) => {
     const { ownerUserId, telegramId, accessLevel } = req.user;
     const { shared_with_telegram_id, shared_with_name, access_level } = req.body;
     
-    console.log(`[POST /api/access] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, Level: ${accessLevel} - Granting access to TG ID ${shared_with_telegram_id}.`);
-
     if (accessLevel !== 'owner' && accessLevel !== 'admin') {
         return res.status(403).json({ success: false, error: 'Недостаточно прав для предоставления доступа' });
     }
@@ -97,8 +94,6 @@ router.put('/:accessId', authMiddleware, async (req, res) => {
     const { accessId } = req.params;
     const { shared_with_name, access_level } = req.body;
 
-    console.log(`[PUT /api/access/:id] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, Level: ${accessLevel} - Updating access ID ${accessId}.`);
-
     if (accessLevel !== 'owner' && accessLevel !== 'admin') {
         return res.status(403).json({ success: false, error: 'Недостаточно прав для изменения доступа' });
     }
@@ -143,8 +138,6 @@ router.put('/:accessId', authMiddleware, async (req, res) => {
 router.delete('/:accessId', authMiddleware, async (req, res) => {
     const { ownerUserId, telegramId, accessLevel } = req.user;
     const { accessId } = req.params;
-
-    console.log(`[DELETE /api/access/:id] ActorTG: ${telegramId}, OwnerID: ${ownerUserId}, Level: ${accessLevel} - Revoking access ID ${accessId}.`);
 
      if (accessLevel !== 'owner' && accessLevel !== 'admin') {
         return res.status(403).json({ success: false, error: 'Недостаточно прав для отзыва доступа' });
@@ -199,7 +192,6 @@ router.delete('/:accessId', authMiddleware, async (req, res) => {
 // Получить список всех пользователей, кому предоставлен доступ (включая владельца)
 router.get('/users/list', authMiddleware, async (req, res) => {
     const { ownerUserId, telegramId } = req.user;
-    console.log(`[GET /api/access/users/list] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching user list.`);
 
     try {
         // Получаем владельца
