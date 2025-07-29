@@ -57,9 +57,9 @@ export default function FinancesPage() { // Удаляем user из пропс�
     return { dateFrom: formatDateForInput(range[0]), dateTo: formatDateForInput(range[1]) };
   });
 
-  // Добавляем проверку на user перед доступом к business_profile
-  const taxSystem = user?.business_profile?.tax_system || '';
-  const acquiringRate = user?.business_profile?.acquiring_rate || '0';
+  // Добавляем проверку на user
+  const taxSystem = user?.tax_system || '';
+  const acquiringRate = user?.acquiring || '0';
 
   useEffect(() => {
     localStorage.setItem(`${pageKey}_periodLabel`, currentPeriodPreset.label);
