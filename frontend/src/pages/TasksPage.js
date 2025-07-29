@@ -393,6 +393,15 @@ const RestockSettingsBlock = ({ restockInfo, settings, users, isLoading, onOpenM
 
 export default function TasksPage() {
     const { user } = useAuth();
+
+    // Диагностическое логирование
+    console.log('[TasksPage] User object:', { 
+        accessLevel: user?.accessLevel, 
+        role: user?.role,
+        id: user?.id,
+        telegram_id: user?.telegram_id 
+    });
+    
     // const navigate = useNavigate();  // Unused in this component
 
     const [myTasks, setMyTasks] = useState([]);
@@ -466,20 +475,6 @@ export default function TasksPage() {
 
     const toggleBlock = (blockName) => {
         setExpandedBlocks(prev => ({ ...prev, [blockName]: !prev[blockName] }));
-    };
-
-    const handleAutoSaveSetting = async (terminalId) => {
-        const setting = settings.find(s => s.id === terminalId);
-        if (!setting) return;
-        
-        try {
-            await apiClient.post('/tasks/settings', {
-                terminal_id: setting.id,
-                assignee_id_restock: setting.assignee_id_restock
-            });
-        } catch (error) {
-            console.error('Failed to save settings:', error);
-        }
     };
 
     const handleOpenModal = (terminalId) => { // type is removed, it's always 'restock'
@@ -595,11 +590,6 @@ export default function TasksPage() {
         handleCloseModal();
     };
 
-    const cleaningSettingsWithTerminals = settings.map(s => ({
-        ...s,
-        ...restockInfo.find(t => t.id === s.id)
-    })).filter(s => s.name);
-    
     // const selectedRestockTerminals = settings.filter(s => s.isChecked).map(s => s.id); // НЕ ИСПОЛЬЗUЕТСЯ
     // const selectedCleaningTerminals = settings.filter(s => s.isChecked).map(s => s.id); // НЕ ИСПОЛЬЗUЕТСЯ
 
@@ -654,7 +644,7 @@ export default function TasksPage() {
                 onToggle={() => toggleBlock('myTasks')}
             />
 
-            {(user.role === 'owner' || user.role === 'admin') && (
+            {(user.accessLevel === 'owner' || user.accessLevel === 'admin') && (
                 <>
                     <TasksLogBlock 
                         tasks={allTasks} 

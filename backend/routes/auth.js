@@ -372,7 +372,6 @@ router.post('/telegram-handshake', async (req, res) => {
             token: token,
             user: {
                 ...userForResponse,
-                role: role,
                 accessLevel: role
             }
         });
@@ -906,6 +905,21 @@ router.get('/validate-token', async (req, res) => {
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
+
+        // --- DEV MODE ROLE EMULATION (аналогично auth middleware) ---
+        if (process.env.NODE_ENV === 'development') {
+            const emulatedRole = req.headers['x-emulated-role'];
+            if (emulatedRole && ['owner', 'admin', 'service'].includes(emulatedRole)) {
+                decoded.accessLevel = emulatedRole;
+                
+                if (emulatedRole === 'admin') {
+                    decoded.telegramId = parseInt(process.env.DEV_ADMIN_TELEGRAM_ID, 10);
+                } else if (emulatedRole === 'service') {
+                    decoded.telegramId = parseInt(process.env.DEV_SERVICE_TELEGRAM_ID, 10);
+                }
+            }
+        }
+        // --- END DEV MODE ROLE EMULATION ---
 
         // --- НОВАЯ ЛОГИКА: Всегда перепроверяем роль пользователя в базе данных ---
         const { userId, telegramId } = decoded;

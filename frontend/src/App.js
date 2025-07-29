@@ -359,8 +359,9 @@ function AuthProvider({ children }) {
     
     // Защитная проверка критических полей
     if (!updatedUserData.accessLevel) {
-      authLogger.error('🚨 Missing accessLevel in updated user data, preventing update', { 
+      authLogger.error('🚨 Missing accessLevel in updated user data', { 
         hasAccessLevel: !!updatedUserData.accessLevel,
+        hasRole: !!updatedUserData.role, // <- добавить для диагностики
         currentUser: !!user,
         updatedFields: Object.keys(updatedUserData)
       });
