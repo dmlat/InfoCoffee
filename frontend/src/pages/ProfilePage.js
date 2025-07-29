@@ -32,6 +32,8 @@ function formatSyncTimestamp(timestamp) {
 export default function ProfilePage() {
   const { user, updateUserInContext: updateUser, isLoading: isAuthLoading } = useAuth();
 
+  console.log('[ProfilePage] Rendering.', { isAuthLoading, user });
+
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -49,8 +51,9 @@ export default function ProfilePage() {
   const [syncStatusError, setSyncStatusError] = useState('');
 
   useEffect(() => {
-    if (user && user.business_profile) {
-      const { setup_date, tax_system, acquiring } = user.business_profile;
+    console.log('[ProfilePage] useEffect/user fired.', { user });
+    if (user) {
+      const { setup_date, tax_system, acquiring } = user;
       setSetupDate(setup_date ? formatDateForInput(new Date(setup_date)) : '');
       setCurrentTaxSystem(tax_system || '');
       setCurrentAcquiringRate(acquiring !== null ? String(acquiring) : '');
@@ -103,9 +106,11 @@ export default function ProfilePage() {
     };
 
     try {
+      console.log('[ProfilePage] handleSaveChanges: Sending request with payload:', payload);
       const response = await apiClient.post('/profile/settings', payload);
       if (response.data.success && response.data.settings) {
         setSuccessMessage('Настройки успешно обновлены!');
+        console.log('[ProfilePage] handleSaveChanges: Calling updateUser with:', response.data.settings);
         if (updateUser) {
           updateUser(response.data.settings);
         }
@@ -122,8 +127,8 @@ export default function ProfilePage() {
   };
   
   const isChanged = () => {
-    if (!user || !user.business_profile) return false; 
-    const { setup_date, tax_system, acquiring } = user.business_profile;
+    if (!user) return false; 
+    const { setup_date, tax_system, acquiring } = user;
     const initialAcquiring = acquiring !== null ? String(acquiring) : '';
     const initialSetup = setup_date ? formatDateForInput(new Date(setup_date)) : '';
 

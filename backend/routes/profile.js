@@ -12,24 +12,18 @@ router.get('/settings', authMiddleware, async (req, res) => {
     console.log(`[GET /api/profile/settings] ActorTG: ${telegramId}, OwnerID: ${ownerUserId} - Fetching settings.`);
     try {
         const result = await pool.query(
-            'SELECT id, setup_date, tax_system, acquiring, telegram_id, first_name, user_name FROM users WHERE id = $1',
-            [ownerUserId] // Используем ownerUserId, так как настройки всегда принадлежат владельцу
+            'SELECT * FROM users WHERE id = $1',
+            [ownerUserId] 
         );
         if (result.rows.length === 0) {
             console.warn(`[GET /api/profile/settings] OwnerID: ${ownerUserId} - User profile not found.`);
             return res.status(404).json({ success: false, error: 'User profile not found.' });
         }
-        const settings = {
-            ...result.rows[0],
-            acquiring: result.rows[0].acquiring !== null ? String(result.rows[0].acquiring) : null
-        };
-        // Удаляем telegram_id, first_name, user_name из ответа клиенту, если они не нужны там напрямую
-        delete settings.telegram_id;
-        delete settings.first_name;
-        delete settings.user_name;
-        delete settings.id; // userId и так есть в req.user
+        
+        const userProfile = result.rows[0];
+        // Просто возвращаем все данные профиля
+        res.json({ success: true, settings: userProfile });
 
-        res.json({ success: true, settings: settings });
     } catch (err) {
         console.error(`[GET /api/profile/settings] OwnerID: ${ownerUserId} - Error fetching profile settings:`, err);
         sendErrorToAdmin({
@@ -102,17 +96,40 @@ router.post('/settings', authMiddleware, async (req, res) => {
         updateValues.push(ownerUserId);
         
         console.log(`[POST /api/profile/settings] OwnerID: ${ownerUserId} - Executing update query.`);
-        const result = await pool.query(queryText, updateValues);
+        const updateResult = await pool.query(queryText, updateValues);
 
-        if (result.rowCount === 0) {
+        if (updateResult.rowCount === 0) {
             console.warn(`[POST /api/profile/settings] OwnerID: ${ownerUserId} - User not found for update.`);
             return res.status(404).json({ success: false, error: 'User not found for update.' });
         }
         
+        // Получаем полный профиль после обновления
+        const fullProfileResult = await pool.query('SELECT * FROM users WHERE id = $1', [ownerUserId]);
+        const dbUser = fullProfileResult.rows[0];
+
+        // Преобразуем поля из snake_case в camelCase (как в auth.js)
         const updatedSettings = {
-            ...result.rows[0],
-            acquiring: result.rows[0].acquiring !== null ? String(result.rows[0].acquiring) : null
+            id: dbUser.id,
+            telegram_id: dbUser.telegram_id,
+            accessLevel: accessLevel,  // ИСПРАВЛЕНИЕ: Используем accessLevel из JWT токена
+            first_name: dbUser.first_name,
+            user_name: dbUser.user_name,
+            setup_date: dbUser.setup_date,
+            tax_system: dbUser.tax_system,
+            acquiring: dbUser.acquiring,
+            created_at: dbUser.created_at,
+            updated_at: dbUser.updated_at,
+            vendista_api_token: dbUser.vendista_api_token,
+            vendista_login: dbUser.vendista_login,
+            vendista_password: dbUser.vendista_password,
+            vendista_token_status: dbUser.vendista_token_status,
+            vendista_payment_status: dbUser.vendista_payment_status,
+            vendista_payment_notified_at: dbUser.vendista_payment_notified_at,
+            ownerId: dbUser.id, // Добавляем для совместимости с фронтендом
+            userId: dbUser.id,  // Добавляем для совместимости с фронтендом
+            telegramId: dbUser.telegram_id // Также добавляем camelCase версию
         };
+
         console.log(`[POST /api/profile/settings] OwnerID: ${ownerUserId} - Profile updated successfully.`);
         res.json({ success: true, message: 'Profile settings updated successfully.', settings: updatedSettings });
 

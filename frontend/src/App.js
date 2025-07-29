@@ -1,5 +1,5 @@
 // frontend/src/App.js
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import api from './api';
 import { saveUserDataToLocalStorage, clearUserDataFromLocalStorage, getUser } from './utils/user';
@@ -33,7 +33,9 @@ function AuthProvider({ children }) {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  const initApp = async () => {
+  console.log(`[AuthProvider] Rendering. Auth status: ${authStatus}, User set: ${!!user}`);
+
+  const initApp = useCallback(async () => {
     authLogger.info('🚀 initApp: Starting authentication initialization');
     
     try {
@@ -271,11 +273,11 @@ function AuthProvider({ children }) {
     } finally {
       setIsLoading(false);
       authLogger.info('🏁 initApp: Authentication initialization completed', { 
-        finalStatus: authStatus,
+        // finalStatus: authStatus,
         isLoading: false 
       });
     }
-  };
+  }, []);
 
   useEffect(() => {
     initApp();
@@ -306,12 +308,12 @@ function AuthProvider({ children }) {
       window.removeEventListener('authErrorRedirect', handleAuthError);
       window.removeEventListener('tokenRefreshed', handleTokenRefresh);
     };
-  }, []);
+  }, [initApp]);
 
-  const reAuthenticate = async () => {
+  const reAuthenticate = useCallback(async () => {
     setAuthStatus('loading');
     await initApp();
-  };
+  }, [initApp]);
 
   const login = async (initData) => {
     try {
@@ -353,9 +355,22 @@ function AuthProvider({ children }) {
   };
 
   const updateUserInContext = (updatedUserData) => {
+    console.log('[updateUserInContext] Called with:', updatedUserData);
+    
+    // Защитная проверка критических полей
+    if (!updatedUserData.accessLevel) {
+      authLogger.error('🚨 Missing accessLevel in updated user data, preventing update', { 
+        hasAccessLevel: !!updatedUserData.accessLevel,
+        currentUser: !!user,
+        updatedFields: Object.keys(updatedUserData)
+      });
+      setError('Ошибка обновления профиля: отсутствует уровень доступа');
+      return;
+    }
+    
     const currentUserData = JSON.parse(localStorage.getItem('authData'));
     const newUserData = {
-      ...currentUserData,
+      token: currentUserData.token, // Сохраняем старый токен
       user: updatedUserData
     };
     saveUserDataToLocalStorage(newUserData);
@@ -372,7 +387,11 @@ function AuthProvider({ children }) {
 // Новый компонент для выбора правильного макета
 const DashboardLayoutSelector = () => {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/" replace />; // Защита от случайного доступа
+  console.log(`[DashboardLayoutSelector] Rendering. User ID: ${user?.id}, Access Level: ${user?.accessLevel}`);
+  if (!user) {
+    console.log('[DashboardLayoutSelector] No user, navigating to /');
+    return <Navigate to="/" replace />; // Защита от случайного доступа
+  }
 
   if (user.accessLevel === 'owner' || user.accessLevel === 'admin') {
     return <MainDashboardLayout />;
@@ -381,6 +400,7 @@ const DashboardLayoutSelector = () => {
     return <ServiceDashboardLayout />;
   }
   // Если роль неизвестна, отправляем на главную
+  console.log(`[DashboardLayoutSelector] Unknown role, navigating to /`);
   return <Navigate to="/" replace />;
 };
 
@@ -397,6 +417,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
 function AppRouter() {
     const { authStatus, user, error, reAuthenticate } = useAuth();
+
+    console.log(`[AppRouter] Rendering. Auth status: ${authStatus}`);
 
     if (authStatus === 'loading') {
         return <div className="loading-container">Загрузка...</div>;
