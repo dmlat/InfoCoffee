@@ -7,6 +7,34 @@ const { decrypt } = require('../utils/security');
 const VENDISTA_API_URL = process.env.VENDISTA_API_URL || 'https://api.vendista.ru:99';
 const SYNC_DELAY_MS = 1100; // Пауза 1.1 секунды между запросами к API для разных пользователей
 
+const DEFAULT_MACHINE_INVENTORY = [
+    { item_name: 'Кофе', max_stock: 1500, critical_stock: 500 },
+    { item_name: 'Вода', max_stock: 38000, critical_stock: 10000 },
+    { item_name: 'Сливки', max_stock: 2000, critical_stock: 300 },
+    { item_name: 'Какао', max_stock: 2000, critical_stock: 300 },
+    { item_name: 'Раф', max_stock: 2000, critical_stock: 300 },
+    { item_name: 'Стаканы', max_stock: 100, critical_stock: 30 },
+    { item_name: 'Крышки', max_stock: 100, critical_stock: 30 },
+    { item_name: 'Размешиватели', max_stock: 100, critical_stock: 30 },
+    { item_name: 'Сахар', max_stock: 100, critical_stock: 30 },
+    { item_name: 'Трубочки', max_stock: 250, critical_stock: 50 },
+    { item_name: 'Сироп 1', max_stock: 1500, critical_stock: 500 },
+    { item_name: 'Сироп 2', max_stock: 1500, critical_stock: 500 },
+    { item_name: 'Сироп 3', max_stock: 1500, critical_stock: 500 },
+];
+
+async function addDefaultInventories(client, userId, terminalId) {
+    console.log(`[Terminal Sync] Adding default inventories for new terminal ${terminalId} for user ${userId}`);
+    for (const item of DEFAULT_MACHINE_INVENTORY) {
+        await client.query(
+            `INSERT INTO inventories (user_id, terminal_id, item_name, location, max_stock, critical_stock)
+             VALUES ($1, $2, $3, 'machine', $4, $5)
+             ON CONFLICT (user_id, terminal_id, item_name, location) DO NOTHING`,
+            [userId, terminalId, item.item_name, item.max_stock, item.critical_stock]
+        );
+    }
+}
+
 // Утилита для создания паузы
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -75,27 +103,50 @@ async function syncTerminalsForUser(userId, plainVendistaToken) {
         const vendistaTerminalIds = vendistaTerminals.map(t => t.id);
 
         for (const terminal of vendistaTerminals) {
-            await client.query(
-                `INSERT INTO terminals (user_id, vendista_terminal_id, name, serial_number, is_active, last_online_time, last_synced_at, is_online)
-                 VALUES ($1, $2, $3, $4, true, $5, NOW(), $6)
-                 ON CONFLICT (user_id, vendista_terminal_id) DO UPDATE SET
-                    name = EXCLUDED.name,
-                    serial_number = EXCLUDED.serial_number,
-                    is_active = true,
-                    last_online_time = EXCLUDED.last_online_time,
-                    is_online = EXCLUDED.is_online,
-                    last_synced_at = NOW(),
-                    updated_at = NOW()
-                `,
-                [
-                    userId, 
-                    terminal.id, 
-                    terminal.comment, 
-                    terminal.serial_number, 
-                    terminal.last_online_time, 
-                    terminal.last_hour_online > 0
-                ]
+            const existingTerminal = await client.query(
+                'SELECT id FROM terminals WHERE user_id = $1 AND vendista_terminal_id = $2',
+                [userId, terminal.id]
             );
+
+            if (existingTerminal.rows.length === 0) {
+                // Новый терминал
+                const newTerminalRes = await client.query(
+                    `INSERT INTO terminals (user_id, vendista_terminal_id, name, serial_number, is_active, last_online_time, last_synced_at, is_online)
+                     VALUES ($1, $2, $3, $4, true, $5, NOW(), $6)
+                     RETURNING id`,
+                    [
+                        userId, 
+                        terminal.id, 
+                        terminal.comment, 
+                        terminal.serial_number, 
+                        terminal.last_online_time, 
+                        terminal.last_hour_online > 0
+                    ]
+                );
+                const newInternalId = newTerminalRes.rows[0].id;
+                await addDefaultInventories(client, userId, newInternalId);
+            } else {
+                // Существующий терминал
+                await client.query(
+                    `UPDATE terminals SET
+                        name = $1,
+                        serial_number = $2,
+                        is_active = true,
+                        last_online_time = $3,
+                        is_online = $4,
+                        last_synced_at = NOW(),
+                        updated_at = NOW()
+                     WHERE user_id = $5 AND vendista_terminal_id = $6`,
+                    [
+                        terminal.comment, 
+                        terminal.serial_number, 
+                        terminal.last_online_time, 
+                        terminal.last_hour_online > 0,
+                        userId,
+                        terminal.id
+                    ]
+                );
+            }
         }
 
         if (vendistaTerminalIds.length > 0) {
