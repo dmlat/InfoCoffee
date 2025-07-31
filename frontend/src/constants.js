@@ -32,7 +32,17 @@ export const ALL_ITEMS = [
     { name: 'Раф', unit: 'г', multiplier: 1000 },
     { name: 'Стаканы', unit: 'шт', multiplier: 1 },
     { name: 'Крышки', unit: 'шт', multiplier: 1 },
-    { name: 'Размеш.', unit: 'шт', multiplier: 1 },
+    { name: 'Размешиватели', unit: 'шт', multiplier: 1 },
     { name: 'Сахар', unit: 'шт', multiplier: 1 },
     { name: 'Трубочки', unit: 'шт', multiplier: 1 },
+    { name: 'Сироп 1', unit: 'мл', multiplier: 1000 },
+    { name: 'Сироп 2', unit: 'мл', multiplier: 1000 },
+    { name: 'Сироп 3', unit: 'мл', multiplier: 1000 },
 ];
+
+export function truncateName(name) {
+    if (name.length > 8) {
+        return name.substring(0, 8) + '.';
+    }
+    return name;
+}

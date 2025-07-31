@@ -1,42 +1,3 @@
-                                                 Table "public.users"
-            Column            |            Type             | Collation | Nullable |              Default
-------------------------------+-----------------------------+-----------+----------+-----------------------------------
- id                           | integer                     |           | not null | nextval('users_id_seq'::regclass)
- created_at                   | timestamp without time zone |           | not null | now()
- setup_date                   | date                        |           |          |
- tax_system                   | character varying(32)       |           |          |
- acquiring                    | numeric                     |           |          |
- telegram_id                  | bigint                      |           | not null |
- vendista_api_token           | text                        |           |          |
- updated_at                   | timestamp without time zone |           |          | now()
- first_name                   | character varying(255)      |           |          |
- user_name                    | character varying(255)      |           |          |
- vendista_payment_status      | character varying(20)       |           |          | 'active'::character varying
- vendista_payment_notified_at | timestamp with time zone    |           |          |
- vendista_login               | text                        |           |          |
- vendista_password            | text                        |           |          |
- vendista_token_status        | character varying(20)       |           |          | 'valid'::character varying
-Indexes:
-    "users_pkey" PRIMARY KEY, btree (id)
-    "idx_users_payment_status" btree (vendista_payment_status)
-    "idx_users_telegram_id" btree (telegram_id)
-    "idx_users_vendista_api_token" btree (vendista_api_token)
-    "users_telegram_id_unique" UNIQUE CONSTRAINT, btree (telegram_id)
-Check constraints:
-    "users_vendista_payment_status_check" CHECK (vendista_payment_status::text = ANY (ARRAY['active'::character varying, 'payment_required'::character varying, 'notified'::character varying]::text[]))
-    "users_vendista_token_status_check" CHECK (vendista_token_status::text = ANY (ARRAY['valid'::character varying, 'expired'::character varying, 'invalid_creds'::character varying]::text[]))
-Referenced by:
-    TABLE "expenses" CONSTRAINT "expenses_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    TABLE "inventories" CONSTRAINT "inventories_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    TABLE "inventory_change_log" CONSTRAINT "inventory_change_log_owner_user_id_fkey" FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE
-    TABLE "recipe_presets" CONSTRAINT "recipe_presets_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    TABLE "terminals" CONSTRAINT "terminals_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    TABLE "transactions" CONSTRAINT "transactions_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    TABLE "user_access_rights" CONSTRAINT "user_access_rights_owner_user_id_fkey" FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE
-    TABLE "worker_logs" CONSTRAINT "worker_logs_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-Triggers:
-    set_timestamp_users BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
-
                                         Table "public.expenses"
     Column    |           Type           | Collation | Nullable |               Default
 --------------+--------------------------+-----------+----------+--------------------------------------
@@ -272,3 +233,53 @@ Indexes:
     "idx_worker_logs_user_id" btree (user_id)
 Foreign-key constraints:
     "worker_logs_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+                                                 Table "public.users"
+            Column            |            Type             | Collation | Nullable |              Default
+------------------------------+-----------------------------+-----------+----------+-----------------------------------
+ id                           | integer                     |           | not null | nextval('users_id_seq'::regclass)
+ telegram_id                  | bigint                      |           |          |
+ vendista_api_token           | text                        |           |          |
+ first_name                   | character varying(255)      |           |          |
+ user_name                    | character varying(255)      |           |          |
+ setup_date                   | date                        |           |          |
+ tax_system                   | character varying(32)       |           |          |
+ acquiring                    | numeric                     |           |          |
+ created_at                   | timestamp without time zone |           | not null | now()
+ updated_at                   | timestamp without time zone |           | not null | now()
+ vendista_payment_status      | character varying(20)       |           |          | 'active'::character varying
+ vendista_payment_notified_at | timestamp with time zone    |           |          |
+ vendista_login               | text                        |           |          |
+ vendista_password            | text                        |           |          |
+ vendista_token_status        | character varying(20)       |           |          | 'valid'::character varying
+Indexes:
+    "users_pkey" PRIMARY KEY, btree (id)
+    "idx_users_payment_status" btree (vendista_payment_status)
+    "idx_users_telegram_id" btree (telegram_id)
+    "idx_users_vendista_api_token" btree (vendista_api_token)
+    "users_telegram_id_key" UNIQUE CONSTRAINT, btree (telegram_id)
+Check constraints:
+    "users_vendista_payment_status_check" CHECK (vendista_payment_status::text = ANY (ARRAY['active'::character varying, 'payment_required'::c
+haracter varying, 'notified'::character varying]::text[]))
+    "users_vendista_token_status_check" CHECK (vendista_token_status::text = ANY (ARRAY['valid'::character varying, 'expired'::character varyi
+ng, 'invalid_creds'::character varying]::text[]))
+Referenced by:
+    TABLE "expenses" CONSTRAINT "expenses_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "inventories" CONSTRAINT "inventories_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "inventory_change_log" CONSTRAINT "inventory_change_log_owner_user_id_fkey" FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELE
+TE CASCADE
+    TABLE "recipe_presets" CONSTRAINT "recipe_presets_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "terminals" CONSTRAINT "terminals_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "transactions" CONSTRAINT "transactions_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "user_access_rights" CONSTRAINT "user_access_rights_owner_user_id_fkey" FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE C
+ASCADE
+    TABLE "worker_logs" CONSTRAINT "worker_logs_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
+                                      Table "public.pgmigrations"
+ Column |            Type             | Collation | Nullable |                 Default
+--------+-----------------------------+-----------+----------+------------------------------------------
+ id     | integer                     |           | not null | nextval('pgmigrations_id_seq'::regclass)
+ name   | character varying(255)      |           | not null |
+ run_on | timestamp without time zone |           | not null |
+Indexes:
+    "pgmigrations_pkey" PRIMARY KEY, btree (id)

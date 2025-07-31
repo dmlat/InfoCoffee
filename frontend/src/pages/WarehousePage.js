@@ -6,7 +6,7 @@ import './WarehousePage.css';
 import StandDetailModal from '../components/StandDetail/StandDetailModal';
 import StandNavigator from '../components/StandDetail/StandNavigator';
 import TerminalListModal from '../components/TerminalListModal'; // ИМПОРТ
-import { ALL_ITEMS } from '../constants';
+import { ALL_ITEMS, truncateName } from '../constants';
 import '../components/StandDetail/StandNavigator.css';
 import { useAuth } from '../App'; // <-- ИМПОРТИРУЕМ useAuth
 
@@ -437,7 +437,7 @@ export default function WarehousePage() {
         return (
             <React.Fragment key={name}>
                 <div className={`inventory-row`}>
-                    <div className={`item-name-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>{name}</div>
+                    <div className={`item-name-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>{truncateName(name)}</div>
                     <div className={`unit-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>{displayUnit}</div>
                     <div className={`stock-cell ${whValue === 0 ? 'zero-stock' : ''} ${isRowLoading[name] ? 'loading-cell' : ''}`}>{formatValue(whValue)}</div>
                     <div className={`arrow-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>
@@ -466,7 +466,7 @@ export default function WarehousePage() {
         return (
             <React.Fragment key={name}>
                 <div className={`inventory-row`}>
-                    <div className={`item-name-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>{name}</div>
+                    <div className={`item-name-cell ${isRowLoading[name] ? 'loading-cell' : ''}`}>{truncateName(name)}</div>
                     <div className={`stock-cell ${stValue === 0 ? 'zero-stock' : ''} ${isRowLoading[name] ? 'loading-cell' : ''}`}>
                         {stValue.toLocaleString('ru-RU')} {unit}
                     </div>
@@ -502,7 +502,7 @@ export default function WarehousePage() {
 
                 return (
                     <div className={`inventory-row ${isRowLoading[item.name] ? 'loading-cell-row' : ''}`} key={item.name}>
-                        <div className="item-name-cell">{item.name}</div>
+                        <div className="item-name-cell">{truncateName(item.name)}</div>
                         <div className="adjust-cell">
                             <button className="adjust-btn minus" onClick={() => handleWarehouseAdjust(item.name, -1)} disabled={whValue <= 0}>-</button>
                         </div>

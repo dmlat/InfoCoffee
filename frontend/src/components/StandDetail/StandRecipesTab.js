@@ -1,7 +1,7 @@
 // frontend/src/components/StandDetail/StandRecipesTab.js
 import React, { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
 import apiClient from '../../api';
-import { ALL_ITEMS } from '../../constants';
+import { ALL_ITEMS, truncateName } from '../../constants';
 import CopySettingsModal from '../CopySettingsModal';
 import EditRecipeModal from './EditRecipeModal';
 import PresetSelectionModal from './PresetSelectionModal';
@@ -17,14 +17,6 @@ const formatRecipeName = (name) => {
     }
     if (!secondLine) return firstLine;
     return `${firstLine}\n${secondLine}`;
-};
-
-const formatIngredientName = (name) => {
-    if (!name) return '';
-    if (name.length > 6) {
-        return name.substring(0, 6);
-    }
-    return name;
 };
 
 // Helper to sort ingredients based on the canonical order in ALL_ITEMS
@@ -246,14 +238,14 @@ export default function StandRecipesTab({ terminal, internalTerminalId, machineI
                             <span className="ingredient-summary-line" title={recipe.items.map(item => `${item.item_name}: ${item.quantity}`).join(' | ')}>
                                 {primaryIngredients.map((item, index) => (
                                     <span className="ingredient-group" key={item.item_name}>
-                                        {`${formatIngredientName(item.item_name)}: `}
+                                        {`${truncateName(item.item_name)}: `}
                                         <span className="ingredient-quantity-highlight">{item.quantity}</span>
                                         {(index < primaryIngredients.length - 1 || singleUnitIngredients.length > 0) && <span className="separator"> | </span>}
                                     </span>
                                 ))}
                                 {singleUnitIngredients.length > 0 && (
                                     <span className="ingredient-group">
-                                        {`${singleUnitIngredients.map(i => formatIngredientName(i.item_name)).join(', ')}: `}
+                                        {`${singleUnitIngredients.map(i => truncateName(i.item_name)).join(', ')}: `}
                                         <span className="ingredient-quantity-highlight">1</span>
                                     </span>
                                 )}

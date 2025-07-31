@@ -1,6 +1,6 @@
 // frontend/src/components/StandDetail/StandStockTab.js
 import React from 'react';
-import { ALL_ITEMS } from '../../constants';
+import { ALL_ITEMS, truncateName } from '../../constants';
 import './StandStockTab.css';
 
 const getUnitText = (itemName) => {
@@ -75,7 +75,7 @@ export default function StandStockTab({ details, onConfigureClick }) {
         return (
             <tr key={item.name} className={extraClass}>
                 {/* ИСПРАВЛЕНИЕ: Используем короткое имя item.name */}
-                <td className="name-col">{item.name}</td>
+                <td className="name-col">{truncateName(item.name)}</td>
                 <td className="stock-col">{standStockText}</td>
                 <td className="machine-col">
                     <MachineProgressBar 

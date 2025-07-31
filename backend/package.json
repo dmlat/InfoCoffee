@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon app.js",
     "start": "node app.js",
-    "dev": "cross-env NODE_ENV=development nodemon app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "migrate": "node-pg-migrate"
   },
   "keywords": [],
   "author": "",
@@ -20,10 +21,11 @@
     "jsonwebtoken": "^9.0.2",
     "moment-timezone": "^0.5.48",
     "node-cron": "^4.0.6",
+    "node-pg-migrate": "^8.0.3",
     "node-telegram-bot-api": "^0.66.0",
     "pg": "^8.16.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"
   }
-} 
+}

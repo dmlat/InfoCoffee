@@ -1,7 +1,7 @@
 // frontend/src/components/StandDetail/EditRecipeModal.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import apiClient from '../../api';
-import { ALL_ITEMS } from '../../constants';
+import { ALL_ITEMS, truncateName } from '../../constants';
 import ConfirmModal from '../ConfirmModal';
 import { FaListUl } from 'react-icons/fa'; // Import a list icon
 import './EditRecipeModal.css';
@@ -175,7 +175,7 @@ const EditRecipeModal = ({ recipe, onClose, onOpenPresetSelector }) => {
                     <div className="ingredients-grid three-columns">
                         {items.map(item => (
                             <div key={item.item_name} className="ingredient-input-group">
-                                <label htmlFor={`item-${item.item_name}`}>{item.item_name}</label>
+                                <label htmlFor={`item-${item.item_name}`}>{truncateName(item.item_name)}</label>
                                 <input
                                     id={`item-${item.item_name}`}
                                     type="text"

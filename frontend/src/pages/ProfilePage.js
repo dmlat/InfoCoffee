@@ -32,8 +32,6 @@ function formatSyncTimestamp(timestamp) {
 export default function ProfilePage() {
   const { user, updateUserInContext: updateUser, isLoading: isAuthLoading } = useAuth();
 
-  console.log('[ProfilePage] Rendering.', { isAuthLoading, user });
-
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -51,7 +49,6 @@ export default function ProfilePage() {
   const [syncStatusError, setSyncStatusError] = useState('');
 
   useEffect(() => {
-    console.log('[ProfilePage] useEffect/user fired.', { user });
     if (user) {
       const { setup_date, tax_system, acquiring } = user;
       setSetupDate(setup_date ? formatDateForInput(new Date(setup_date)) : '');
@@ -106,11 +103,9 @@ export default function ProfilePage() {
     };
 
     try {
-      console.log('[ProfilePage] handleSaveChanges: Sending request with payload:', payload);
       const response = await apiClient.post('/profile/settings', payload);
       if (response.data.success && response.data.settings) {
         setSuccessMessage('Настройки успешно обновлены!');
-        console.log('[ProfilePage] handleSaveChanges: Calling updateUser with:', response.data.settings);
         if (updateUser) {
           updateUser(response.data.settings);
         }

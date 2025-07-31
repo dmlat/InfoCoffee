@@ -4,7 +4,7 @@ import apiClient from '../api';
 // Вот корректный путь после перемещения файла модального окна
 import StandDetailModal from '../components/StandDetail/StandDetailModal'; 
 import './StandsPage.css';
-import { ALL_ITEMS } from '../constants';
+import { ALL_ITEMS, truncateName } from '../constants';
 import { useLocation, useParams, useNavigate } from 'react-router-dom'; // Импортируем useLocation
 
 const ITEM_UNITS = ALL_ITEMS.reduce((acc, item) => {
@@ -19,12 +19,10 @@ const usePillVisibility = (terminals) => {
     const [expanded, setExpanded] = useState({});
 
     const calculateVisibleCount = useCallback((container, items) => {
-        if (!container || !items || items.length === 0) return items.length;
+        if (!container || !items || items.length === 0) return 0; // No items, no visible pills.
 
         const containerWidth = container.offsetWidth;
         const gap = 6;
-        let currentWidth = 0;
-        let count = 0;
         
         const tempPill = document.createElement('span');
         tempPill.style.visibility = 'hidden';
@@ -32,38 +30,104 @@ const usePillVisibility = (terminals) => {
         tempPill.className = 'ingredient-pill'; // Base class for sizing
         document.body.appendChild(tempPill);
 
+        const getPillWidth = (text) => {
+            tempPill.innerText = text;
+            return tempPill.offsetWidth;
+        };
+
+        const showMorePillText = `...`; // Use a very short text for minimal show more button width
+        const showMorePillWidth = getPillWidth(showMorePillText);
+
+        let currentWidth = 0;
+        let count = 0;
+
         for (let i = 0; i < items.length; i++) {
-            tempPill.innerText = `${items[i].label}: ${items[i].value}`;
-            const pillWidth = tempPill.offsetWidth;
+            const itemPillText = `${items[i].label}: ${items[i].value}`;
+            const pillWidth = getPillWidth(itemPillText);
             
-            if (currentWidth + pillWidth + (i > 0 ? gap : 0) <= containerWidth) {
-                currentWidth += pillWidth + (i > 0 ? gap : 0);
-                count++;
-            } else {
+            let widthIfAdded = currentWidth + pillWidth + (i > 0 ? gap : 0);
+
+            // If this is the last item, or if the next item would cause overflow
+            // and there are still more items to show, we need space for 'show more' button.
+            const needsShowMoreSpace = (i < items.length - 1);
+
+            if (needsShowMoreSpace && (widthIfAdded + gap + showMorePillWidth > containerWidth)) {
+                // This pill doesn't fit if we also need space for 'show more' button.
+                // So, if we haven't added any pills yet, but we need show more, we should still show 1 pill.
+                if (count === 0 && items.length > 0) {
+                    count = 1; // Ensure at least one pill is shown if there are any items
+                }
+                break;
+            } else if (!needsShowMoreSpace && widthIfAdded > containerWidth) {
+                // If this is the last pill and it overflows without 'show more' button
                 break;
             }
+            
+            currentWidth = widthIfAdded;
+            count++;
         }
+
         document.body.removeChild(tempPill);
 
-        // Ensure at least one pill is visible if there are any
-        return count > 0 ? count : (items.length > 0 ? 1 : 0);
+        // Ensure at least one pill is visible if there are any, unless the container is too small even for one
+        return count > 0 ? count : (items.length > 0 ? 1 : 0); 
     }, []);
 
     useLayoutEffect(() => {
+        const initialCalculatedCounts = {};
+        terminals.forEach(terminal => {
+            const element = refs.current[terminal.id];
+            if (element) {
+                const items = formatStock(terminal.machine_inventory);
+                initialCalculatedCounts[terminal.id] = calculateVisibleCount(element, items);
+            }
+        });
+
+        let currentMinGlobalVisibleCount = Infinity;
+        if (terminals.length > 0) {
+            currentMinGlobalVisibleCount = Math.min(...Object.values(initialCalculatedCounts));
+        } else {
+            currentMinGlobalVisibleCount = 0;
+        }
+
+        const finalInitialCounts = {};
+        terminals.forEach(terminal => {
+            finalInitialCounts[terminal.id] = currentMinGlobalVisibleCount; // Apply the global minimum for symmetry
+        });
+        setVisibleCounts(finalInitialCounts);
+
+
         const observers = new Map();
-        
         terminals.forEach(terminal => {
             const element = refs.current[terminal.id];
             if (element) {
                 const observer = new ResizeObserver(() => {
-                    const items = formatStock(terminal.machine_inventory);
-                    setVisibleCounts(prev => ({ ...prev, [terminal.id]: calculateVisibleCount(element, items) }));
+                    // Recalculate all counts on *any* resize
+                    const currentCalculatedCounts = {};
+                    terminals.forEach(t => {
+                        const el = refs.current[t.id];
+                        if (el) {
+                            const items = formatStock(t.machine_inventory);
+                            currentCalculatedCounts[t.id] = calculateVisibleCount(el, items);
+                        }
+                    });
+
+                    let recalculatedMinGlobalVisibleCount = Infinity;
+                    if (terminals.length > 0) {
+                        recalculatedMinGlobalVisibleCount = Math.min(...Object.values(currentCalculatedCounts));
+                    } else {
+                        recalculatedMinGlobalVisibleCount = 0;
+                    }
+
+                    // Apply the new global minimum to ALL terminals
+                    const finalUpdatedCounts = {};
+                    terminals.forEach(t => {
+                        finalUpdatedCounts[t.id] = recalculatedMinGlobalVisibleCount; // Apply the global minimum for symmetry
+                    });
+                    setVisibleCounts(finalUpdatedCounts);
                 });
                 observer.observe(element);
                 observers.set(terminal.id, observer);
-                // Initial calculation
-                const items = formatStock(terminal.machine_inventory);
-                setVisibleCounts(prev => ({ ...prev, [terminal.id]: calculateVisibleCount(element, items) }));
             }
         });
 
@@ -115,7 +179,7 @@ const formatStock = (machineInventory) => {
             value: `${Math.round(percentage)}%`,
             className: valueClassName,
             unit: unit,
-            label: item.item_name.length > 6 ? item.item_name.substring(0, 6) + '.' : item.item_name,
+            label: truncateName(item.item_name),
         };
     }).filter(Boolean);
 
@@ -160,27 +224,7 @@ export default function StandsPage({ user }) {
         fetchTerminals();
     }, [fetchTerminals]);
     
-     useEffect(() => {
-        const observers = new Map();
-        terminals.forEach(terminal => {
-            const element = document.getElementById(`pills-container-${terminal.id}`);
-            if (element) {
-                const observer = new ResizeObserver(() => {
-                    const items = formatStock(terminal.machine_inventory);
-                    const count = visibleCounts[terminal.id] || items.length; // fallback
-                    const newCount = calculateVisibleCount(element, items);
-                    if (count !== newCount) {
-                       setRef(element, terminal.id);
-                    }
-                });
-                observer.observe(element);
-                observers.set(terminal.id, observer);
-            }
-        });
-        return () => observers.forEach(o => o.disconnect());
-    }, [terminals, setRef, visibleCounts]);
-
-
+    
     useEffect(() => {
         // Open modal based on URL parameter or location state
         const idFromParam = terminalId;
@@ -303,11 +347,9 @@ export default function StandsPage({ user }) {
 
                             return (
                                 <div key={terminal.id} className="stand-card" onClick={() => setSelectedTerminal(terminal)}>
+                                    <span className={`status-indicator ${isOnline ? 'online' : 'offline'}`}></span>
                                     <div className="stand-info">
-                                        <div className="stand-info-main">
-                                            <span className={`status-indicator ${isOnline ? 'online' : 'offline'}`}></span>
-                                            <h3 className="stand-name">{terminal.name || `Терминал #${terminal.id}`}</h3>
-                                        </div>
+                                        <h3 className="stand-name">{terminal.name || `Терминал #${terminal.id}`}</h3>
                                         {configWarning && <p className="stand-config-warning pending-red">{configWarning}</p>}
                                         {stockParts.length > 0 && renderStockRow(stockParts)}
                                     </div>

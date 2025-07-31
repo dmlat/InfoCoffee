@@ -39,14 +39,15 @@
     background: #282c34;
     border-radius: 12px;
     padding: 14px 18px;
-    display: flex;
-    align-items: center; /* Выравниваем по центру по вертикали */
-    justify-content: space-between;
+    display: grid; /* ИСПОЛЬЗУЕМ GRID */
+    grid-template-columns: auto 1fr auto; /* Колонка для индикатора, колонка для контента, колонка для стрелки */
+    align-items: center;
+    gap: 12px; /* Отступ между колонками */
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
     border: 1px solid #303548;
     cursor: pointer;
     transition: background-color 0.2s ease-in-out;
-    min-height: 60px; /* ИЗМЕНЕНО: Задаем минимальную высоту для всех карточек */
+    min-height: 60px;
     box-sizing: border-box;
 }
 
@@ -54,26 +55,12 @@
     background-color: #2f343e;
 }
 
-.stand-info {
-    display: flex;
-    flex-direction: column; /* ИЗМЕНЕНИЕ: Основная ось - вертикальная */
-    justify-content: center; /* Выравниваем по центру по вертикали */
-    gap: 4px; /* Отступ между основной информацией и предупреждением */
-    overflow: hidden;
-    min-width: 0;
-}
-
-.stand-info-main {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
 .status-indicator {
+    /* Теперь находится напрямую в grid-контейнере, выравнивается grid */
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    flex-shrink: 0; /* Индикатор не будет сжиматься */
+    flex-shrink: 0;
 }
 
 .status-indicator.online {
@@ -84,21 +71,33 @@
     background-color: #f44336;
 }
 
+.stand-info {
+    /* Этот контейнер будет занимать центральную колонку grid */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px; /* Отступ между основной информацией и предупреждением */
+    overflow: hidden;
+    min-width: 0;
+}
+
+/* Удаляем .stand-info-main, так как он больше не нужен с grid-раскладкой */
+
 .stand-name {
     margin: 0;
-    font-size: 0.85em; /* Базовый размер шрифта, как у заголовков на складе */
+    font-size: 0.85em;
     color: #e0e0e0;
     font-weight: 600;
     white-space: normal;
     overflow-wrap: break-word;
-    overflow: hidden; /* Changed from visible */
-    text-overflow: ellipsis; /* Changed from clip */
+    overflow: hidden;
+    text-overflow: ellipsis;
     line-height: 1.3;
 }
 
 .stand-config-warning {
-    font-size: 0.85em; /* Match h3.stand-name font size */
-    margin: 4px 0 4px 22px; /* Reduced margins (top/bottom) */
+    font-size: 0.85em;
+    margin: 0; /* Убираем отступ, теперь управляется gap */
     color: #ff8a8a;
 }
 .stand-config-warning.pending-red {
@@ -110,10 +109,9 @@
 .stand-stock-pills-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px; /* Space between pills */
-    margin: 0 0 0 22px; /* Indent like the old .stand-stock-warning */
-    margin-top: 0px; /* Reduced space between rows */
-    font-size: 0.8em; /* Match font-size of .stand-config-warning */
+    gap: 6px;
+    margin: 0; /* Убираем отступ, теперь управляется gap */
+    font-size: 0.8em;
 }
 
 /* New base ingredient-pill style */
@@ -152,12 +150,12 @@
 }
 
 .stand-details-arrow {
-    font-size: 1.5em; /* Уменьшаем кегль для соответствия */
-    color: #8ae6ff; /* Цвет как у текста в заголовках */
+    font-size: 1.5em;
+    color: #8ae6ff;
     font-weight: 400;
     line-height: 1;
     flex-shrink: 0;
-    margin-left: 8px;
+    margin-left: 0; /* Убираем отступ, теперь управляется gap */
 }
 
 .stand-details-arrow.pending-blue {

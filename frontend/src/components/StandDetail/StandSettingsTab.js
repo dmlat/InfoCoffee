@@ -1,7 +1,7 @@
 // frontend/src/components/StandDetail/StandSettingsTab.js
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../api';
-import { ALL_ITEMS } from '../../constants';
+import { ALL_ITEMS, truncateName } from '../../constants';
 import CopySettingsModal from '../CopySettingsModal'; // НОВЫЙ ИМПОРТ
 import './StandSettingsTab.css';
 
@@ -117,7 +117,7 @@ export default function StandSettingsTab({ terminal, allTerminals, internalTermi
                         </div>
                         {ALL_ITEMS.map(item => (
                             <div className="setting-item" key={item.name}>
-                                <label>{`${item.name}, ${getUnitForLabel(item.unit)}`}</label>
+                                <label>{`${truncateName(item.name)}, ${getUnitForLabel(item.unit)}`}</label>
                                 <input 
                                     type="text" 
                                     inputMode="decimal" 
