@@ -1,7 +1,6 @@
 // backend/worker/schedule_imports.js
-// ВАЖНО: dotenv должен быть первым для загрузки переменных окружения
-const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') }); // <-- Путь изменен для вложенности
+// ВАЖНО: Загружаем переменные окружения ПЕРВЫМ ДЕЛОМ
+require('../utils/envLoader');
 
 const { ToadScheduler, SimpleIntervalJob, Task } = require('toad-scheduler');
 const cron = require('node-cron');

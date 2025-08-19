@@ -1,15 +1,8 @@
 // backend/app.js
-// ВАЖНО: dotenv должен быть первым для загрузки переменных окружения
-const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+// ВАЖНО: Загружаем переменные окружения ПЕРВЫМ ДЕЛОМ
+require('./utils/envLoader');
 
-// Определяем режим работы. По умолчанию - development.
-if (process.env.NODE_ENV === 'production') {
-    require('dotenv').config({ path: path.resolve(__dirname, '.env') });
-} else {
-    process.env.NODE_ENV = 'development'; // Принудительно устанавливаем для надежности
-    require('dotenv').config({ path: path.resolve(__dirname, '.env.development') });
-}
+// Переменные окружения уже загружены в envLoader
 
 const express = require('express');
 const cors = require('cors');
