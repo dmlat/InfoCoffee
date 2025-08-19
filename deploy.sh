@@ -50,6 +50,19 @@ else
     echo "      Backend dependencies are up-to-date. Skipping."
 fi
 
+# ДИАГНОСТИКА: Проверим ключевые зависимости
+echo "[DIAGNOSTIC] Checking critical backend dependencies..."
+if [ -d "backend/node_modules/dotenv" ]; then
+    echo "      ✅ dotenv is installed"
+else
+    echo "      ❌ dotenv is MISSING - this will cause crashes!"
+fi
+if [ -d "backend/node_modules/node-telegram-bot-api" ]; then
+    echo "      ✅ node-telegram-bot-api is installed"
+else
+    echo "      ❌ node-telegram-bot-api is MISSING"
+fi
+
 # --- Шаг 2: Установка зависимостей и сборка ФРОНТЕНДА ---
 echo "[2/7] Checking frontend dependencies and building..."
 

@@ -1,6 +1,15 @@
 // backend/app.js
 // ВАЖНО: Загружаем переменные окружения ПЕРВЫМ ДЕЛОМ
-require('./utils/envLoader');
+console.log('[APP.JS] Starting application...');
+try {
+    console.log('[APP.JS] Loading environment...');
+    require('./utils/envLoader_simple');
+    console.log('[APP.JS] Environment loaded successfully');
+} catch (error) {
+    console.error('[APP.JS] CRITICAL ERROR loading environment:', error);
+    console.error('[APP.JS] Stack trace:', error.stack);
+    process.exit(1);
+}
 
 // Переменные окружения уже загружены в envLoader
 
@@ -20,7 +29,19 @@ const recipesRoutes = require('./routes/recipes');
 const warehouseRoutes = require('./routes/warehouse'); // <-- Убедимся, что он есть
 const inventoryRoutes = require('./routes/inventory'); // <-- НОВЫЙ ИМПОРТ
 const tasksRoutes = require('./routes/tasks'); // <-- НОВЫЙ ИМПОРТ
-const { startPolling } = require('./bot'); // <-- ИМПОРТ ФУНКЦИИ
+// <--- ИНИЦИАЛИЗАЦИЯ БОТА (с диагностикой)
+console.log('[APP.JS] Loading bot...');
+let startPolling;
+try {
+    const botModule = require('./bot');
+    startPolling = botModule.startPolling;
+    console.log('[APP.JS] Bot loaded successfully');
+} catch (error) {
+    console.error('[APP.JS] ERROR loading bot:', error);
+    console.error('[APP.JS] Bot functionality will be disabled, but server will continue');
+    // Создаем заглушку
+    startPolling = () => console.warn('[APP.JS] startPolling called but bot is disabled');
+}
 const { processInventoryChanges } = require('./worker/inventory_notifier_worker');
 const { startMonitoring } = require('./utils/botMonitor'); // <-- НОВЫЙ ИМПОРТ МОНИТОРИНГА
 require('./worker/task_cleanup_worker'); // <-- ПОДКЛЮЧЕНИЕ ВОРКЕРА СКРЫТИЯ ЗАДАЧ
