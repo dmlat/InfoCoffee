@@ -1,6 +1,13 @@
 // backend/worker/schedule_imports.js
 // ВАЖНО: Загружаем переменные окружения ПЕРВЫМ ДЕЛОМ
-require('../utils/envLoader');
+console.log('[SCHEDULE_IMPORTS] Starting scheduler...');
+try {
+    require('../utils/envLoader');
+    console.log('[SCHEDULE_IMPORTS] Environment loaded successfully');
+} catch (error) {
+    console.error('[SCHEDULE_IMPORTS] CRITICAL ERROR loading environment:', error);
+    process.exit(1);
+}
 
 const { ToadScheduler, SimpleIntervalJob, Task } = require('toad-scheduler');
 const cron = require('node-cron');

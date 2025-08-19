@@ -2,17 +2,20 @@
 // Централизованная загрузка переменных окружения
 console.log('[ENV LOADER] Starting environment loader...');
 
+let envPath = 'unknown';
+let IS_PRODUCTION = false;
+
 try {
     const path = require('path');
     console.log('[ENV LOADER] Path module loaded successfully');
 
     // Определяем режим работы
-    const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+    IS_PRODUCTION = process.env.NODE_ENV === 'production';
     console.log('[ENV LOADER] Production check complete');
 
     // Выбираем правильный .env файл
     const envFile = IS_PRODUCTION ? '.env' : '.env.development';
-    const envPath = path.resolve(__dirname, '..', envFile);
+    envPath = path.resolve(__dirname, '..', envFile);
     console.log(`[ENV LOADER] Trying to load: ${envPath}`);
 
     // Загружаем переменные окружения
