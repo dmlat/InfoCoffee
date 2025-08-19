@@ -52,15 +52,24 @@ fi
 
 # ДИАГНОСТИКА: Проверим ключевые зависимости
 echo "[DIAGNOSTIC] Checking critical backend dependencies..."
-if [ -d "backend/node_modules/dotenv" ]; then
-    echo "      ✅ dotenv is installed"
-else
-    echo "      ❌ dotenv is MISSING - this will cause crashes!"
-fi
-if [ -d "backend/node_modules/node-telegram-bot-api" ]; then
-    echo "      ✅ node-telegram-bot-api is installed"
-else
-    echo "      ❌ node-telegram-bot-api is MISSING"
+MISSING_DEPS=""
+
+# Проверяем все критические зависимости из package.json
+for dep in dotenv express cors pg jsonwebtoken bcryptjs axios moment-timezone node-cron node-telegram-bot-api toad-scheduler node-pg-migrate; do
+    if [ -d "backend/node_modules/$dep" ]; then
+        echo "      ✅ $dep is installed"
+    else
+        echo "      ❌ $dep is MISSING"
+        MISSING_DEPS="$MISSING_DEPS $dep"
+    fi
+done
+
+# Если есть отсутствующие зависимости, принудительно переустанавливаем
+if [ -n "$MISSING_DEPS" ]; then
+    echo "      🔄 CRITICAL DEPENDENCIES MISSING. Force reinstalling backend dependencies..."
+    (cd backend && rm -rf node_modules package-lock.json && npm install --omit=dev)
+    touch backend/node_modules/.install-stamp
+    echo "      ✅ Backend dependencies force-reinstalled."
 fi
 
 # --- Шаг 2: Установка зависимостей и сборка ФРОНТЕНДА ---

@@ -3,7 +3,7 @@
 console.log('[APP.JS] Starting application...');
 try {
     console.log('[APP.JS] Loading environment...');
-    require('./utils/envLoader_simple');
+    require('./utils/envLoader');
     console.log('[APP.JS] Environment loaded successfully');
 } catch (error) {
     console.error('[APP.JS] CRITICAL ERROR loading environment:', error);
