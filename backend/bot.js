@@ -1,13 +1,20 @@
 // backend/bot.js
 require('./utils/logger'); // <--- ГЛОБАЛЬНОЕ ПОДКЛЮЧЕНИЕ ЛОГГЕРА
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+// УДАЛЕНО: require('dotenv').config() - переменные окружения загружаются в app.js
+
+console.log('[BOT.JS] Starting bot.js initialization...');
 
 const bot = require('./utils/botInstance'); // <-- ИМПОРТ ИНСТАНСА (исправлено)
+console.log('[BOT.JS] Bot instance imported successfully');
+
 const pool = require('./db');
+console.log('[BOT.JS] Database pool imported successfully');
+
 const moment = require('moment-timezone');
 const { getFinancialSummary } = require('./utils/financials');
 const { EXPENSE_INSTRUCTION, parseExpenseMessage } = require('./utils/botHelpers');
+console.log('[BOT.JS] All dependencies imported successfully');
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL;
@@ -469,6 +476,8 @@ bot.on('polling_error', (error) => {
     }
 });
 
+console.log('[BOT.JS] Exporting bot module...');
+
 module.exports = { 
     startPolling,
     // Экспортируем функции для тестирования
@@ -476,3 +485,5 @@ module.exports = {
     isInitialized: () => isInitialized,
     isPollingStarted: () => isPollingStarted
 };
+
+console.log('[BOT.JS] Bot module exported successfully');
