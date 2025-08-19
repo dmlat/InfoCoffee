@@ -3,7 +3,7 @@ require('./utils/logger'); // <--- ГЛОБАЛЬНОЕ ПОДКЛЮЧЕНИЕ �
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
-const { bot } = require('./utils/botInstance'); // <-- ИМПОРТ ИНСТАНСА
+const bot = require('./utils/botInstance'); // <-- ИМПОРТ ИНСТАНСА (исправлено)
 const pool = require('./db');
 const moment = require('moment-timezone');
 const { getFinancialSummary } = require('./utils/financials');
