@@ -1,5 +1,18 @@
 // backend/worker/schedule_imports.js
 const path = require('path');
+const { ToadScheduler, SimpleIntervalJob, Task } = require('toad-scheduler');
+const cron = require('node-cron');
+const moment = require('moment-timezone');
+const { pool } = require('../db');
+const { importTransactionsForPeriod } = require('./vendista_import_worker');
+const { syncTerminalsForAllUsers } = require('./terminal_sync_worker');
+const { decrypt } = require('../utils/security');
+const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
+const { checkPaymentStatus } = require('./payment_status_checker_worker'); // Импортируем новый воркер
+
+const scheduler = new ToadScheduler();
+const importQueue = [];
+let isProcessing = false;
 
 // ВАЖНО: Загружаем переменные окружения ПЕРЕД всеми остальными импортами
 if (process.env.NODE_ENV === 'production') {
@@ -12,14 +25,6 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 require('../utils/logger'); // <--- ГЛОБАЛЬНОЕ ПОДКЛЮЧЕНИЕ ЛОГГЕРА
-const cron = require('node-cron');
-const pool = require('../db');
-const moment = require('moment-timezone');
-const jwt = require('jsonwebtoken');
-
-const { importTransactionsForPeriod } = require('./vendista_import_worker');
-const { sendErrorToAdmin } = require('../utils/adminErrorNotifier');
-const { decrypt } = require('../utils/security');
 const { syncAllTerminals } = require('./terminal_sync_worker');
 
 const TIMEZONE = 'Europe/Moscow';
@@ -31,9 +36,6 @@ if (!JWT_SECRET) {
     console.error("[FATAL ERROR in schedule_imports.js] JWT_SECRET is not defined. Worker cannot run.");
     process.exit(1);
 }
-
-let activeIpImports = 0;
-const importQueue = [];
 
 async function logJobStatus(userId, jobName, status, result, errorMessage = null) {
   try {
@@ -52,15 +54,15 @@ async function logJobStatus(userId, jobName, status, result, errorMessage = null
 }
 
 async function processImportQueue() {
-    if (activeIpImports >= MAX_CONCURRENT_IP_IMPORTS || importQueue.length === 0) {
+    if (isProcessing || importQueue.length === 0) {
         return;
     }
 
-    activeIpImports++;
+    isProcessing = true;
     const { importParams, jobName } = importQueue.shift();
     const logTime = moment().tz(TIMEZONE).format();
     
-    console.log(`[Cron ${logTime}] [${jobName}] Извлечение из очереди для User ${importParams.ownerUserId}. Активных импортов: ${activeIpImports}. В очереди: ${importQueue.length}`);
+    console.log(`[Cron ${logTime}] [${jobName}] Извлечение из очереди для User ${importParams.ownerUserId}. Активных импортов: ${isProcessing}. В очереди: ${importQueue.length}`);
 
     try {
         const importResult = await importTransactionsForPeriod(importParams);
@@ -82,8 +84,8 @@ async function processImportQueue() {
             errorStack: e.stack
         });
     } finally {
-        activeIpImports--;
-        console.log(`[Cron ${logTime}] [${jobName}] Завершение для User ${importParams.ownerUserId}. Активных импортов: ${activeIpImports}.`);
+        isProcessing = false;
+        console.log(`[Cron ${logTime}] [${jobName}] Завершение для User ${importParams.ownerUserId}. Активных импортов: ${isProcessing}.`);
         if (importQueue.length > 0) {
              setTimeout(processImportQueue, USER_PROCESSING_DELAY_MS);
         }
@@ -235,6 +237,10 @@ function scheduleAll() {
     // ИЗМЕНЕНИЕ: Запускаем синхронизацию терминалов каждые 15 минут, как и импорт транзакций
     cron.schedule('*/15 * * * *', () => syncAllTerminals(), { scheduled: true, timezone: TIMEZONE });
     console.log('Планировщик синхронизации терминалов запущен (каждые 15 минут).');
+
+    // ДОБАВЛЕНО: Ежедневная проверка статуса оплаты в 04:00 по Москве
+    cron.schedule('0 4 * * *', () => scheduler.runById('checkPaymentStatus'), { scheduled: true, timezone: TIMEZONE });
+    console.log('Планировщик ежедневной проверки статуса оплаты запущен на 04:00 МСК.');
 }
 
 function runImmediateJobs() {
@@ -279,7 +285,7 @@ if (require.main === module) {
                 .then(() => { 
                     console.log('Ручной импорт завершен (задачи добавлены в очередь). Ожидание обработки...');
                     const intervalId = setInterval(() => {
-                        if (importQueue.length === 0 && activeIpImports === 0) {
+                        if (importQueue.length === 0 && isProcessing === false) {
                             console.log('Очередь обработки пуста. Завершение работы.');
                             clearInterval(intervalId);
                             process.exit(0);

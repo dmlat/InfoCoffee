@@ -194,40 +194,7 @@ try {
 ```
 *Mistake to avoid*: `require('../db')` returns the module object, not the pool itself. To use transactions, you **must** destructure `pool`: `const { pool } = require('../db');`. Failure to do so will result in a `pool.connect is not a function` runtime error.
 
-### 4.2. Background Workers and Scheduled Jobs
-
--   **Import Scheduler (`schedule_imports.js`)**: Manages all scheduled data synchronization with the Vendista API, including 15-minute, daily, and weekly imports. Also handles terminal status synchronization.
--   **Inventory Notifier (`inventory_notifier_worker.js`)**: Runs hourly to scan for inventory changes. It aggregates all changes made by a user within that hour, groups them by location (determined by `terminal_id`: `NULL` for Warehouse, present for a Stand), and sends a consolidated, structured report to the owner and admins. To handle large reports, the worker automatically splits messages that exceed Telegram's character limit.
--   **Task Cleanup (`task_cleanup_worker.js`)**: Runs daily at 23:59 (Moscow Time) to hide completed tasks from the main UI, keeping the active task list clean while preserving historical data for analytics.
-
-### 4.2.1. Transaction Import Logic
-
-The system distinguishes between two types of transaction imports:
-
-#### **Historical Import** (`isHistoricalImport: true`)
--   Used for importing past transactions during initial setup or data recovery
--   **Inventory updates SKIPPED** - ingredients were already consumed in the past
--   Optimized for speed (~10x faster) as it only handles database operations
--   Triggered by: `--full-history` flag, initial user registration
-
-#### **Scheduled Import** (`isHistoricalImport: false`) 
--   Runs every 15 minutes to sync recent transactions (last 24 hours)
--   **Inventory updates ENABLED** - ingredients are deducted for new sales only
--   Updates ingredient levels and creates service tasks based on recipes
--   **Critical**: Only processes inventory for NEW transactions (xmax === '0'), avoiding duplication
-
-**Key Features:**
--   Uses PostgreSQL `ON CONFLICT` to distinguish new vs updated transactions
--   Ingredient deduction only occurs for genuinely new sales
--   Prevents duplicate inventory processing during overlapping import periods
-
-### 4.3. Telegram Bot System (Queuing and Error Handling)
-
--   **Safe Initialization (`backend/bot.js`)**: Bot initialization is handled by a controlled `startPolling` function that includes deliberate delays and a retry mechanism with exponential backoff to prevent 429 "Too Many Requests" errors on startup.
--   **Message Queuing (`backend/utils/botQueue.js`)**: All outgoing Telegram messages are processed through a robust queuing system. It features separate queues for regular and priority messages, rate limiting, and automatic retries for failed messages.
--   **Admin Error Notifier (`backend/utils/adminErrorNotifier.js`)**: A sophisticated error reporting system that groups similar errors, debounces notifications (e.g., one alert per unique error every 5 minutes), and uses a separate admin bot to avoid interfering with the main bot's queue.
-
-### 4.4. Vendista Payment Status Tracking
+### 4.2. Vendista Payment Status Tracking
 
 To prevent notification spam from users with unpaid Vendista accounts, the system tracks their payment status.
 
@@ -236,6 +203,10 @@ To prevent notification spam from users with unpaid Vendista accounts, the syste
 -   Background workers will then skip this user in subsequent runs until the issue is resolved.
 -   The status is automatically reset to `active` once API calls for that user succeed again.
 -   Admins can also manually reset the status via the `POST /api/auth/reset-payment-status` endpoint.
+
+### 4.3. Key Backend Systems (Renamed) -> Moved to workers.md
+
+The section detailing background workers and scheduled jobs has been moved to its own dedicated file: `ReadMe/workers.md`.
 
 ---
 
@@ -255,3 +226,28 @@ To prevent notification spam from users with unpaid Vendista accounts, the syste
 ## 6. Deployment
 
 Deployment to a production server is automated via the `
+
+---
+
+## 7. Frontend Data Structures and Utilities
+
+### 7.1. ALL_ITEMS Constant
+
+The `ALL_ITEMS` array in `frontend/src/constants.js` serves as the central source of truth for all ingredients and consumable items used across the application (Tasks, Recipes, Stands, Warehouse). It defines their names, base units, and multipliers for consistent quantity management. Recently, three new syrup ingredients were added, measured in milliliters:
+
+- Сироп 1 (мл)
+- Сироп 2 (мл)
+- Сироп 3 (мл)
+
+### 7.2. truncateName Function
+
+To improve UI readability, a `truncateName` utility function is available in `frontend/src/constants.js`. This function automatically shortens item names longer than 8 characters by truncating them to 8 characters and appending a period (e.g., "Размешиватели" becomes "Размешив."). Names 8 characters or shorter remain unchanged, and no period is added.
+
+```javascript
+export function truncateName(name) {
+    if (name.length > 8) {
+        return name.substring(0, 8) + '.';
+    }
+    return name;
+}
+```

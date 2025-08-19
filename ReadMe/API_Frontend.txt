@@ -16,6 +16,7 @@ Authentication Flow (frontend/src/App.js, frontend/src/utils/user.js, frontend/s
     Login data is sent to the /auth/login endpoint (implicitly handled by telegram-handshake).
 
   **Ключевые изменения в потоке аутентификации (ВАЖНО!):**
+    - **Преднастроенные контейнеры:** При регистрации нового пользователя или добавлении нового терминала в систему, автоматически создается базовый набор настроек инвентаря (контейнеров) для этого терминала с предопределенными значениями `max_stock` и `critical_stock`. Это гарантирует, что новые терминалы сразу готовы к работе и не требуют ручной настройки.
     - **Централизованное логирование (`authLogger.js`):** Все шаги и результаты аутентификации на фронтенде теперь фиксируются с помощью `authLogger`. В Development режиме логи выводятся в консоль браузера, а в Production режиме критические ошибки автоматически отправляются на бэкенд (`/api/auth/log-frontend-error`) для последующей пересылки администраторам в Telegram. Это позволяет получать полную диагностику проблемы, включая состояние `localStorage` и `window.Telegram.WebApp`.
     - **Механизм повторных попыток (`retryHelper.js`):** Для сетевых операций (например, запросов к `/auth/validate-token`, `/auth/refresh-app-token`, `/auth/telegram-handshake`) внедрена логика повторных попыток с экспоненциальной задержкой. Это повышает устойчивость приложения к временным сетевым сбоям и таймаутам.
     - **Категоризация ошибок:** Ошибки теперь категоризируются как `TEMPORARY` (временные, подлежащие повтору), `CRITICAL` (критические, требующие немедленного уведомления администратора) и `PERMANENT` (постоянные).
@@ -47,6 +48,10 @@ Authentication Flow (frontend/src/App.js, frontend/src/utils/user.js, frontend/s
     - **Убедитесь, что `updateUserInContext` получает полные данные пользователя с `accessLevel`.** Ранее эта функция могла получать неполный объект пользователя (без `accessLevel` или с устаревшим полем `role`) после обновления профиля, что приводило к проблемам с рендерингом и бесконечным циклам. **Важно: `accessLevel` является каноническим полем для определения роли пользователя на фронтенде. В `App.js` добавлена защитная проверка, которая логирует ошибку и предотвращает обновление состояния, если `accessLevel` отсутствует во входящих данных.**
 
 Data Handling and Page-Specific Interactions
+
+  **Пресеты рецептов:**
+    - Эндпоинт `GET /api/presets` теперь возвращает как пользовательские пресеты, так и общие (где `user_id` равен `NULL`).
+    - В `PresetSelectionModal` общие пресеты должны отображаться вверху списка, выше пользовательских, благодаря сортировке на бэкенде.
 
   Finances Page (frontend/src/pages/FinancesPage.js)
 
@@ -114,4 +119,7 @@ Important Notes:
 
   State Management:
     The application uses React Context (AuthContext) for managing global state like user authentication and loading status.
-    The isLoading flag in AuthContext is crucial for preventing race conditions where authenticated data is requested before the token is fully loaded and validated. 
+    The isLoading flag in AuthContext is crucial for preventing race conditions where authenticated data is requested before the token is fully loaded and validated.
+
+  **truncateName Function (frontend/src/constants.js):**
+    Для улучшения читаемости пользовательского интерфейса была добавлена вспомогательная функция `truncateName`. Она автоматически сокращает названия элементов, длина которых превышает 8 символов, обрезая их до 8 символов и добавляя точку (например, "Размешиватели" становится "Размешив."). Названия, состоящие из 8 символов или менее, остаются без изменений, и точка не добавляется. 

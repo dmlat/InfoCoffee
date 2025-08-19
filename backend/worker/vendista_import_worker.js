@@ -104,12 +104,29 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
 
             // --- Логика для пополнения (Restock) ---
             if (assignee_id_restock) {
+                // ИСПРАВЛЕНИЕ: Сначала получаем все остатки для терминала одним запросом
+                const inventoryRes = await pool.query(
+                    `SELECT item_name, current_stock, critical_stock FROM inventories WHERE terminal_id = $1 AND location = 'machine'`,
+                    [internalTerminalId]
+                );
+                
+                // Создаем карту для быстрого доступа к остаткам
+                const stockMap = new Map();
+                inventoryRes.rows.forEach(row => {
+                    stockMap.set(row.item_name, {
+                        current: parseFloat(row.current_stock) || 0,
+                        critical: parseFloat(row.critical_stock) || 0
+                    });
+                });
+
+                // Теперь фильтруем ингредиенты, используя данные из карты
                 const criticalItems = settings.ingredients.filter(ing => {
-                    const inventoryRes = pool.query(
-                        `SELECT current_stock, critical_stock FROM inventories WHERE terminal_id = $1 AND item_name = $2 AND location = 'machine'`,
-                        [internalTerminalId, ing.item_name]
-                    );
-                    return (inventoryRes.rows[0]?.current_stock || 0) <= (inventoryRes.rows[0]?.critical_stock || 0);
+                    const stock = stockMap.get(ing.item_name);
+                    // Считаем товар критическим, если его нет на складе (stock === undefined) или его остаток меньше/равен критическому
+                    if (!stock) {
+                        return true; // Если по какой-то причине для ингредиента из рецепта нет записи в inventories, считаем его критическим
+                    }
+                    return stock.current <= stock.critical;
                 });
 
                 if (criticalItems.length > 0) {

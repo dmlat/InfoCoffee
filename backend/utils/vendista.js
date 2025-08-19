@@ -6,20 +6,32 @@ const { sendErrorToAdmin } = require('./adminErrorNotifier');
 const VENDISTA_API_BASE_URL = process.env.VENDISTA_API_BASE_URL || 'https://api.vendista.ru:99';
 
 async function getNewVendistaToken(login, password) {
+    const VENDISTA_API_URL = process.env.VENDISTA_API_BASE_URL || 'https://api.vendista.ru:99';
     try {
-        const response = await axios.get(`${VENDISTA_API_BASE_URL}/token`, {
+        const response = await axios.get(`${VENDISTA_API_URL}/token`, {
             params: {
                 Login: login,
                 Password: password
-            }
+            },
+            timeout: 15000
         });
         if (response.data && response.data.token) {
-            return response.data.token;
+            return { success: true, token: response.data.token };
+        } else {
+            return { success: false, error: 'Ответ API не содержит токен' };
         }
-        return null;
     } catch (error) {
-        console.error(`[getNewVendistaToken] Failed to get new token for login ${login}. URL: ${error.config?.url}. Status: ${error.response?.status}.`, error.response?.data);
-        return null;
+        console.error(`[Vendista Util] Error fetching new token for login ${login}:`, error.message);
+        if (error.response) {
+            if (error.response.status === 404 || error.response.status === 401) {
+                 return { success: false, error: 'Неверный логин или пароль Vendista' };
+            }
+            if (error.response.status === 402) {
+                return { success: false, error: 'Требуется оплата Vendista' };
+            }
+            return { success: false, error: `Ошибка API Vendista: ${error.response.status} ${error.response.statusText}` };
+        }
+        return { success: false, error: 'Ошибка сети при подключении к Vendista' };
     }
 }
 
@@ -48,30 +60,35 @@ async function refreshToken(userId) {
             return { success: false, error: 'invalid_credentials' };
         }
 
-        const newToken = await getNewVendistaToken(login, password);
+        const newTokenResponse = await getNewVendistaToken(login, password);
 
-        if (newToken) {
-            const encryptedToken = encrypt(newToken);
+        if (newTokenResponse.success) {
+            const encryptedToken = encrypt(newTokenResponse.token);
             await client.query(
                 "UPDATE users SET vendista_api_token = $1, vendista_token_status = 'valid', updated_at = NOW() WHERE id = $2",
-                [encryptedToken, userId]
+                [encryptedToken, user.id]
             );
             await client.query('COMMIT');
-            return { success: true, token: newToken };
+            return { success: true, token: newTokenResponse.token };
         } else {
-            await client.query("UPDATE users SET vendista_token_status = 'invalid_creds' WHERE id = $1", [userId]);
+            // Если не удалось обновить токен из-за неверных учетных данных
+            await client.query(
+                "UPDATE users SET vendista_token_status = 'invalid_creds', updated_at = NOW() WHERE id = $1",
+                [userId]
+            );
             await client.query('COMMIT');
             sendErrorToAdmin({
-                message: `Failed to get new Vendista token for user ${userId}. Credentials might be invalid.`,
+                message: `Failed to refresh token for user ${userId}: Invalid credentials.`,
                 context: 'refreshToken'
             });
-            return { success: false, error: 'token_fetch_failed' };
+            return { success: false, error: newTokenResponse.error };
         }
+
     } catch (error) {
         if (client) {
             await client.query('ROLLBACK');
         }
-        console.error(`[refreshToken] Error refreshing token for user ${userId}:`, error);
+        console.error(`[Vendista Util] Critical error during token refresh for user ${userId}:`, error);
         sendErrorToAdmin({
             message: `Critical error during token refresh for user ${userId}: ${error.message}`,
             context: 'refreshToken'

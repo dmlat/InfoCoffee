@@ -20,6 +20,7 @@ const { syncTerminalsForUser } = require('./terminal_sync_worker');
 const { directImport, showStats } = require('./direct_import');
 const moment = require('moment');
 const axios = require('axios');
+const { checkPaymentStatus } = require('./payment_status_checker_worker'); // Импортируем
 
 const COMMANDS = {
   IMPORT_TRANSACTIONS: 'import-transactions',
@@ -28,7 +29,8 @@ const COMMANDS = {
   TEST_TOKEN: 'test-token',
   DIRECT_IMPORT: 'direct-import',
   SHOW_STATS: 'show-stats',
-  TEST_SCHEDULE: 'test-schedule'
+  TEST_SCHEDULE: 'test-schedule',
+  CHECK_PAYMENT_STATUS: 'check-payment-status' // Новая команда
 };
 
 function parseArgs(args) {
@@ -168,6 +170,7 @@ function printHelp() {
       test-token           Tests Vendista token validity.
       show-stats           Shows transaction statistics for a user.
       test-schedule        Tests scheduled import jobs immediately.
+      check-payment-status  (New) Manually run the payment status checker.
 
     Options:
       --user-id <id1,id2,...>  (Required unless --all) Comma-separated list of user IDs from the 'users' table.
@@ -241,6 +244,13 @@ async function main() {
     process.exit(0);
   }
 
+  if (options.command === COMMANDS.CHECK_PAYMENT_STATUS) {
+    console.log('[Manual Runner] Manually running Payment Status Checker...');
+    await checkPaymentStatus();
+    console.log('[Manual Runner] Payment Status Checker finished.');
+    process.exit(0);
+  }
+
   if (options.userIds.length === 0 && !options.allUsers) {
     console.error("Error: You must specify at least one user with --user-id <id> or use --all.");
     process.exit(1);
@@ -250,8 +260,16 @@ async function main() {
 
   let usersToProcess = [];
   try {
-    let query = 'SELECT id, vendista_api_token, setup_date FROM users WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL';
+    let query = 'SELECT id, vendista_api_token, setup_date FROM users';
     const queryParams = [];
+    
+    // ИСПРАВЛЕНИЕ: Для команды update-creds не требуем наличия токена или даты
+    if (options.command === COMMANDS.UPDATE_CREDS) {
+        query += ' WHERE 1=1'
+    } else {
+        query += ' WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL'
+    }
+
     if (!options.allUsers) {
       query += ` AND id = ANY($1::int[])`;
       queryParams.push(options.userIds);
@@ -269,10 +287,15 @@ async function main() {
   
   for (const user of usersToProcess) {
     console.log(`\n[Manual Runner] Processing User ID: ${user.id}`);
-    const plainToken = decrypt(user.vendista_api_token);
-    if (!plainToken) {
-        console.error(`  -> Failed to decrypt token for User ID ${user.id}. Skipping.`);
-        continue;
+    
+    let plainToken = null;
+    // ИСПРАВЛЕНИЕ: Не пытаемся расшифровать токен для команды update-creds
+    if (options.command !== COMMANDS.UPDATE_CREDS) {
+        plainToken = decrypt(user.vendista_api_token);
+        if (!plainToken) {
+            console.error(`  -> Failed to decrypt token for User ID ${user.id}. Skipping.`);
+            continue;
+        }
     }
 
     switch(options.command) {
@@ -318,13 +341,13 @@ async function main() {
         const encryptedPassword = encrypt(password);
 
         // Also fetch a new token with the new credentials to ensure they are valid
-        const newToken = await getNewVendistaToken(login, password);
-        if (!newToken) {
-            console.error('ERROR: Failed to fetch a new token with the provided credentials. Are they correct? Aborting.');
+        const newTokenResponse = await getNewVendistaToken(login, password);
+        if (!newTokenResponse.success) {
+            console.error(`ERROR: Failed to fetch a new token with the provided credentials. Are they correct? Aborting. Details: ${newTokenResponse.error}`);
             process.exit(1);
         }
         console.log('  -> Successfully fetched new token with provided credentials.');
-        const encryptedToken = encrypt(newToken);
+        const encryptedToken = encrypt(newTokenResponse.token);
 
         await pool.query(
             `UPDATE users 
