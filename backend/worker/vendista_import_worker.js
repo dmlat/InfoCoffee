@@ -79,11 +79,11 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
                 u.telegram_id as owner_telegram_id,
                 s.assignee_id_restock,
                 t.sales_since_cleaning,
-                array_agg(
-                    json_build_object(
-                        'item_name', ri.item_name,
-                        'quantity', ri.quantity
-                    )
+                (
+                    SELECT COALESCE(json_agg(json_build_object('item_name', ri.item_name, 'quantity', ri.quantity)), '[]'::json)
+                    FROM recipes r
+                    JOIN recipe_items ri ON r.id = ri.recipe_id
+                    WHERE r.terminal_id = t.id AND ri.item_name IS NOT NULL
                 ) as ingredients
             FROM terminals t
             LEFT JOIN stand_service_settings s ON t.id = s.terminal_id
@@ -95,15 +95,10 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
         );
 
         if (settingsRes.rows.length > 0) {
-            const settings = {
-                ...settingsRes.rows[0],
-                ingredients: settingsRes.rows[0].ingredients.filter(ing => ing.item_name !== null)
-            };
-            const { assignee_id_restock, sales_since_cleaning, terminal_name, owner_telegram_id } = settings;
-            ownerTelegramId = owner_telegram_id;
+            const settings = settingsRes.rows[0];
+            const assigneeId = settings.assignee_id_restock;
 
-            // --- Логика для пополнения (Restock) ---
-            if (assignee_id_restock) {
+            if (assigneeId && settings.ingredients && settings.ingredients.length > 0) {
                 // ИСПРАВЛЕНИЕ: Сначала получаем все остатки для терминала одним запросом
                 const inventoryRes = await pool.query(
                     `SELECT item_name, current_stock, critical_stock FROM inventories WHERE terminal_id = $1 AND location = 'machine'`,
@@ -122,9 +117,8 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
                 // Теперь фильтруем ингредиенты, используя данные из карты
                 const criticalItems = settings.ingredients.filter(ing => {
                     const stock = stockMap.get(ing.item_name);
-                    // Считаем товар критическим, если его нет на складе (stock === undefined) или его остаток меньше/равен критическому
                     if (!stock) {
-                        return true; // Если по какой-то причине для ингредиента из рецепта нет записи в inventories, считаем его критическим
+                        return true; // ИСПРАВЛЕНИЕ: Если ингредиента нет в остатках, он считается критическим
                     }
                     return stock.current <= stock.critical;
                 });
@@ -139,7 +133,7 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
                         const taskRes = await pool.query(
                             `INSERT INTO service_tasks (terminal_id, task_type, assignee_id, status, details)
                              VALUES ($1, 'restock', $2, 'pending', $3) RETURNING id`,
-                            [internalTerminalId, assignee_id_restock, JSON.stringify({
+                            [internalTerminalId, assigneeId, JSON.stringify({
                                 critical_items: criticalItems.map(i => i.item_name),
                                 is_auto: true
                             })]
@@ -148,8 +142,8 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
                         createdTasks.push({
                             type: 'restock',
                             taskId: taskRes.rows[0].id,
-                            terminalName: terminal_name,
-                            assignee: assignee_id_restock,
+                            terminalName: settings.terminal_name,
+                            assignee: assigneeId,
                             criticalItems: criticalItems.map(i => i.item_name)
                         });
                     }
@@ -585,9 +579,10 @@ async function processTransactions(ownerUserId, transactions, client, results, i
                     if (recipeRes.rows.length > 0) {
                         for (const item of recipeRes.rows) {
                             if (item.quantity > 0) {
+                                // Используем GREATEST(0, ...) чтобы остатки не уходили в минус
                                 await client.query(
-                                    `UPDATE inventories
-                                     SET current_stock = GREATEST(0, current_stock - $1), updated_at = NOW()
+                                    `UPDATE inventories 
+                                     SET current_stock = GREATEST(0, current_stock - $1)
                                      WHERE terminal_id = $2 AND item_name = $3 AND location = 'machine'`,
                                     [item.quantity, internalTerminalId, item.item_name]
                                 );

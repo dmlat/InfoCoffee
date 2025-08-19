@@ -21,6 +21,7 @@ const { directImport, showStats } = require('./direct_import');
 const moment = require('moment');
 const axios = require('axios');
 const { checkPaymentStatus } = require('./payment_status_checker_worker'); // Импортируем
+const { checkAndCreateTasks } = require('./vendista_import_worker'); // Импортируем функцию
 
 const COMMANDS = {
   IMPORT_TRANSACTIONS: 'import-transactions',
@@ -30,7 +31,7 @@ const COMMANDS = {
   DIRECT_IMPORT: 'direct-import',
   SHOW_STATS: 'show-stats',
   TEST_SCHEDULE: 'test-schedule',
-  CHECK_PAYMENT_STATUS: 'check-payment-status' // Новая команда
+  CHECK_PAYMENT_STATUS: 'check-payment-status'
 };
 
 function parseArgs(args) {
@@ -178,6 +179,8 @@ function printHelp() {
       --days <number>          Number of past days to import.
       --full-history           Import all history since the user's setup_date. Overrides --days.
       --job <name>             (For test-schedule) Job name: '15min', 'daily', 'weekly'.
+      --terminal-id <id>      (For test-deduction) Terminal ID to simulate deduction.
+      --recipe-name <name>    (For test-deduction) Recipe name to simulate deduction.
 
     Examples:
       # Queue import for user 1 (full history)
@@ -200,6 +203,8 @@ function printHelp() {
 
       # Test Vendista token validity for user 1
       node backend/worker/manual_runner.js test-token --user-id 1
+      # Test inventory deduction logic
+      node backend/worker/manual_runner.js test-deduction --terminal-id 99998 --recipe-name "Тестовый Напиток"
     `);
 }
 

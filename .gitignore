@@ -54,3 +54,4 @@ copytree.bat
 # Local development scripts and manuals
 /manuals
 /scripts/reset-local-db.sh
+ReadMe/
