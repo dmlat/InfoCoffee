@@ -225,7 +225,30 @@ The section detailing background workers and scheduled jobs has been moved to it
 
 ## 6. Deployment
 
-Deployment to a production server is automated via the `
+### 6.1. Standard Deployment Workflow
+
+1.  **Test locally:** Use `npm run dev` (in backend/) to test changes in the development environment.
+2.  **Commit changes:** `git add . && git commit -m "description"`
+3.  **Push to GitHub:** `git push`
+4.  **Deploy on server:** SSH into the production server, run `git pull` to fetch the latest changes.
+5.  **Execute deployment:** 
+    - Normal deployment: `./deploy.sh`
+    - Force reload (for critical updates): `FORCE_RELOAD=1 ./deploy.sh`
+6.  **Verify deployment:** Check with `pm2 list && pm2 logs --lines 20`
+
+### 6.2. Expected Success Logs
+
+After successful deployment, you should see:
+- `[BOT INSTANCE] Real bot instance created successfully`
+- `[APP.JS] Bot loaded successfully`  
+- `[APP.JS] Server running on port XXXX`
+- `[SCHEDULE_IMPORTS] Environment loaded successfully`
+
+**See ReadMe/DEPLOYMENT_TROUBLESHOOTING.txt for detailed troubleshooting guide.**
+
+### 6.3. The deploy.sh Script
+
+The `deploy.sh` script features smart deployment automation:
 
 ---
 

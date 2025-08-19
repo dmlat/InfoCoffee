@@ -153,11 +153,19 @@ echo "[7/7] Restarting backend services via ecosystem.config.js..."
 
 # Проверяем наличие существующих PM2 процессов
 if pm2 list 2>/dev/null | grep -q "infocoffee-backend\|infocoffee-scheduler"; then
-    echo "      Found existing PM2 processes. Force-reloading to clear module cache..."
-    pm2 stop ecosystem.config.js
-    pm2 delete ecosystem.config.js
-    pm2 start ecosystem.config.js
-    echo "      ✅ PM2 processes force-reloaded successfully."
+    echo "      Found existing PM2 processes. Performing smart restart..."
+    # Проверяем, нужна ли полная перезагрузка (например, при изменении package.json или критичных файлов)
+    if [[ -n "${FORCE_RELOAD:-}" ]] || git diff HEAD~1 --name-only | grep -q "package\.json\|ecosystem\.config\.js\|\.env"; then
+        echo "      Critical files changed or FORCE_RELOAD set. Performing full restart..."
+        pm2 stop ecosystem.config.js
+        pm2 delete ecosystem.config.js
+        pm2 start ecosystem.config.js
+        echo "      ✅ PM2 processes force-reloaded successfully."
+    else
+        echo "      No critical changes detected. Using graceful restart..."
+        pm2 restart ecosystem.config.js --update-env
+        echo "      ✅ PM2 processes restarted gracefully."
+    fi
 else
     echo "      No existing PM2 processes found. Starting fresh from ecosystem.config.js..."
     pm2 start ecosystem.config.js
