@@ -120,16 +120,8 @@ sudo find ${WEB_ROOT} -type d -exec chmod 755 {} \;
 sudo find ${WEB_ROOT} -type f -exec chmod 644 {} \;
 echo "      Done."
 
-# Обновляем зависимости, если package.json или package-lock.json изменились
-if ! cmp -s "package.json" ".install-stamp" || ! cmp -s "frontend/package.json" ".install-stamp"; then
-    echo "Dependencies have changed. Running npm install..."
-    npm install
-    (cd frontend && npm install)
-    # Создаем или обновляем временную метку
-    cp package.json .install-stamp
-else
-    echo "Dependencies are up to date."
-fi
+# ИСПРАВЛЕНИЕ: Корневые зависимости не нужны на проде, только для dev-режима
+echo "[SKIP] Root dependencies not needed in production."
 
 echo "Setting script permissions..."
 chmod +x scripts/run-manual-job.sh
