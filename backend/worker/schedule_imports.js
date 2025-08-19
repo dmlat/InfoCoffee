@@ -1,5 +1,8 @@
 // backend/worker/schedule_imports.js
+// ВАЖНО: dotenv должен быть первым для загрузки переменных окружения
 const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') }); // <-- Путь изменен для вложенности
+
 const { ToadScheduler, SimpleIntervalJob, Task } = require('toad-scheduler');
 const cron = require('node-cron');
 const moment = require('moment-timezone');
@@ -13,16 +16,6 @@ const { checkPaymentStatus } = require('./payment_status_checker_worker'); // И
 const scheduler = new ToadScheduler();
 const importQueue = [];
 let isProcessing = false;
-
-// ВАЖНО: Загружаем переменные окружения ПЕРЕД всеми остальными импортами
-if (process.env.NODE_ENV === 'production') {
-    console.log('[ENV] Production mode detected. Loading .env');
-    require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-} else {
-    process.env.NODE_ENV = 'development'; // Принудительно устанавливаем для надежности
-    console.log('[ENV] Defaulting to development mode. Loading .env.development');
-    require('dotenv').config({ path: path.resolve(__dirname, '../.env.development') });
-}
 
 require('../utils/logger'); // <--- ГЛОБАЛЬНОЕ ПОДКЛЮЧЕНИЕ ЛОГГЕРА
 const { syncAllTerminals } = require('./terminal_sync_worker');

@@ -1,5 +1,5 @@
 // backend/app.js
-const logger = require('./utils/logger'); // <--- ГЛОБАЛЬНОЕ ПОДКЛЮЧЕНИЕ ЛОГГЕРА
+// ВАЖНО: dotenv должен быть первым для загрузки переменных окружения
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
