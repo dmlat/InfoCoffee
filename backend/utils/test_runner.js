@@ -1,6 +1,6 @@
 // backend/utils/test_runner.js
-const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+// ИСПРАВЛЕНО: Используем централизованную загрузку переменных окружения
+require('./envLoader');
 
 const pool = require('../db');
 const { sendNotification } = require('./botNotifier');

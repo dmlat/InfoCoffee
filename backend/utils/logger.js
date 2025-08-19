@@ -17,15 +17,13 @@ const getTimestamp = () => moment().tz(TIMEZONE).format('YYYY-MM-DD HH:mm:ss.SSS
 
 // Переопределяем стандартные методы console
 console.log = (...args) => {
-    if (process.env.NODE_ENV !== 'production') {
-        originalConsole.log(`[${getTimestamp()}] [LOG]  `, ...args);
-    }
+    // В production тоже показываем логи для диагностики
+    originalConsole.log(`[${getTimestamp()}] [LOG]  `, ...args);
 };
 
 console.info = (...args) => {
-    if (process.env.NODE_ENV !== 'production') {
-        originalConsole.info(`[${getTimestamp()}] [INFO] `, ...args);
-    }
+    // В production тоже показываем info для диагностики
+    originalConsole.info(`[${getTimestamp()}] [INFO] `, ...args);
 };
 
 console.warn = (...args) => {
@@ -37,7 +35,7 @@ console.error = (...args) => {
 };
 
 console.debug = (...args) => {
-    // Включаем debug-сообщения только в режиме разработки
+    // Debug только в development для производительности
     if (process.env.NODE_ENV !== 'production') {
         originalConsole.debug(`[${getTimestamp()}] [DEBUG]`, ...args);
     }

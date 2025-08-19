@@ -1,6 +1,7 @@
 // backend/worker/test_inventory_notifier.js
+// ИСПРАВЛЕНО: Используем централизованную загрузку переменных окружения
 process.env.NODE_ENV = 'development';
-require('dotenv').config({ path: __dirname + '/../.env.development' });
+require('../utils/envLoader');
 
 const { pool } = require('../db');
 const { processInventoryChanges } = require('./inventory_notifier_worker');
