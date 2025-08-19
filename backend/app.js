@@ -1,6 +1,7 @@
 // backend/app.js
 const logger = require('./utils/logger'); // <--- ГЛОБАЛЬНОЕ ПОДКЛЮЧЕНИЕ ЛОГГЕРА
 const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 // Определяем режим работы. По умолчанию - development.
 if (process.env.NODE_ENV === 'production') {

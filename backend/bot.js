@@ -1,7 +1,9 @@
 // backend/bot.js
 require('./utils/logger'); // <--- ГЛОБАЛЬНОЕ ПОДКЛЮЧЕНИЕ ЛОГГЕРА
 const path = require('path');
-const bot = require('./utils/botInstance'); // <-- ИМПОРТ ИНСТАНСА
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+
+const { bot } = require('./utils/botInstance'); // <-- ИМПОРТ ИНСТАНСА
 const pool = require('./db');
 const moment = require('moment-timezone');
 const { getFinancialSummary } = require('./utils/financials');
