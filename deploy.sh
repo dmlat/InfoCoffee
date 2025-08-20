@@ -176,6 +176,15 @@ fi
 pm2 save
 echo "      ✅ PM2 configuration saved for auto-startup."
 
+# Шаг 8: Перезапуск Nginx для применения изменений
+echo "[8/8] Restarting Nginx to apply changes..."
+if sudo systemctl is-active --quiet nginx; then
+    sudo systemctl restart nginx
+    echo "      ✅ Nginx restarted successfully."
+else
+    echo "      ⚠️ Nginx is not running. Skipping restart."
+fi
+
 # Показываем итоговый статус
 echo " "
 echo "📊 Final PM2 Status:"

@@ -14,6 +14,8 @@ console.log('[BOT.JS] Database pool imported successfully');
 const moment = require('moment-timezone');
 const { getFinancialSummary } = require('./utils/financials');
 const { EXPENSE_INSTRUCTION, parseExpenseMessage } = require('./utils/botHelpers');
+const { setupAdminBotCommands } = require('./adminBotHandlers'); // <-- ДОБАВЛЕНО
+const { startMonitoring } = require('./utils/monitoring'); // <-- ДОБАВЛЕНО
 console.log('[BOT.JS] All dependencies imported successfully');
 
 const IS_DEV = process.env.NODE_ENV === 'development';
@@ -450,6 +452,12 @@ const startPolling = async () => {
     // Подключаем dev handlers если нужно
     if (IS_DEV && isInitialized) {
         require('./devBotHandlers')(bot);
+    }
+
+    // Подключаем admin handlers (только в production)
+    if (!IS_DEV && isInitialized) {
+        setupAdminBotCommands(bot);
+        startMonitoring(); // Запускаем мониторинг только в production
     }
 
     // Запускаем polling только если еще не запущен
