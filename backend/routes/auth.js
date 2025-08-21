@@ -18,7 +18,6 @@ const VENDISTA_API_URL = process.env.VENDISTA_API_BASE_URL || 'https://api.vendi
 const JWT_SECRET = process.env.JWT_SECRET;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 // Удаляем ENCRYPTION_KEY, так как он теперь используется только в security.js
-// const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 
 // --- ФИНАЛЬНАЯ УМНАЯ ПРОВЕРКА ---
 // В продакшене требуем все ключи, включая токен бота.
@@ -34,16 +33,11 @@ if (process.env.NODE_ENV !== 'production' && !JWT_SECRET) {
 }
 // ------------------------------------
 
-// Удаляем дублирующиеся функции и константы
-// const ALGORITHM = 'aes-256-cbc';
-// const IV_LENGTH = 16; 
-// function encrypt(text) { ... }
-// function decrypt(text) { ... }
+// Удалены дублирующиеся функции шифрования, так как они вынесены в /utils/security.js
 
 const validateTelegramInitData = (initDataString) => {
     // В режиме разработки полностью доверяем данным и пропускаем проверку.
     if (process.env.NODE_ENV === 'development') {
-        console.log('[Auth Validate] Development mode: SKIPPING hash validation.');
         try {
             // В режиме разработки initData может быть либо строкой параметров URL,
             // либо уже объектом, если он был проксирован или изменен.
@@ -241,11 +235,8 @@ router.post('/telegram-handshake', async (req, res) => {
 
 
     // --- ПРОДАКШЕН ЛОГИКА ---
-    // console.log(`[Auth] Production mode: Processing telegram_id ${telegram_id} (type: ${typeof telegram_id})`);
-    
-    // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Приводим telegram_id к строке для консистентности
+    // Приводим telegram_id к строке для консистентности
     const telegram_id_str = telegram_id.toString();
-    // console.log(`[Auth] Searching for telegram_id as string: ${telegram_id_str}`);
     
     let userQuery = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegram_id_str]);
     let user = userQuery.rows[0];
@@ -253,23 +244,16 @@ router.post('/telegram-handshake', async (req, res) => {
     let owner_id = null;
     let userForResponse = null;
     
-    // console.log(`[Auth] User search result: found=${!!user}, user_id=${user?.id}, has_token=${!!user?.vendista_api_token}`);
 
     // ИСПРАВЛЕННАЯ ЛОГИКА: Определяем роль пользователя
     if (user) {
-        // console.log(`[Auth] Found user in users table: ${user.id}, has_token: ${!!user.vendista_api_token}`);
-        
         // Если пользователь найден И есть vendista_api_token - это owner
         if (user.vendista_api_token) {
             role = 'owner';
             owner_id = user.id;
             userForResponse = user;
-            // console.log(`[Auth] User is owner with completed registration`);
         } else {
-            // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Пользователь найден БЕЗ токена
-            // Проверяем, может ли он быть admin/service через user_access_rights
-            // console.log(`[Auth] User found without token, checking if they have access rights...`);
-            
+            // Пользователь найден БЕЗ токена, проверяем, может ли он быть admin/service
             const accessRightsResult = await pool.query(
                 `SELECT uar.owner_user_id, uar.access_level, uar.shared_with_name, 
                         u.setup_date, u.tax_system, u.acquiring, u.first_name as owner_first_name
@@ -279,11 +263,8 @@ router.post('/telegram-handshake', async (req, res) => {
                 [telegram_id_str]
             );
             
-            // console.log(`[Auth] Access rights search for existing user: found=${accessRightsResult.rows.length > 0}`);
-            
             if (accessRightsResult.rows.length > 0) {
                 // Пользователь существует в users, но является admin/service
-                // console.log(`[Auth] User is ${accessRightsResult.rows[0].access_level} with existing user record`);
                 const accessRecord = accessRightsResult.rows[0];
                 role = accessRecord.access_level; // 'admin' или 'service'
                 owner_id = accessRecord.owner_user_id;
@@ -298,20 +279,15 @@ router.post('/telegram-handshake', async (req, res) => {
                     tax_system: accessRecord.tax_system,
                     acquiring: accessRecord.acquiring
                 };
-                // console.log(`[Auth] Created user object for existing ${role}:`, userForResponse);
             } else {
                 // Пользователь существует, но не имеет прав доступа - незавершенная регистрация owner'а
                 role = 'registration_incomplete';
                 owner_id = user.id;
                 userForResponse = user;
-                // console.log(`[Auth] User is owner with incomplete registration`);
             }
         }
     } else {
-        // console.log(`[Auth] User not found in users table, checking user_access_rights for new users...`);
-        
         // Проверяем user_access_rights для новых admin/service пользователей (не существующих в users)
-        // console.log(`[Auth] Searching in user_access_rights for telegram_id: ${telegram_id_str}`);
         const accessRightsResult = await pool.query(
             `SELECT uar.owner_user_id, uar.access_level, uar.shared_with_name, 
                     u.setup_date, u.tax_system, u.acquiring, u.first_name as owner_first_name
@@ -321,10 +297,7 @@ router.post('/telegram-handshake', async (req, res) => {
             [telegram_id_str]
         );
         
-        // console.log(`[Auth] Access rights search for new user: found=${accessRightsResult.rows.length > 0}`);
-        
         if (accessRightsResult.rows.length > 0) {
-            // console.log(`[Auth] Found NEW user in access_rights table with role: ${accessRightsResult.rows[0].access_level}`);
             const accessRecord = accessRightsResult.rows[0];
             role = accessRecord.access_level; // 'admin' или 'service'
             owner_id = accessRecord.owner_user_id;
@@ -339,11 +312,8 @@ router.post('/telegram-handshake', async (req, res) => {
                 tax_system: accessRecord.tax_system,
                 acquiring: accessRecord.acquiring
             };
-            // console.log(`[Auth] Created user object for NEW ${role}:`, userForResponse);
         } else {
-            // console.log(`[Auth] User not found in access_rights, creating new user record`);
             // Если пользователь новый, создаем запись и отправляем на регистрацию
-            // console.log(`[Auth] Creating new user with telegram_id: ${telegram_id_str}`);
             const newUserQuery = await pool.query(
                 "INSERT INTO users (telegram_id, first_name, user_name) VALUES ($1, $2, $3) RETURNING *",
                 [telegram_id_str, telegramUser.first_name || '', telegramUser.username || '']
@@ -356,11 +326,8 @@ router.post('/telegram-handshake', async (req, res) => {
     }
 
     // УНИФИЦИРОВАННАЯ ЛОГИКА ОТВЕТОВ ДЛЯ ВСЕХ РОЛЕЙ
-    // console.log(`[Auth] Processing response for role: ${role}, owner_id: ${owner_id}`);
-    
     if (role === 'owner' && userForResponse.vendista_api_token) {
         // Owner с завершенной регистрацией
-        // console.log(`[Auth] Returning successful auth for owner`);
         const token = jwt.sign(
             { userId: userForResponse.id, telegramId: userForResponse.telegram_id.toString(), accessLevel: role },
             JWT_SECRET,
@@ -377,7 +344,6 @@ router.post('/telegram-handshake', async (req, res) => {
         });
     } else if (role === 'admin' || role === 'service') {
         // Admin/Service пользователи (регистрация уже завершена через владельца)
-        // console.log(`[Auth] Returning successful auth for ${role}`);
         const token = jwt.sign(
             { userId: owner_id, telegramId: telegram_id_str, accessLevel: role },
             JWT_SECRET,
@@ -395,7 +361,6 @@ router.post('/telegram-handshake', async (req, res) => {
         });
     } else if (role === 'registration_incomplete') {
         // Owner с незавершенной регистрацией
-        // console.log(`[Auth] Returning registration_incomplete for owner`);
         return res.json({
             success: true, 
             message: 'registration_incomplete',
@@ -408,7 +373,6 @@ router.post('/telegram-handshake', async (req, res) => {
         });
     } else if (role === 'registration_required') {
         // Новый пользователь
-        // console.log(`[Auth] Returning registration_required for new user`);
         return res.json({
             success: true,
             message: 'registration_required',
@@ -421,7 +385,6 @@ router.post('/telegram-handshake', async (req, res) => {
         });
     } else {
         // Неожиданная ситуация
-        // console.error(`[Auth] Unexpected role/state: ${role}, user:`, userForResponse);
         const errorMsg = `Неопределенное состояние пользователя: ${role}`;
         sendErrorToAdmin({
             telegramId: telegram_id,
@@ -535,7 +498,6 @@ router.post('/log-frontend-error', async (req, res) => {
             additionalInfo: additionalInfo
         });
 
-        // console.log(`[AUTH ERROR LOG] Successfully sent error notification for: ${context}`);
         res.status(200).send({ success: true });
 
     } catch(e) {
@@ -563,14 +525,12 @@ function formatFrontendLogs(logs) {
 
 router.post('/validate-vendista', async (req, res) => {
     const { telegram_id, vendista_login, vendista_password } = req.body;
-    // console.log(`[POST /api/auth/validate-vendista] TG ID: ${telegram_id}, Login: ${vendista_login}`);
 
     if (!telegram_id || !vendista_login || !vendista_password) {
         return res.status(400).json({ success: false, error: 'Telegram ID, Vendista login, and password are required.' });
     }
 
     try {
-        // console.log(`[POST /api/auth/validate-vendista] Requesting Vendista token from ${VENDISTA_API_URL}/token`);
         const tokenResp = await axios.get(`${VENDISTA_API_URL}/token`, {
             params: { login: vendista_login, password: vendista_password },
             timeout: 15000 
@@ -578,7 +538,6 @@ router.post('/validate-vendista', async (req, res) => {
 
         if (tokenResp.data && tokenResp.data.token) {
             const vendista_api_token = tokenResp.data.token;
-            // console.log(`[POST /api/auth/validate-vendista] Vendista token obtained for TG ID: ${telegram_id}`);
             res.json({ success: true, vendista_api_token_plain: vendista_api_token });
         } else {
             const errorMsg = tokenResp.data.error || 'Неверные учетные данные Vendista или не удалось получить токен.';
@@ -625,8 +584,6 @@ router.post('/complete-registration', async (req, res) => {
     const final_first_name = req.body.first_name || req.body.firstName;
     const final_user_name = req.body.user_name || req.body.username;
     
-    // console.log(`[POST /api/auth/complete-registration] Attempting to register user, TG ID: ${telegram_id}`);
-
     if (!telegram_id || !vendista_api_token_plain || !setup_date) {
         const errorMsg = 'Одно или несколько обязательных полей для регистрации отсутствовали.';
         console.error(`[POST /api/auth/complete-registration] Validation Failed for TG ID ${telegram_id}. Error: ${errorMsg}. Body:`, req.body);
@@ -693,7 +650,6 @@ router.post('/complete-registration', async (req, res) => {
 
         const { rows } = await client.query(query, values);
         const user = rows[0];
-        // console.log(`[POST /api/auth/complete-registration] User registered/updated successfully! DB User ID: ${user.id}, TG ID: ${telegram_id}`);
 
         await client.query('COMMIT');
 
@@ -702,19 +658,15 @@ router.post('/complete-registration', async (req, res) => {
             JWT_SECRET, { expiresIn: '12h' }
         );
 
-        // console.log(`[POST /api/auth/complete-registration] Triggering initial data sync for user ID: ${user.id}`);
         // Запускаем синхронизацию и импорт в фоновом режиме, не блокируя ответ
         (async () => {
             try {
-                // console.log(`[Initial Sync] User ${user.id}: Starting terminal sync...`);
                 await syncTerminalsForUser(user.id, vendista_api_token_plain);
-                // console.log(`[Initial Sync] User ${user.id}: Terminal sync finished. Starting transaction import...`);
                 await startImport({
                     user_id: user.id,
                     vendistaApiToken: vendista_api_token_plain,
                     first_coffee_date: setup_date,
                 });
-                 // console.log(`[Initial Sync] User ${user.id}: Initial transaction import finished.`);
             } catch (importError) {
                 console.error(`[POST /api/auth/complete-registration] Initial import failed for user ${user.id}:`, importError.message, importError.stack);
                 sendErrorToAdmin({ 
@@ -754,7 +706,6 @@ router.post('/complete-registration', async (req, res) => {
 
 router.post('/refresh-app-token', async (req, res) => {
     const { initData } = req.body;
-    // console.log('[POST /api/auth/refresh-app-token] Received request for token refresh');
 
     if (!initData) {
         return res.status(400).json({ success: false, error: 'initData is required for token refresh.' });
@@ -778,7 +729,6 @@ router.post('/refresh-app-token', async (req, res) => {
     // Драйвер pg может некорректно обрабатывать BigInt, что вызывает зависание запроса.
     // Передача ID как строки - безопасный и надежный способ.
     const current_telegram_id_refresh = telegramUser.id.toString();
-    // console.log(`[POST /api/auth/refresh-app-token] Validated Telegram ID: ${current_telegram_id_refresh} for refresh`);
 
     try {
         let tokenPayload;
@@ -790,7 +740,6 @@ router.post('/refresh-app-token', async (req, res) => {
         );
 
         if (ownerRes.rows.length > 0 && ownerRes.rows[0].vendista_api_token) {
-            // console.log('[Refresh Token] User found as OWNER.');
             const ownerUser = ownerRes.rows[0];
             tokenPayload = { 
                 userId: ownerUser.id, 
@@ -807,10 +756,7 @@ router.post('/refresh-app-token', async (req, res) => {
                 acquiring: ownerUser.acquiring !== null ? String(ownerUser.acquiring) : null,
                 accessLevel: 'owner'
             };
-            // console.log('[Refresh Token] OWNER. Generated token payload:', tokenPayload);
-            // console.log('[Refresh Token] OWNER. Generated user data for client:', userDataForClient);
         } else {
-            // console.log('[Refresh Token] User not found as owner. Step 2: Checking `user_access_rights`.');
             const accessRightsResult = await pool.query(
                 `SELECT uar.owner_user_id, uar.access_level, uar.shared_with_name, 
                         u.setup_date as owner_setup_date, u.tax_system as owner_tax_system, u.acquiring as owner_acquiring
@@ -820,10 +766,7 @@ router.post('/refresh-app-token', async (req, res) => {
                 [current_telegram_id_refresh]
             );
             
-            // console.log(`[Refresh Token] Found ${accessRightsResult.rows.length} rows in access rights.`);
-
             if (accessRightsResult.rows.length > 0) {
-                // console.log('[Refresh Token] User found with access rights. Preparing token.');
                 const accessRecord = accessRightsResult.rows[0];
                 tokenPayload = {
                     userId: accessRecord.owner_user_id,
@@ -841,8 +784,6 @@ router.post('/refresh-app-token', async (req, res) => {
                     acquiring: accessRecord.owner_acquiring,
                     accessLevel: accessRecord.access_level
                 };
-                // console.log('[Refresh Token] ADMIN/SERVICE. Generated token payload:', tokenPayload);
-                // console.log('[Refresh Token] ADMIN/SERVICE. Generated user data for client:', userDataForClient);
             }
         }
 
@@ -857,10 +798,7 @@ router.post('/refresh-app-token', async (req, res) => {
             return res.status(401).json({ success: false, error: errorMsg });
         }
 
-        // console.log('[Refresh Token] Step 3: Signing new token with payload:', tokenPayload);
         const newAppToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '12h' });
-        
-        // console.log(`[POST /api/auth/refresh-app-token] App token refreshed for TG ID: ${current_telegram_id_refresh} (acting as user_id: ${tokenPayload.userId})`);
         
         res.json({
             success: true,
@@ -896,12 +834,6 @@ router.get('/validate-token', async (req, res) => {
     if (!token) {
         return res.status(401).json({ success: false, error: 'No token provided' });
     }
-
-    console.log('[DEBUG AUTH] Validating token', { 
-      hasToken: !!token, 
-      tokenLength: token?.length,
-      timestamp: new Date().toISOString() 
-    });
 
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
@@ -1022,7 +954,6 @@ router.get('/debug-user/:telegram_id', async (req, res) => {
 
     try {
         const { telegram_id } = req.params;
-        // console.log(`[Auth Debug] Diagnosing user with telegram_id: ${telegram_id}`);
 
         // Ищем в таблице users
         const userResult = await pool.query(
@@ -1061,8 +992,6 @@ router.get('/debug-user/:telegram_id', async (req, res) => {
             diagnostic.recommended_flow = 'new_user_registration_required';
         }
 
-        // console.log(`[Auth Debug] Diagnostic complete for ${telegram_id}:`, diagnostic.recommended_flow);
-
         res.json({
             success: true,
             diagnostic: diagnostic
@@ -1088,8 +1017,6 @@ router.post('/test-initdata', async (req, res) => {
             return res.status(400).json({ success: false, error: 'initData is required' });
         }
 
-        // console.log(`[Auth Test] Testing initData validation`);
-
         const validationResult = validateTelegramInitData(initData);
         
         const testResult = {
@@ -1100,8 +1027,6 @@ router.post('/test-initdata', async (req, res) => {
             has_bot_token: !!process.env.TELEGRAM_BOT_TOKEN,
             timestamp: new Date().toISOString()
         };
-
-        // console.log(`[Auth Test] InitData test result:`, testResult);
 
         res.json({
             success: true,
@@ -1197,8 +1122,6 @@ router.post('/test-admin-notification', async (req, res) => {
     }
 
     try {
-        // console.log(`[Auth Test] Testing admin notification system...`);
-        
         // Отправляем тестовое уведомление
         await sendErrorToAdmin({
             telegramId: req.body.telegramId || '12345',
@@ -1211,8 +1134,6 @@ router.post('/test-admin-notification', async (req, res) => {
             }
         });
 
-        // console.log(`[Auth Test] Test notification sent successfully`);
-        
         res.json({
             success: true,
             message: 'Test notification sent to admin chat. Check your Telegram for the message.'
@@ -1253,7 +1174,6 @@ router.post('/reset-payment-status', async (req, res) => {
         }
 
         const user = result.rows[0];
-        // console.log(`[Auth] Payment status reset for user ${user.id} (${user.first_name})`);
 
         res.json({
             success: true,

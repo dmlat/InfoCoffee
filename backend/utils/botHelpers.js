@@ -66,7 +66,8 @@ function parseExpenseMessage(text) {
     const comment = parts.slice(1).join(' ').trim();
     const expenses = [{
         amount: amount,
-        comment: comment || null
+        comment: comment || null,
+        date: new Date() // ИСПРАВЛЕНО: Добавляем текущую дату и время
     }];
 
     return { success: true, expenses };
