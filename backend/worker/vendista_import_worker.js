@@ -70,58 +70,33 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
     let ownerTelegramId;
 
     try {
-        // ИСПРАВЛЕНО: Изменены имена полей согласно DB.txt схеме
         const settingsRes = await pool.query(
             `SELECT
                 t.name as terminal_name,
                 t.user_id,
-                t.vendista_terminal_id,
                 u.telegram_id as owner_telegram_id,
-                s.assignee_id_restock,
-                t.sales_since_cleaning,
-                (
-                    SELECT COALESCE(json_agg(json_build_object('item_name', ri.item_name, 'quantity', ri.quantity)), '[]'::json)
-                    FROM recipes r
-                    JOIN recipe_items ri ON r.id = ri.recipe_id
-                    WHERE r.terminal_id = t.id AND ri.item_name IS NOT NULL
-                ) as ingredients
+                s.assignee_id_restock
             FROM terminals t
             LEFT JOIN stand_service_settings s ON t.id = s.terminal_id
             LEFT JOIN users u ON t.user_id = u.id
-            LEFT JOIN recipe_items ri ON t.id = ri.recipe_id
-            WHERE t.id = $1
-            GROUP BY t.id, t.name, t.user_id, t.vendista_terminal_id, u.telegram_id, s.assignee_id_restock, t.sales_since_cleaning`,
+            WHERE t.id = $1`,
             [internalTerminalId]
         );
 
         if (settingsRes.rows.length > 0) {
             const settings = settingsRes.rows[0];
             const assigneeId = settings.assignee_id_restock;
+            ownerTelegramId = settings.owner_telegram_id;
 
-            if (assigneeId && settings.ingredients && settings.ingredients.length > 0) {
-                // ИСПРАВЛЕНИЕ: Сначала получаем все остатки для терминала одним запросом
+            if (assigneeId) {
+                // ИСПРАВЛЕНО: Запрашиваем реальные остатки, а не ингредиенты из рецептов
                 const inventoryRes = await pool.query(
-                    `SELECT item_name, current_stock, critical_stock FROM inventories WHERE terminal_id = $1 AND location = 'machine'`,
+                    `SELECT item_name FROM inventories 
+                     WHERE terminal_id = $1 AND location = 'machine' AND max_stock > 0 AND current_stock <= critical_stock`,
                     [internalTerminalId]
                 );
-                
-                // Создаем карту для быстрого доступа к остаткам
-                const stockMap = new Map();
-                inventoryRes.rows.forEach(row => {
-                    stockMap.set(row.item_name, {
-                        current: parseFloat(row.current_stock) || 0,
-                        critical: parseFloat(row.critical_stock) || 0
-                    });
-                });
 
-                // Теперь фильтруем ингредиенты, используя данные из карты
-                const criticalItems = settings.ingredients.filter(ing => {
-                    const stock = stockMap.get(ing.item_name);
-                    if (!stock) {
-                        return true; // ИСПРАВЛЕНИЕ: Если ингредиента нет в остатках, он считается критическим
-                    }
-                    return stock.current <= stock.critical;
-                });
+                const criticalItems = inventoryRes.rows.map(row => row.item_name);
 
                 if (criticalItems.length > 0) {
                     const existingTaskRes = await pool.query(
@@ -134,7 +109,7 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
                             `INSERT INTO service_tasks (terminal_id, task_type, assignee_id, status, details)
                              VALUES ($1, 'restock', $2, 'pending', $3) RETURNING id`,
                             [internalTerminalId, assigneeId, JSON.stringify({
-                                critical_items: criticalItems.map(i => i.item_name),
+                                critical_items: criticalItems, // Сохраняем уникальный список
                                 is_auto: true
                             })]
                         );
@@ -144,13 +119,11 @@ async function checkAndCreateTasks(ownerUserId, internalTerminalId) {
                             taskId: taskRes.rows[0].id,
                             terminalName: settings.terminal_name,
                             assignee: assigneeId,
-                            criticalItems: criticalItems.map(i => i.item_name)
+                            criticalItems: criticalItems // Передаем уникальный список
                         });
                     }
                 }
             }
-
-            // --- Логика для уборки (Cleaning) --- была удалена
         }
     } catch (error) {
         console.error(`[Import Worker] Error in checkAndCreateTasks for terminal ${internalTerminalId}:`, error);
@@ -187,16 +160,16 @@ async function sendTaskNotificationsBatch(tasksInfo, ownerUserId, ownerTelegramI
             let message = '🔔 <b>Новые задачи назначены вам:</b>\n\n';
             
             for (const task of tasks) {
-                const taskTypeEmoji = task.type === 'restock' ? '📦' : '🧽';
-                const taskTypeName = task.type === 'restock' ? 'Пополнение' : 'Уборка';
+                const taskTypeEmoji = '📦';
+                const taskTypeName = 'Пополнение';
                 
                 message += `${taskTypeEmoji} <b>${taskTypeName}</b> - ${task.terminalName}\n`;
                 
-                if (task.type === 'restock') {
-                    message += `   Требуют пополнения: ${task.criticalItems.join(', ')}\n`;
-                } else if (task.type === 'cleaning') {
-                    // message += `   Продано с последней уборки: ${task.salesCount}\n`; // This line is removed
-                }
+                // ИСПРАВЛЕНО: Формируем короткое, уникальное имя для отображения (например, "Размешиватели" -> "Размеш.")
+                const truncatedItems = task.criticalItems.map(item => {
+                    return item.length > 8 ? item.substring(0, 7) + '.' : item;
+                });
+                message += `   Требуют пополнения: ${truncatedItems.join(', ')}\n`;
             }
             
             message += `\nОткройте приложение для выполнения задач 👇`;
@@ -221,8 +194,8 @@ async function sendTaskNotificationsBatch(tasksInfo, ownerUserId, ownerTelegramI
             let adminMessage = '📋 <b>Созданы новые сервисные задачи:</b>\n\n';
             
             for (const taskInfo of tasksInfo) {
-                const taskTypeEmoji = taskInfo.type === 'restock' ? '📦' : '🧽';
-                const taskTypeName = taskInfo.type === 'restock' ? 'Пополнение' : 'Уборка';
+                const taskTypeEmoji = '📦';
+                const taskTypeName = 'Пополнение';
                 
                 adminMessage += `${taskTypeEmoji} <b>${taskTypeName}</b> - ${taskInfo.terminalName}\n`;
                 adminMessage += `   Назначено: ${taskInfo.assignee}\n`;
