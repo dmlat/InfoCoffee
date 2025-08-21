@@ -237,8 +237,16 @@ function scheduleAll() {
     cron.schedule('*/15 * * * *', () => syncAllTerminals(), { scheduled: true, timezone: TIMEZONE });
     console.log('Планировщик синхронизации терминалов запущен (каждые 15 минут).');
 
-    // ДОБАВЛЕНО: Ежедневная проверка статуса оплаты в 04:00 по Москве
-    cron.schedule('0 4 * * *', () => scheduler.runById('checkPaymentStatus'), { scheduled: true, timezone: TIMEZONE });
+    // Ежедневная проверка статуса оплаты для заблокированных пользователей
+    cron.schedule('0 4 * * *', () => {
+        const logTime = moment().tz(TIMEZONE).format();
+        console.log(`[Cron ${logTime}] Запуск ежедневной проверки статуса оплаты...`);
+        // ИСПРАВЛЕНО: Прямой вызов функции вместо несуществующего метода
+        checkPaymentStatus().catch(e => console.error('Ошибка при выполнении checkPaymentStatus:', e));
+    }, {
+        scheduled: true,
+        timezone: TIMEZONE
+    });
     console.log('Планировщик ежедневной проверки статуса оплаты запущен на 04:00 МСК.');
 }
 
