@@ -475,7 +475,17 @@ function AppRouter() {
         <Router>
             <div className="app-container">
                 <Routes>
-                    <Route path="/" element={authStatus === 'authenticated' ? <Navigate to="/dashboard" replace /> : (process.env.NODE_ENV === 'development' ? <DevEntryPage /> : <div>Для доступа к приложению, откройте его в Telegram.</div>)} />
+                    <Route path="/" element={
+                        authStatus === 'authenticated' 
+                            ? <Navigate to="/dashboard" replace /> 
+                            : authStatus === 'registration_required'
+                                ? <RegisterPage />
+                                : (process.env.NODE_ENV === 'development' 
+                                    ? <DevEntryPage /> 
+                                    : window.Telegram?.WebApp?.initData 
+                                        ? <div className="loading-container">Проверка данных...</div>
+                                        : <div>Для доступа к приложению, откройте его в Telegram.</div>)
+                    } />
                     
                     <Route 
                       path="/dashboard" 

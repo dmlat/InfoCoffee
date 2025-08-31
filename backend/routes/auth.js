@@ -314,6 +314,7 @@ router.post('/telegram-handshake', async (req, res) => {
             };
         } else {
             // Если пользователь новый, создаем запись и отправляем на регистрацию
+            console.log(`[Auth] Creating new user record for telegram_id: ${telegram_id_str}, name: ${telegramUser.first_name || 'N/A'}`);
             const newUserQuery = await pool.query(
                 "INSERT INTO users (telegram_id, first_name, user_name) VALUES ($1, $2, $3) RETURNING *",
                 [telegram_id_str, telegramUser.first_name || '', telegramUser.username || '']
@@ -322,6 +323,7 @@ router.post('/telegram-handshake', async (req, res) => {
             role = 'registration_required';
             owner_id = newUser.id; // owner_id будет использоваться для генерации токена
             userForResponse = newUser;
+            console.log(`[Auth] New user created successfully with ID: ${newUser.id}, role: ${role}`);
         }
     }
 
