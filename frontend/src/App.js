@@ -214,7 +214,18 @@ function AuthProvider({ children }) {
               });
 
               if (message === 'registration_required') {
-                authLogger.info('📝 Registration required for new user');
+                authLogger.info('📝 Registration required for new user', {
+                  userTelegramId: userData?.telegram_id,
+                  userFirstName: userData?.first_name
+                });
+                
+                // Сохраняем данные пользователя для RegisterPage
+                if (userData?.telegram_id) {
+                  localStorage.setItem('telegram_id_unsafe', userData.telegram_id);
+                  localStorage.setItem('firstName_unsafe', userData.first_name || '');
+                  localStorage.setItem('username_unsafe', userData.user_name || '');
+                }
+                
                 setAuthStatus('registration_required');
                 return;
               }

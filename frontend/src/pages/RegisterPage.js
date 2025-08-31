@@ -127,12 +127,30 @@ export default function RegisterPage({ setIsAuth }) {
     }
   };
 
-  if (!telegramId && registrationStatus !== 'pending') { 
+  if (!telegramId && registrationStatus !== 'pending') {
+    console.error('[RegisterPage] CRITICAL: No telegram ID available', {
+      telegramId,
+      registrationStatus,
+      locationSearch: location.search,
+      localStorage_telegram_id: localStorage.getItem('telegram_id_unsafe'),
+      localStorage_firstName: localStorage.getItem('firstName_unsafe'),
+      localStorage_username: localStorage.getItem('username_unsafe'),
+      hasInitData: !!window.Telegram?.WebApp?.initData
+    });
+    
     return (
         <div className="auth-container">
             <div className="auth-form-wrapper">
                 <h1>InfoCoffee.ru</h1>
                 <p>Ошибка: Не удалось определить ваш Telegram ID. Пожалуйста, откройте приложение снова через вашего Telegram бота.</p>
+                {process.env.NODE_ENV === 'development' && (
+                  <div style={{marginTop: '20px', padding: '10px', background: '#f5f5f5', fontSize: '12px'}}>
+                    <strong>Debug info:</strong><br/>
+                    Location search: {location.search}<br/>
+                    localStorage telegram_id: {localStorage.getItem('telegram_id_unsafe')}<br/>
+                    Registration status: {registrationStatus}
+                  </div>
+                )}
             </div>
         </div>
     );

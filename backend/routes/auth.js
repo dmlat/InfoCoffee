@@ -112,16 +112,30 @@ const validateTelegramInitData = (initDataString) => {
 
 router.post('/telegram-handshake', async (req, res) => {
     const { initData } = req.body;
+    
+    console.log(`[Auth Handshake] 🚀 Starting telegram-handshake request`);
+    console.log(`[Auth Handshake] InitData provided: ${!!initData}, length: ${initData?.length || 0}`);
 
     if (!initData) {
+        console.log(`[Auth Handshake] ❌ No initData provided`);
         return res.status(400).json({ success: false, error: 'initData is required.' });
     }
 
     try {
+        console.log(`[Auth Handshake] 🔍 Validating initData...`);
         const validationResult = validateTelegramInitData(initData);
+        
+        console.log(`[Auth Handshake] Validation result:`, {
+            valid: validationResult.valid,
+            hasData: !!validationResult.data,
+            userId: validationResult.data?.id,
+            firstName: validationResult.data?.first_name,
+            error: validationResult.error
+        });
 
         if (!validationResult.valid || !validationResult.data?.id) {
             const errorMsg = `Invalid Telegram data: ${validationResult.error || 'Unknown validation error'}`;
+            console.log(`[Auth Handshake] ❌ Validation failed: ${errorMsg}`);
             sendErrorToAdmin({
                 telegramId: validationResult.data?.id,
                 errorContext: 'Telegram Handshake Validation',
@@ -133,6 +147,12 @@ router.post('/telegram-handshake', async (req, res) => {
 
         const telegramUser = validationResult.data;
         const telegram_id = telegramUser.id;
+        
+        console.log(`[Auth Handshake] ✅ Validation successful for user:`, {
+            telegram_id,
+            first_name: telegramUser.first_name,
+            username: telegramUser.username
+        });
 
     // --- РЕЖИМ РАЗРАБОТКИ ---
     if (process.env.NODE_ENV === 'development') {
@@ -238,21 +258,33 @@ router.post('/telegram-handshake', async (req, res) => {
     // Приводим telegram_id к строке для консистентности
     const telegram_id_str = telegram_id.toString();
     
+    console.log(`[Auth Handshake] 🔍 PRODUCTION: Searching for user in database with telegram_id: ${telegram_id_str}`);
+    
     let userQuery = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegram_id_str]);
     let user = userQuery.rows[0];
     let role = null;
     let owner_id = null;
     let userForResponse = null;
     
+    console.log(`[Auth Handshake] Database query result:`, {
+        userFound: !!user,
+        userId: user?.id,
+        hasVendistaToken: !!user?.vendista_api_token,
+        paymentStatus: user?.vendista_payment_status
+    });
+    
 
     // ИСПРАВЛЕННАЯ ЛОГИКА: Определяем роль пользователя
     if (user) {
+        console.log(`[Auth Handshake] 👤 User found in database, determining role...`);
         // Если пользователь найден И есть vendista_api_token - это owner
         if (user.vendista_api_token) {
+            console.log(`[Auth Handshake] ✅ User identified as OWNER (has vendista_api_token)`);
             role = 'owner';
             owner_id = user.id;
             userForResponse = user;
         } else {
+            console.log(`[Auth Handshake] 🔍 User found WITHOUT vendista_api_token, checking access_rights...`);
             // Пользователь найден БЕЗ токена, проверяем, может ли он быть admin/service
             const accessRightsResult = await pool.query(
                 `SELECT uar.owner_user_id, uar.access_level, uar.shared_with_name, 
@@ -262,6 +294,12 @@ router.post('/telegram-handshake', async (req, res) => {
                  WHERE uar.shared_with_telegram_id = $1`,
                 [telegram_id_str]
             );
+            
+            console.log(`[Auth Handshake] Access rights query result:`, {
+                foundRights: accessRightsResult.rows.length > 0,
+                accessLevel: accessRightsResult.rows[0]?.access_level,
+                ownerUserId: accessRightsResult.rows[0]?.owner_user_id
+            });
             
             if (accessRightsResult.rows.length > 0) {
                 // Пользователь существует в users, но является admin/service
@@ -287,6 +325,8 @@ router.post('/telegram-handshake', async (req, res) => {
             }
         }
     } else {
+        console.log(`[Auth Handshake] 🆕 NEW USER: Not found in users table, checking access_rights...`);
+        
         // Проверяем user_access_rights для новых admin/service пользователей (не существующих в users)
         const accessRightsResult = await pool.query(
             `SELECT uar.owner_user_id, uar.access_level, uar.shared_with_name, 
@@ -297,7 +337,14 @@ router.post('/telegram-handshake', async (req, res) => {
             [telegram_id_str]
         );
         
+        console.log(`[Auth Handshake] New user access rights check:`, {
+            foundRights: accessRightsResult.rows.length > 0,
+            accessLevel: accessRightsResult.rows[0]?.access_level,
+            ownerUserId: accessRightsResult.rows[0]?.owner_user_id
+        });
+        
         if (accessRightsResult.rows.length > 0) {
+            console.log(`[Auth Handshake] ✅ New user identified as ${accessRightsResult.rows[0].access_level.toUpperCase()}`);
             const accessRecord = accessRightsResult.rows[0];
             role = accessRecord.access_level; // 'admin' или 'service'
             owner_id = accessRecord.owner_user_id;
@@ -313,17 +360,16 @@ router.post('/telegram-handshake', async (req, res) => {
                 acquiring: accessRecord.acquiring
             };
         } else {
-            // Если пользователь новый, создаем запись и отправляем на регистрацию
-            console.log(`[Auth] Creating new user record for telegram_id: ${telegram_id_str}, name: ${telegramUser.first_name || 'N/A'}`);
-            const newUserQuery = await pool.query(
-                "INSERT INTO users (telegram_id, first_name, user_name) VALUES ($1, $2, $3) RETURNING *",
-                [telegram_id_str, telegramUser.first_name || '', telegramUser.username || '']
-            );
-            const newUser = newUserQuery.rows[0];
+            console.log(`[Auth Handshake] 🚨 COMPLETELY NEW USER: Not found anywhere - SHOULD NOT CREATE USER IN DB YET!`);
+            console.log(`[Auth Handshake] User should complete registration first, then we create DB record`);
+            
+            // НЕ создаем пользователя в БД! Возвращаем registration_required БЕЗ создания записи
             role = 'registration_required';
-            owner_id = newUser.id; // owner_id будет использоваться для генерации токена
-            userForResponse = newUser;
-            console.log(`[Auth] New user created successfully with ID: ${newUser.id}, role: ${role}`);
+            userForResponse = {
+                telegram_id: telegram_id_str,
+                first_name: telegramUser.first_name || '',
+                user_name: telegramUser.username || ''
+            };
         }
     }
 
@@ -374,12 +420,12 @@ router.post('/telegram-handshake', async (req, res) => {
             }
         });
     } else if (role === 'registration_required') {
-        // Новый пользователь
+        // Новый пользователь - НЕ создаем в БД, только возвращаем данные для регистрации
+        console.log(`[Auth Handshake] ✅ Returning registration_required for new user`);
         return res.json({
             success: true,
             message: 'registration_required',
             user: {
-                id: userForResponse.id,
                 telegram_id: userForResponse.telegram_id,
                 first_name: telegramUser.first_name,
                 user_name: telegramUser.username
@@ -582,6 +628,18 @@ router.post('/complete-registration', async (req, res) => {
         user_name,
         username
     } = req.body;
+    
+    console.log(`[Complete Registration] 🚀 Starting registration for telegram_id: ${telegram_id}`);
+    console.log(`[Complete Registration] Registration data:`, {
+        telegram_id,
+        hasVendistaToken: !!vendista_api_token_plain,
+        hasCredentials: !!vendista_login && !!vendista_password,
+        setup_date,
+        tax_system,
+        acquiring,
+        first_name: first_name || firstName,
+        user_name: user_name || username
+    });
     // Handle both camelCase and snake_case for names to make the endpoint more robust against client-side changes.
     const final_first_name = req.body.first_name || req.body.firstName;
     const final_user_name = req.body.user_name || req.body.username;
