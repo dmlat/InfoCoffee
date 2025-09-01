@@ -284,6 +284,17 @@ async function fetchTransactionPage(api, page, retries = 2) {
 
         const status = error.response.status;
         console.error(`[Import Worker] User ${api.user_id} request failed on page ${page} with status ${status}.`);
+        
+        // Добавляем детальное логирование для ошибки 400
+        if (status === 400) {
+            console.error(`[Import Worker] VENDISTA_400 Details for User ${api.user_id}:`, {
+                requestUrl,
+                requestParams,
+                responseData: error.response.data,
+                tokenLength: currentToken?.length || 0,
+                tokenStart: currentToken?.substring(0, 10) + '...'
+            });
+        }
 
         if (status === 402) {
             // Payment required is a terminal failure for this user.
@@ -597,7 +608,7 @@ async function processTransactions(ownerUserId, transactions, client, results, i
 }
 
 
-async function startImport({ ownerUserId, vendistaApiToken, appToken, dateFrom, dateTo, isHistoricalImport = true }) {
+async function startImport({ ownerUserId, vendistaApiToken, appToken = null, dateFrom, dateTo, isHistoricalImport = true }) {
     console.log(`[Import Worker] Starting import for user ${ownerUserId}: ${dateFrom} to ${dateTo}`);
     
     try {

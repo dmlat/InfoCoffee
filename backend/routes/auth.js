@@ -786,10 +786,24 @@ router.post('/complete-registration', async (req, res) => {
         (async () => {
             try {
                 await syncTerminalsForUser(user.id, vendista_api_token_plain);
+                
+                // Вычисляем даты для импорта
+                const dateTo = new Date().toISOString().split('T')[0]; // Сегодня
+                const dateFrom = setup_date; // Дата установки кофейни
+                
+                console.log(`[Complete Registration] Starting import for user ${user.id}:`, {
+                    dateFrom,
+                    dateTo,
+                    tokenLength: vendista_api_token_plain?.length || 0,
+                    tokenStart: vendista_api_token_plain?.substring(0, 10) + '...'
+                });
+                
                 await startImport({
-                    user_id: user.id,
+                    ownerUserId: user.id,
                     vendistaApiToken: vendista_api_token_plain,
-                    first_coffee_date: setup_date,
+                    dateFrom: dateFrom,
+                    dateTo: dateTo,
+                    isHistoricalImport: true
                 });
             } catch (importError) {
                 console.error(`[POST /api/auth/complete-registration] Initial import failed for user ${user.id}:`, importError.message, importError.stack);
