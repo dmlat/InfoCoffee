@@ -260,7 +260,7 @@ router.post('/telegram-handshake', async (req, res) => {
     
     console.log(`[Auth Handshake] 🔍 PRODUCTION: Searching for user in database with telegram_id: ${telegram_id_str}`);
     
-    let userQuery = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegram_id_str]);
+    let userQuery = await pool.query('SELECT * FROM users WHERE telegram_id = $1::bigint', [telegram_id_str]);
     let user = userQuery.rows[0];
     let role = null;
     let owner_id = null;
@@ -291,7 +291,7 @@ router.post('/telegram-handshake', async (req, res) => {
                         u.setup_date, u.tax_system, u.acquiring, u.first_name as owner_first_name
                  FROM user_access_rights uar
                  JOIN users u ON uar.owner_user_id = u.id
-                 WHERE uar.shared_with_telegram_id = $1`,
+                 WHERE uar.shared_with_telegram_id = $1::bigint`,
                 [telegram_id_str]
             );
             
@@ -333,7 +333,7 @@ router.post('/telegram-handshake', async (req, res) => {
                     u.setup_date, u.tax_system, u.acquiring, u.first_name as owner_first_name
              FROM user_access_rights uar
              JOIN users u ON uar.owner_user_id = u.id
-             WHERE uar.shared_with_telegram_id = $1`,
+             WHERE uar.shared_with_telegram_id = $1::bigint`,
             [telegram_id_str]
         );
         
@@ -710,7 +710,7 @@ router.post('/complete-registration', async (req, res) => {
         }
 
         // Проверяем, существует ли пользователь
-        const existingUserCheck = await client.query('SELECT id FROM users WHERE telegram_id = $1', [telegram_id]);
+        const existingUserCheck = await client.query('SELECT id FROM users WHERE telegram_id = $1::bigint', [telegram_id]);
         
         let query, values;
         if (existingUserCheck.rows.length > 0) {
@@ -727,7 +727,7 @@ router.post('/complete-registration', async (req, res) => {
                     vendista_login = COALESCE($7, vendista_login),
                     vendista_password = COALESCE($8, vendista_password),
                     vendista_token_status = 'valid'
-                WHERE telegram_id = $9
+                WHERE telegram_id = $9::bigint
                 RETURNING *;
             `;
             values = [
@@ -1070,7 +1070,7 @@ router.get('/validate-token', async (req, res) => {
         let finalUserObject = {};
 
         // 1. Проверяем, является ли пользователь владельцем
-        const ownerResult = await pool.query('SELECT * FROM users WHERE id = $1 AND telegram_id = $2 AND vendista_api_token IS NOT NULL', [userId, telegramId]);
+        const ownerResult = await pool.query('SELECT * FROM users WHERE id = $1 AND telegram_id = $2::bigint AND vendista_api_token IS NOT NULL', [userId, telegramId]);
         
         if (ownerResult.rows.length > 0) {
             userRole = 'owner';
@@ -1082,7 +1082,7 @@ router.get('/validate-token', async (req, res) => {
                     `SELECT uar.*, u.id as owner_user_id 
                      FROM user_access_rights uar 
                      JOIN users u ON uar.owner_user_id = u.id 
-                     WHERE uar.shared_with_telegram_id = $1`,
+                     WHERE uar.shared_with_telegram_id = $1::bigint`,
                     [telegramId]
                 );
                 
@@ -1162,7 +1162,7 @@ router.get('/debug-user/:telegram_id', async (req, res) => {
 
         // Ищем в таблице users
         const userResult = await pool.query(
-            'SELECT id, telegram_id, first_name, user_name, vendista_api_token, setup_date, tax_system, acquiring FROM users WHERE telegram_id = $1',
+            'SELECT id, telegram_id, first_name, user_name, vendista_api_token, setup_date, tax_system, acquiring FROM users WHERE telegram_id = $1::bigint',
             [telegram_id]
         );
 
@@ -1172,7 +1172,7 @@ router.get('/debug-user/:telegram_id', async (req, res) => {
                     u.first_name as owner_first_name, u.telegram_id as owner_telegram_id
              FROM user_access_rights uar
              JOIN users u ON uar.owner_user_id = u.id
-             WHERE uar.shared_with_telegram_id = $1`,
+             WHERE uar.shared_with_telegram_id = $1::bigint`,
             [telegram_id]
         );
 

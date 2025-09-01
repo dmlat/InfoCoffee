@@ -61,7 +61,7 @@ async function auth(req, res, next) { // <-- ИЗМЕНЕНИЕ: функция 
         } else {
             // Для админа или сервисника ищем ID владельца в таблице доступов
             const accessRightRes = await pool.query(
-                'SELECT owner_user_id FROM user_access_rights WHERE shared_with_telegram_id = $1',
+                'SELECT owner_user_id FROM user_access_rights WHERE shared_with_telegram_id = $1::bigint',
                 [req.user.telegramId]
             );
 
