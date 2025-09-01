@@ -918,11 +918,21 @@ router.post('/refresh-app-token', async (req, res) => {
         let userDataForClient;
 
         const ownerRes = await pool.query(
-            'SELECT id, setup_date, tax_system, acquiring, vendista_api_token, first_name, user_name FROM users WHERE telegram_id = $1',
+            'SELECT id, setup_date, tax_system, acquiring, vendista_api_token, first_name, user_name FROM users WHERE telegram_id = $1::bigint',
             [current_telegram_id_refresh]
         );
 
-        console.log(`[Refresh Token] DB query for owner role result: found ${ownerRes.rows.length} rows.`);
+        if (ownerRes.rows.length > 0) {
+            const userFromDb = ownerRes.rows[0];
+            console.log(`[Refresh Token] DB query for owner role found user:`, {
+                id: userFromDb.id,
+                first_name: userFromDb.first_name,
+                has_vendista_token: !!userFromDb.vendista_api_token,
+                vendista_token_preview: userFromDb.vendista_api_token ? userFromDb.vendista_api_token.substring(0, 15) + '...' : null
+            });
+        } else {
+            console.log(`[Refresh Token] DB query for owner role result: found 0 rows.`);
+        }
 
         if (ownerRes.rows.length > 0 && ownerRes.rows[0].vendista_api_token) {
             const ownerUser = ownerRes.rows[0];
@@ -948,7 +958,7 @@ router.post('/refresh-app-token', async (req, res) => {
                         u.setup_date as owner_setup_date, u.tax_system as owner_tax_system, u.acquiring as owner_acquiring
                  FROM user_access_rights uar
                  JOIN users u ON uar.owner_user_id = u.id
-                 WHERE uar.shared_with_telegram_id = $1`,
+                 WHERE uar.shared_with_telegram_id = $1::bigint`,
                 [current_telegram_id_refresh]
             );
             

@@ -27,3 +27,18 @@ This update focuses on major stability improvements, bug fixes, and documentatio
 -   **`CHANGELOG.md`**: This file has been created to track project versions and changes moving forward.
 -   **`Bot.md`**: The technical documentation for the bot has been updated to reflect the `bot.js` refactoring. It now includes a "Technical Debt" section that accurately describes the current state and outlines potential future improvements (e.g., queueing `editMessageText` calls).
 -   **`API_Backend.md`**: The backend API documentation has been updated to include the previously undocumented diagnostic endpoint `POST /api/auth/test-admin-notification`.
+
+### v0.9.1 - 2024-09-01
+
+**Исправления (Fixes):**
+
+-   **Исправлена критическая ошибка аутентификации после регистрации:**
+    -   **Проблема:** После завершения регистрации пользователь видел ошибку "ошибка сети", хотя на бэкенде регистрация проходила успешно. При обновлении страницы пользователь был авторизован.
+    -   **Причина:**
+        1.  **Race Condition (Состояние гонки) на фронтенде:** Сразу после получения успешного ответа о регистрации, фронтенд запускал полную повторную аутентификацию (`reAuthenticate`). Этот запрос уходил слишком быстро, и бэкенд не всегда успевал обработать и найти только что созданного пользователя, что приводило к ошибке "Пользователь не найден".
+        2.  **Неконсистентность API на бэкенде:** Разные эндпоинты (`/complete-registration` и `/refresh-app-token`) возвращали объект пользователя с разным стилем именования ключей (`camelCase` vs `snake_case`), что могло вызывать скрытые ошибки при обработке данных на клиенте.
+    -   **Решение:**
+        1.  **На фронтенде:** Вместо полной повторной аутентификации была внедрена функция `setAuthenticated`, которая плавно переводит приложение в аутентифицированное состояние, используя данные, полученные сразу после регистрации. Это устранило состояние гонки.
+        2.  **На бэкенде:** Все эндпоинты аутентификации были стандартизированы. Теперь они всегда возвращают объект пользователя в `snake_case`, что соответствует формату данных в базе данных.
+    -   **Улучшения:** Добавлено детальное логирование на бэкенде для процесса обновления токена, чтобы упростить диагностику подобных проблем в будущем.
+-   Исправлена ошибка в `updateUserInContext`, при которой могли теряться данные пользователя при обновлении профиля.
