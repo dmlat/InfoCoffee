@@ -782,20 +782,35 @@ router.post('/complete-registration', async (req, res) => {
             JWT_SECRET, { expiresIn: '12h' }
         );
 
-        // Запускаем синхронизацию и импорт в фоновом режиме, НЕ блокируя ответ
+        // Синхронизируем терминалы перед отправкой ответа.
+        // Это критично для первого входа, чтобы у пользователя сразу были данные.
+        try {
+            console.log(`[Complete Registration] SYNC: Starting initial terminal sync for user ${user.id}...`);
+            await syncTerminalsForUser(user.id, vendista_api_token_plain);
+            console.log(`[Complete Registration] SYNC: Initial terminal sync finished for user ${user.id}.`);
+        } catch (syncError) {
+            // Не проваливаем регистрацию, если синхронизация не удалась.
+            // Она будет повторена планировщиком. Логгируем и уведомляем.
+            console.error(`[POST /api/auth/complete-registration] WARNING: Initial terminal sync failed for user ${user.id}:`, syncError.message);
+            sendErrorToAdmin({
+                userId: user.id, telegramId: telegram_id, userFirstName: final_first_name, userUsername: final_user_name,
+                errorContext: `⚠️ Initial Terminal Sync Failed (after registration) for User ID: ${user.id}`,
+                errorMessage: syncError.message, errorStack: syncError.stack
+            }).catch(notifyErr => console.error("Failed to send admin notification for initial sync error:", notifyErr));
+        }
+
+        // Запускаем импорт исторических данных в фоновом режиме, НЕ блокируя ответ
         (async () => {
             try {
-                // ДАЕМ ЗАДЕРЖКУ в 2 секунды, чтобы HTTP-ответ успел уйти клиенту
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // Задержка больше не нужна, запускаем сразу.
+                console.log(`[BACKGROUND REGISTRATION] Starting background import for user ${user.id}...`);
+                
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Небольшая задержка, чтобы ответ точно ушел
 
-                console.log(`[BACKGROUND REGISTRATION] Starting background tasks for user ${user.id}...`);
-                
-                await syncTerminalsForUser(user.id, vendista_api_token_plain);
-                
                 const dateTo = new Date().toISOString().split('T')[0];
                 const dateFrom = setup_date;
                 
-                console.log(`[Complete Registration] Starting import for user ${user.id}:`, {
+                console.log(`[Complete Registration] IMPORT: Starting historical import for user ${user.id}:`, {
                     dateFrom,
                     dateTo,
                     tokenLength: vendista_api_token_plain?.length || 0,
@@ -810,10 +825,10 @@ router.post('/complete-registration', async (req, res) => {
                     isHistoricalImport: true
                 });
 
-                console.log(`[BACKGROUND REGISTRATION] Background tasks for user ${user.id} finished.`);
+                console.log(`[BACKGROUND REGISTRATION] Background import for user ${user.id} finished.`);
 
             } catch (importError) {
-                console.error(`[POST /api/auth/complete-registration] Initial import failed for user ${user.id}:`, importError.message, importError.stack);
+                console.error(`[POST /api/auth/complete-registration] BACKGROUND IMPORT FAILED for user ${user.id}:`, importError.message, importError.stack);
                 sendErrorToAdmin({ 
                     userId: user.id, telegramId: telegram_id, userFirstName: final_first_name, userUsername: final_user_name,
                     errorContext: `Initial Import after registration for User ID: ${user.id}`,
