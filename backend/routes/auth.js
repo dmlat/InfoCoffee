@@ -782,14 +782,18 @@ router.post('/complete-registration', async (req, res) => {
             JWT_SECRET, { expiresIn: '12h' }
         );
 
-        // Запускаем синхронизацию и импорт в фоновом режиме, не блокируя ответ
+        // Запускаем синхронизацию и импорт в фоновом режиме, НЕ блокируя ответ
         (async () => {
             try {
+                // ДАЕМ ЗАДЕРЖКУ в 2 секунды, чтобы HTTP-ответ успел уйти клиенту
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                console.log(`[BACKGROUND REGISTRATION] Starting background tasks for user ${user.id}...`);
+                
                 await syncTerminalsForUser(user.id, vendista_api_token_plain);
                 
-                // Вычисляем даты для импорта
-                const dateTo = new Date().toISOString().split('T')[0]; // Сегодня
-                const dateFrom = setup_date; // Дата установки кофейни
+                const dateTo = new Date().toISOString().split('T')[0];
+                const dateFrom = setup_date;
                 
                 console.log(`[Complete Registration] Starting import for user ${user.id}:`, {
                     dateFrom,
@@ -805,6 +809,9 @@ router.post('/complete-registration', async (req, res) => {
                     dateTo: dateTo,
                     isHistoricalImport: true
                 });
+
+                console.log(`[BACKGROUND REGISTRATION] Background tasks for user ${user.id} finished.`);
+
             } catch (importError) {
                 console.error(`[POST /api/auth/complete-registration] Initial import failed for user ${user.id}:`, importError.message, importError.stack);
                 sendErrorToAdmin({ 
