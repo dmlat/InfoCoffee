@@ -775,6 +775,18 @@ router.post('/complete-registration', async (req, res) => {
         const { rows } = await client.query(query, values);
         const user = rows[0];
 
+        if (!user) {
+            await client.query('ROLLBACK');
+            console.error('[Complete Registration] ❌ CRITICAL: User record not created/returned after INSERT/UPDATE.', { query, values });
+            sendErrorToAdmin({
+                telegramId: telegram_id,
+                errorContext: 'Complete Registration - User Creation Failed',
+                errorMessage: 'After running INSERT/UPDATE for a new user, the database did not return a user object.',
+                additionalInfo: { query, values }
+            }).catch(console.error);
+            return res.status(500).json({ success: false, error: 'Не удалось создать запись пользователя в базе данных.' });
+        }
+
         await client.query('COMMIT');
 
         const appToken = jwt.sign(
