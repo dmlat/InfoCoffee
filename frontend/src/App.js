@@ -352,6 +352,14 @@ function AuthProvider({ children }) {
     delete api.defaults.headers.common['Authorization'];
   };
 
+  const setAuthenticated = (token, user) => {
+    authLogger.info('✅ Manually setting authenticated state after registration/login');
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    setUser(user);
+    saveUserDataToLocalStorage({ token, user });
+    setAuthStatus('authenticated');
+  };
+
   const completeRegistration = async (registrationData) => {
     try {
       const response = await api.post('/auth/register', registrationData);
@@ -380,17 +388,21 @@ function AuthProvider({ children }) {
       return;
     }
     
-    const currentUserData = JSON.parse(localStorage.getItem('authData'));
+    const currentUserData = JSON.parse(localStorage.getItem('authData')) || {};
     const newUserData = {
-      token: currentUserData.token, // Сохраняем старый токен
-      user: updatedUserData
+        ...currentUserData.user,
+        ...updatedUserData
     };
-    saveUserDataToLocalStorage(newUserData);
-    setUser(updatedUserData);
+    
+    saveUserDataToLocalStorage({
+        token: currentUserData.token,
+        user: newUserData
+    });
+    setUser(newUserData);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, completeRegistration, authStatus, error, updateUserInContext, reAuthenticate, isLoading, token: getUser()?.token }}>
+    <AuthContext.Provider value={{ user, login, logout, completeRegistration, authStatus, error, updateUserInContext, reAuthenticate, isLoading, token: getUser()?.token, setAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );

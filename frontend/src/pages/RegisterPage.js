@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import apiClient from '../api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { saveUserDataToLocalStorage } from '../utils/user';
+import { useAuth } from '../App';
+import authLogger from '../utils/authLogger';
 
 
 const taxOptions = [
@@ -14,9 +16,10 @@ function normalizeCommission(input) {
   return String(input).replace(',', '.').replace(/[^0-9.]/g, '');
 }
 
-export default function RegisterPage({ setIsAuth }) {
+export default function RegisterPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { setAuthenticated } = useAuth();
 
   const [telegramId, setTelegramId] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -116,20 +119,36 @@ export default function RegisterPage({ setIsAuth }) {
 
       if (response.data.success && response.data.token) {
         
-        // ПРАВИЛЬНЫЙ СПОСОБ: Используем централизованную функцию для сохранения данных
-        saveUserDataToLocalStorage({
-            token: response.data.token,
-            user: response.data.user
-        });
+        setFinalRegStatus({ status: 'success', message: 'Регистрация успешно завершена! Вход в приложение...' });
         
-        setIsAuth('authenticated');
-        setFinalRegStatus({ status: 'success', message: 'Регистрация успешно завершена! Перенаправление...' });
-        setTimeout(() => navigate('/dashboard', { replace: true }), 1500);
+        // Используем новую функцию для установки состояния без полной перезагрузки
+        setAuthenticated(response.data.token, response.data.user);
+
       } else {
-        setFinalRegStatus({ status: 'error', message: response.data.error || 'Ошибка при завершении регистрации.' });
+        const errorMessage = response.data.error || 'Ошибка при завершении регистрации.';
+        setFinalRegStatus({ status: 'error', message: errorMessage });
+        authLogger.error('Registration failed on backend', { response: response.data }, {
+            telegramId,
+            vendistaLogin
+        });
+        authLogger.sendAuthErrorToTelegram(
+            'Complete Registration Backend Error',
+            errorMessage,
+            { telegram_id: telegramId, first_name: firstName, user_name: username }
+        );
       }
     } catch (err) {
-      setFinalRegStatus({ status: 'error', message: err.response?.data?.error || 'Ошибка сети при завершении регистрации.' });
+      const errorMessage = err.response?.data?.error || 'Ошибка сети при завершении регистрации.';
+      setFinalRegStatus({ status: 'error', message: errorMessage });
+      authLogger.error('Registration failed on frontend with network error', err, {
+        telegramId,
+        vendistaLogin
+      });
+      authLogger.sendAuthErrorToTelegram(
+          'Complete Registration Frontend Network Error',
+          errorMessage,
+          { telegram_id: telegramId, first_name: firstName, user_name: username }
+      );
     }
   };
 

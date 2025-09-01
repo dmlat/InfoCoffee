@@ -849,13 +849,21 @@ router.post('/complete-registration', async (req, res) => {
             }
         })();
 
+        const userForClient = {
+            id: user.id,
+            telegram_id: user.telegram_id.toString(),
+            first_name: user.first_name,
+            user_name: user.user_name,
+            setup_date: user.setup_date,
+            tax_system: user.tax_system,
+            acquiring: user.acquiring !== null ? String(user.acquiring) : null,
+            accessLevel: 'owner'
+        };
+
         res.status(200).json({
-            success: true, token: appToken,
-            user: { 
-                userId: user.id, telegramId: telegram_id.toString(), firstName: final_first_name, username: final_user_name,   
-                setup_date: setup_date, tax_system: user.tax_system,
-                acquiring: user.acquiring !== null ? String(user.acquiring) : null, accessLevel: 'owner'
-            }
+            success: true,
+            token: appToken,
+            user: userForClient
         });
 
     } catch (err) {
@@ -903,6 +911,9 @@ router.post('/refresh-app-token', async (req, res) => {
     const current_telegram_id_refresh = telegramUser.id.toString();
 
     try {
+        console.log(`[Refresh Token] 🔄 Attempting to refresh token for telegram_id: ${current_telegram_id_refresh}`);
+        console.log(`[Refresh Token] Full telegramUser from initData:`, telegramUser);
+
         let tokenPayload;
         let userDataForClient;
 
@@ -910,6 +921,8 @@ router.post('/refresh-app-token', async (req, res) => {
             'SELECT id, setup_date, tax_system, acquiring, vendista_api_token, first_name, user_name FROM users WHERE telegram_id = $1',
             [current_telegram_id_refresh]
         );
+
+        console.log(`[Refresh Token] DB query for owner role result: found ${ownerRes.rows.length} rows.`);
 
         if (ownerRes.rows.length > 0 && ownerRes.rows[0].vendista_api_token) {
             const ownerUser = ownerRes.rows[0];
@@ -919,16 +932,17 @@ router.post('/refresh-app-token', async (req, res) => {
                 accessLevel: 'owner'
             };
             userDataForClient = {
-                userId: ownerUser.id,
-                telegramId: current_telegram_id_refresh,
-                firstName: ownerUser.first_name || telegramUser.first_name,
-                username: ownerUser.user_name || telegramUser.username,
+                id: ownerUser.id,
+                telegram_id: current_telegram_id_refresh,
+                first_name: ownerUser.first_name || telegramUser.first_name,
+                user_name: ownerUser.user_name || telegramUser.username,
                 setup_date: ownerUser.setup_date,
                 tax_system: ownerUser.tax_system,
                 acquiring: ownerUser.acquiring !== null ? String(ownerUser.acquiring) : null,
                 accessLevel: 'owner'
             };
         } else {
+            console.log(`[Refresh Token] Not an owner. Checking access rights...`);
             const accessRightsResult = await pool.query(
                 `SELECT uar.owner_user_id, uar.access_level, uar.shared_with_name, 
                         u.setup_date as owner_setup_date, u.tax_system as owner_tax_system, u.acquiring as owner_acquiring
@@ -937,6 +951,8 @@ router.post('/refresh-app-token', async (req, res) => {
                  WHERE uar.shared_with_telegram_id = $1`,
                 [current_telegram_id_refresh]
             );
+            
+            console.log(`[Refresh Token] DB query for access rights result: found ${accessRightsResult.rows.length} rows.`);
             
             if (accessRightsResult.rows.length > 0) {
                 const accessRecord = accessRightsResult.rows[0];
@@ -947,10 +963,10 @@ router.post('/refresh-app-token', async (req, res) => {
                     sharedName: accessRecord.shared_with_name
                 };
                  userDataForClient = {
-                    userId: accessRecord.owner_user_id,
-                    telegramId: current_telegram_id_refresh,
-                    firstName: accessRecord.shared_with_name,
-                    username: telegramUser.username,
+                    id: accessRecord.owner_user_id,
+                    telegram_id: current_telegram_id_refresh,
+                    first_name: accessRecord.shared_with_name,
+                    user_name: telegramUser.username,
                     setup_date: accessRecord.owner_setup_date,
                     tax_system: accessRecord.owner_tax_system,
                     acquiring: accessRecord.owner_acquiring,
@@ -960,12 +976,19 @@ router.post('/refresh-app-token', async (req, res) => {
         }
 
         if (!tokenPayload) {
-            console.error('[Refresh Token] CRITICAL: No token payload could be generated. User not found as owner or in access rights.');
+            console.error(`[Refresh Token] CRITICAL: No token payload could be generated for telegram_id: ${current_telegram_id_refresh}. User not found as owner or in access rights.`);
             const errorMsg = 'Пользователь не найден или доступ не предоставлен. Невозможно обновить токен.';
             sendErrorToAdmin({
                 telegramId: current_telegram_id_refresh,
                 errorContext: 'Refresh App Token - User/Access Not Found',
-                errorMessage: errorMsg
+                errorMessage: errorMsg,
+                additionalInfo: {
+                    note: 'This error occurs when the backend cannot find a user with the provided Telegram ID during a token refresh attempt.',
+                    searched_telegram_id: current_telegram_id_refresh,
+                    init_data_user: telegramUser,
+                    init_data_provided: !!initData,
+                    validation_was_valid: validationResult.valid
+                }
             }).catch(console.error);
             return res.status(401).json({ success: false, error: errorMsg });
         }
