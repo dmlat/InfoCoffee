@@ -1,6 +1,6 @@
 // frontend/src/pages/RegisterPage.js
 import React, { useState, useEffect } from 'react';
-import apiClient from '../api';
+import { apiClientLongTimeout } from '../api'; // ИЗМЕНЕНО: импортируем клиент с длинным таймаутом
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const taxOptions = [
@@ -60,7 +60,7 @@ export default function RegisterPage({ setIsAuth }) {
     e.preventDefault();
     setVendistaCheckStatus({ status: 'loading', message: 'Проверка учетных данных Vendista...' });
     try {
-      const response = await apiClient.post('/auth/validate-vendista', { // Новый эндпоинт
+      const response = await apiClientLongTimeout.post('/auth/validate-vendista', { // Новый эндпоинт
         telegram_id: telegramId, // telegram_id нужен для логов или будущих проверок
         vendista_login: vendistaLogin,
         vendista_password: vendistaPassword
@@ -98,7 +98,7 @@ export default function RegisterPage({ setIsAuth }) {
     if (normalizedAcq !== null) normalizedAcq = parseFloat(normalizedAcq);
 
     try {
-      const response = await apiClient.post('/auth/complete-registration', {
+      const response = await apiClientLongTimeout.post('/auth/complete-registration', { // ИЗМЕНЕНО: используем клиент с длинным таймаутом
         telegram_id: telegramId,
         vendista_api_token_plain: vendistaApiTokenPlain, // Отправляем нешифрованный токен Vendista
         vendista_login: vendistaLogin, // ИСПРАВЛЕНО: Добавляем логин Vendista

@@ -119,4 +119,34 @@ apiClient.interceptors.response.use(
     }
 );
 
+export const apiClientLongTimeout = axios.create({
+    baseURL: process.env.NODE_ENV === 'production' 
+        ? 'https://infocoffee.ru/api' 
+        : process.env.REACT_APP_API_BASE_URL || '/api',
+    timeout: 90000 // 90 секунд
+});
+
+apiClientLongTimeout.interceptors.request.use(config => {
+  if (process.env.NODE_ENV === 'development') {
+    const urlParams = new URLSearchParams(window.location.search);
+    const emulatedRole = urlParams.get('role');
+    if (emulatedRole) {
+      config.headers['X-Emulated-Role'] = emulatedRole;
+    }
+  }
+  return config;
+}, error => Promise.reject(error));
+
+apiClientLongTimeout.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('app_token');
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
+
 export default apiClient;
