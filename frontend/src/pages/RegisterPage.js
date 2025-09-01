@@ -85,6 +85,11 @@ export default function RegisterPage({ setIsAuth }) {
       setFinalRegStatus({ status: 'error', message: 'Укажите дату установки кофейни.' });
       return;
     }
+    
+    if (!vendistaApiTokenPlain || !vendistaLogin || !vendistaPassword) {
+      setFinalRegStatus({ status: 'error', message: 'Ошибка: отсутствуют данные Vendista. Пожалуйста, вернитесь к первому шагу.' });
+      return;
+    }
     let normalizedAcq = acquiringRate ? normalizeCommission(acquiringRate) : null;
     if (acquiringRate && (normalizedAcq === '' || isNaN(parseFloat(normalizedAcq)))) {
         setFinalRegStatus({ status: 'error', message: 'Комиссия эквайринга должна быть числом, например 2.1' });
@@ -96,6 +101,8 @@ export default function RegisterPage({ setIsAuth }) {
       const response = await apiClient.post('/auth/complete-registration', {
         telegram_id: telegramId,
         vendista_api_token_plain: vendistaApiTokenPlain, // Отправляем нешифрованный токен Vendista
+        vendista_login: vendistaLogin, // ИСПРАВЛЕНО: Добавляем логин Vendista
+        vendista_password: vendistaPassword, // ИСПРАВЛЕНО: Добавляем пароль Vendista
         setup_date: setupDate,
         tax_system: taxSystem || null,
         acquiring: normalizedAcq,

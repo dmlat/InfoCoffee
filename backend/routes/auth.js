@@ -669,44 +669,108 @@ router.post('/complete-registration', async (req, res) => {
     try {
         await client.query('BEGIN');
         
+        console.log(`[Complete Registration] 🔐 Attempting to encrypt data...`);
+        console.log(`[Complete Registration] Data to encrypt:`, {
+            hasVendistaToken: !!vendista_api_token_plain,
+            tokenLength: vendista_api_token_plain?.length || 0,
+            hasLogin: !!vendista_login,
+            loginLength: vendista_login?.length || 0,
+            hasPassword: !!vendista_password,
+            passwordLength: vendista_password?.length || 0,
+            encryptionKeyAvailable: !!process.env.ENCRYPTION_KEY
+        });
+        
         const encrypted_token = encrypt(vendista_api_token_plain);
         const encrypted_login = encrypt(vendista_login);
         const encrypted_password = encrypt(vendista_password);
 
+        console.log(`[Complete Registration] Encryption results:`, {
+            tokenEncrypted: !!encrypted_token,
+            loginEncrypted: !!encrypted_login,
+            passwordEncrypted: !!encrypted_password
+        });
+
         if (!encrypted_token) {
+            console.error(`[Complete Registration] ❌ Failed to encrypt token`, {
+                tokenProvided: !!vendista_api_token_plain,
+                tokenValue: vendista_api_token_plain?.substring(0, 10) + '...'
+            });
             await client.query('ROLLBACK');
             return res.status(500).json({ success: false, error: 'Failed to encrypt token' });
         }
         if (!encrypted_login || !encrypted_password) {
+            console.error(`[Complete Registration] ❌ Failed to encrypt credentials`, {
+                loginProvided: !!vendista_login,
+                passwordProvided: !!vendista_password,
+                loginValue: vendista_login?.substring(0, 3) + '...',
+                passwordValue: vendista_password ? '[PROVIDED]' : '[MISSING]'
+            });
             await client.query('ROLLBACK');
             return res.status(500).json({ success: false, error: 'Failed to encrypt credentials' });
         }
 
-        const query = `
-            UPDATE users 
-            SET vendista_api_token = $1, 
-                setup_date = $2, 
-                tax_system = COALESCE($3, tax_system), 
-                acquiring = COALESCE($4, acquiring),
-                first_name = COALESCE($5, first_name),
-                user_name = COALESCE($6, user_name),
-                vendista_login = COALESCE($7, vendista_login),
-                vendista_password = COALESCE($8, vendista_password),
-                vendista_token_status = 'valid'
-            WHERE telegram_id = $9
-            RETURNING *;
-        `;
-        const values = [
-            encrypted_token, 
-            setup_date, 
-            tax_system, 
-            acquiring,
-            final_first_name,
-            final_user_name,
-            encrypted_login,
-            encrypted_password,
-            telegram_id
-        ];
+        // Проверяем, существует ли пользователь
+        const existingUserCheck = await client.query('SELECT id FROM users WHERE telegram_id = $1', [telegram_id]);
+        
+        let query, values;
+        if (existingUserCheck.rows.length > 0) {
+            // Пользователь существует - обновляем
+            console.log(`[Complete Registration] 📝 Updating existing user with telegram_id: ${telegram_id}`);
+            query = `
+                UPDATE users 
+                SET vendista_api_token = $1, 
+                    setup_date = $2, 
+                    tax_system = COALESCE($3, tax_system), 
+                    acquiring = COALESCE($4, acquiring),
+                    first_name = COALESCE($5, first_name),
+                    user_name = COALESCE($6, user_name),
+                    vendista_login = COALESCE($7, vendista_login),
+                    vendista_password = COALESCE($8, vendista_password),
+                    vendista_token_status = 'valid'
+                WHERE telegram_id = $9
+                RETURNING *;
+            `;
+            values = [
+                encrypted_token, 
+                setup_date, 
+                tax_system, 
+                acquiring,
+                final_first_name,
+                final_user_name,
+                encrypted_login,
+                encrypted_password,
+                telegram_id
+            ];
+        } else {
+            // Пользователь не существует - создаем
+            console.log(`[Complete Registration] 🆕 Creating new user with telegram_id: ${telegram_id}`);
+            query = `
+                INSERT INTO users (
+                    telegram_id, 
+                    vendista_api_token, 
+                    setup_date, 
+                    tax_system, 
+                    acquiring,
+                    first_name,
+                    user_name,
+                    vendista_login,
+                    vendista_password,
+                    vendista_token_status
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'valid')
+                RETURNING *;
+            `;
+            values = [
+                telegram_id,
+                encrypted_token, 
+                setup_date, 
+                tax_system, 
+                acquiring,
+                final_first_name,
+                final_user_name,
+                encrypted_login,
+                encrypted_password
+            ];
+        }
 
         const { rows } = await client.query(query, values);
         const user = rows[0];
