@@ -1,7 +1,9 @@
 // frontend/src/pages/RegisterPage.js
 import React, { useState, useEffect } from 'react';
-import { apiClientLongTimeout } from '../api'; // ИЗМЕНЕНО: импортируем клиент с длинным таймаутом
+import apiClient from '../api';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { saveUserDataToLocalStorage } from '../utils/user';
+
 
 const taxOptions = [
   { value: 'income_6', label: 'Доходы 6%' },
@@ -60,7 +62,7 @@ export default function RegisterPage({ setIsAuth }) {
     e.preventDefault();
     setVendistaCheckStatus({ status: 'loading', message: 'Проверка учетных данных Vendista...' });
     try {
-      const response = await apiClientLongTimeout.post('/auth/validate-vendista', { // Новый эндпоинт
+      const response = await apiClient.post('/auth/validate-vendista', { // Новый эндпоинт
         telegram_id: telegramId, // telegram_id нужен для логов или будущих проверок
         vendista_login: vendistaLogin,
         vendista_password: vendistaPassword
@@ -98,31 +100,28 @@ export default function RegisterPage({ setIsAuth }) {
     if (normalizedAcq !== null) normalizedAcq = parseFloat(normalizedAcq);
 
     try {
-      const response = await apiClientLongTimeout.post('/auth/complete-registration', { // ИЗМЕНЕНО: используем клиент с длинным таймаутом
+      const response = await apiClient.post('/auth/complete-registration', {
         telegram_id: telegramId,
         vendista_api_token_plain: vendistaApiTokenPlain, // Отправляем нешифрованный токен Vendista
-        vendista_login: vendistaLogin, // ИСПРАВЛЕНО: Добавляем логин Vendista
-        vendista_password: vendistaPassword, // ИСПРАВЛЕНО: Добавляем пароль Vendista
+        vendista_login: vendistaLogin, 
+        vendista_password: vendistaPassword, 
         setup_date: setupDate,
         tax_system: taxSystem || null,
         acquiring: normalizedAcq,
-        first_name: firstName, // ИСПРАВЛЕНО: firstName -> first_name
-        user_name: username   // ИСПРАВЛЕНО: username -> user_name
+        first_name: firstName, 
+        user_name: username  
+      }, {
+        timeout: 90000 // Устанавливаем таймаут в 90 секунд только для этого запроса
       });
 
       if (response.data.success && response.data.token) {
-        localStorage.setItem('app_token', response.data.token);
-        if (response.data.user) {
-            // Используем saveUserDataToLocalStorage из App.js или apiClient.js (если она экспортирована и импортирована)
-            // Для простоты, дублируем логику сохранения здесь или передаем как prop
-            localStorage.setItem('userId', String(response.data.user.userId));
-            localStorage.setItem('telegramId', String(response.data.user.telegramId || ''));
-            localStorage.setItem('userFirstName', response.data.user.firstName || '');
-            localStorage.setItem('userUsername', response.data.user.username || '');
-            localStorage.setItem('user_setup_date', response.data.user.setup_date || '');
-            localStorage.setItem('user_tax_system', response.data.user.tax_system || '');
-            localStorage.setItem('user_acquiring_rate', String(response.data.user.acquiring || '0'));
-        }
+        
+        // ПРАВИЛЬНЫЙ СПОСОБ: Используем централизованную функцию для сохранения данных
+        saveUserDataToLocalStorage({
+            token: response.data.token,
+            user: response.data.user
+        });
+        
         setIsAuth('authenticated');
         setFinalRegStatus({ status: 'success', message: 'Регистрация успешно завершена! Перенаправление...' });
         setTimeout(() => navigate('/dashboard', { replace: true }), 1500);
