@@ -108,6 +108,30 @@ async function runScheduledJob(jobName, dateSubtractArgs, isFullHistory) {
         FROM users 
         WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL
     `);
+    
+    // НОВОЕ: Проверяем пользователей с токеном, но БЕЗ setup_date (критическая проблема!)
+    const brokenUsersRes = await pool.query(`
+        SELECT id, first_name, user_name, telegram_id 
+        FROM users 
+        WHERE vendista_api_token IS NOT NULL AND setup_date IS NULL
+    `);
+    
+    if (brokenUsersRes.rows.length > 0) {
+        for (const brokenUser of brokenUsersRes.rows) {
+            console.error(`[Cron ${logTime}] [${jobName}] ⚠️ CRITICAL: User ${brokenUser.id} (${brokenUser.first_name}) has vendista_api_token but NO setup_date!`);
+            await sendErrorToAdmin({
+                userId: brokenUser.id,
+                errorContext: `🚨 КРИТИЧЕСКАЯ ПРОБЛЕМА: Воркеры не работают для пользователя`,
+                errorMessage: `⚠️ У пользователя ${brokenUser.first_name || 'N/A'} (@${brokenUser.user_name || 'N/A'}, ID: ${brokenUser.id}) есть токен Vendista, но ОТСУТСТВУЕТ setup_date!\n\n` +
+                             `Это критическая проблема: воркеры импорта транзакций НЕ РАБОТАЮТ для этого пользователя.\n\n` +
+                             `Причина: setup_date является обязательным полем для работы воркеров.\n\n` +
+                             `Решение: Пользователю нужно зайти в профиль и установить дату установки первого аппарата, либо выполнить в БД:\n` +
+                             `UPDATE users SET setup_date = 'YYYY-MM-DD' WHERE id = ${brokenUser.id};`,
+                errorStack: null
+            });
+        }
+    }
+    
     if (usersRes.rows.length === 0) {
       console.log(`[Cron ${logTime}] [${jobName}] Нет пользователей для импорта.`);
       return;
