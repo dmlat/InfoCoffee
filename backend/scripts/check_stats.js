@@ -6,18 +6,15 @@ async function check() {
     try {
         console.log('Checking User 1 stats since Jan 1 2026...');
         const res = await pool.query(`
-            SELECT 
-                COUNT(*) as count, 
-                SUM(amount) as total_sum_raw 
+            SELECT user_id, COUNT(*) as count, SUM(amount) as sum
             FROM transactions 
-            WHERE user_id = 1 AND transaction_time >= '2026-01-01'
+            GROUP BY user_id
         `);
         
-        const row = res.rows[0];
-        console.log('--- RESULT ---');
-        console.log(`Count: ${row.count}`);
-        console.log(`Total Sum (Raw in DB): ${row.total_sum_raw}`);
-        console.log(`Total Sum (Rubles / 100): ${row.total_sum_raw / 100}`);
+        console.log('--- RESULT BY USER ---');
+        res.rows.forEach(row => {
+            console.log(`User ID: ${row.user_id}, Count: ${row.count}, Sum: ${row.sum}`);
+        });
         
     } catch (e) {
         console.error(e);
