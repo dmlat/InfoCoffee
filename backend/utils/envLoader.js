@@ -1,43 +1,55 @@
 // backend/utils/envLoader.js
-// Централизованная загрузка переменных окружения
-console.log('[ENV LOADER] Starting environment loader...');
-
-let envPath = 'unknown';
-let IS_PRODUCTION = false;
-
-try {
-    const path = require('path');
-    console.log('[ENV LOADER] Path module loaded successfully');
-
-    // Определяем режим работы
-    IS_PRODUCTION = process.env.NODE_ENV === 'production';
-    console.log('[ENV LOADER] Production check complete');
-
-    // Выбираем правильный .env файл
-    const envFile = IS_PRODUCTION ? '.env' : '.env.development';
-    envPath = path.resolve(__dirname, '..', envFile);
-    console.log(`[ENV LOADER] Trying to load: ${envPath}`);
-
-    // Загружаем переменные окружения
-    const dotenvResult = require('dotenv').config({ path: envPath });
-    console.log('[ENV LOADER] Dotenv config result:', dotenvResult.error ? `ERROR: ${dotenvResult.error}` : 'SUCCESS');
-} catch (error) {
-    console.error('[ENV LOADER] CRITICAL ERROR during initialization:', error);
-    throw error;
-}
-
-// Логируем для отладки (ВСЕГДА, чтобы диагностировать проблему на проде)
-console.log(`[ENV] Loaded environment from: ${envPath}`);
-console.log(`[ENV] NODE_ENV: ${process.env.NODE_ENV}`);
-console.log(`[ENV] IS_PRODUCTION: ${IS_PRODUCTION}`);
-console.log(`[ENV] TELEGRAM_BOT_TOKEN present: ${!!process.env.TELEGRAM_BOT_TOKEN}`);
-console.log(`[ENV] DEV_TELEGRAM_BOT_TOKEN present: ${!!process.env.DEV_TELEGRAM_BOT_TOKEN}`);
-
-// Проверим, существует ли файл .env
+const path = require('path');
 const fs = require('fs');
-console.log(`[ENV] .env file exists: ${fs.existsSync(envPath)}`);
-if (fs.existsSync(envPath)) {
-    console.log(`[ENV] .env file size: ${fs.statSync(envPath).size} bytes`);
+
+function loadEnv() {
+    // Determine environment
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    
+    // Define paths
+    const rootDir = path.resolve(__dirname, '..');
+    const envPaths = {
+        production: path.join(rootDir, '.env'),
+        development: path.join(rootDir, '.env.development')
+    };
+
+    const targetPath = nodeEnv === 'production' ? envPaths.production : envPaths.development;
+
+    console.log(`[EnvLoader] Loading configuration for: ${nodeEnv}`);
+    console.log(`[EnvLoader] Target path: ${targetPath}`);
+
+    // Check if file exists
+    if (!fs.existsSync(targetPath)) {
+        console.warn(`[EnvLoader] Warning: .env file not found at ${targetPath}`);
+        if (nodeEnv === 'production') {
+            console.error('[EnvLoader] CRITICAL: Production .env missing!');
+        }
+    }
+
+    // Load environment variables
+    const result = require('dotenv').config({ path: targetPath });
+
+    if (result.error) {
+        console.error('[EnvLoader] Error loading .env file:', result.error);
+        throw result.error;
+    }
+
+    // Verify critical variables
+    const criticalVars = ['PGHOST', 'PGUSER', 'PGDATABASE', 'TELEGRAM_BOT_TOKEN'];
+    const missingVars = criticalVars.filter(key => !process.env[key]);
+
+    if (missingVars.length > 0) {
+        console.error(`[EnvLoader] Missing critical environment variables: ${missingVars.join(', ')}`);
+        // In production, this should likely throw, but we'll just warn for now to avoid breaking existing setups immediately
+        if (nodeEnv === 'production') {
+             console.warn('[EnvLoader] Application may not function correctly.');
+        }
+    } else {
+        console.log('[EnvLoader] Environment variables loaded successfully.');
+    }
 }
 
-module.exports = {};
+// Execute immediately upon require
+loadEnv();
+
+module.exports = { loadEnv };

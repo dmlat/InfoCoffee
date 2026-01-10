@@ -11,7 +11,9 @@ module.exports = {
       log_file: '/root/.pm2/logs/infocoffee-backend.log',
       time: true,
       instances: 1,
-      exec_mode: 'fork'
+      exec_mode: 'fork',
+      exp_backoff_restart_delay: 1000,
+      max_memory_restart: '300M'
     },
     {
       name: 'infocoffee-scheduler',
@@ -24,7 +26,9 @@ module.exports = {
       log_file: '/root/.pm2/logs/infocoffee-scheduler.log',
       time: true,
       instances: 1,
-      exec_mode: 'fork'
+      exec_mode: 'fork',
+      exp_backoff_restart_delay: 1000,
+      max_memory_restart: '300M'
     }
   ]
-} 
+}

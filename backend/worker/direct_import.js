@@ -1,15 +1,8 @@
 // backend/worker/direct_import.js
 const path = require('path');
 
-// Загружаем переменные окружения
-if (process.env.NODE_ENV === 'production') {
-    console.log('[ENV] Production mode detected. Loading .env');
-    require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-} else {
-    process.env.NODE_ENV = 'development';
-    console.log('[ENV] Defaulting to development mode. Loading .env.development');
-    require('dotenv').config({ path: path.resolve(__dirname, '../.env.development') });
-}
+// Централизованная загрузка окружения
+require('../utils/envLoader');
 
 require('../utils/logger');
 const { pool } = require('../db');

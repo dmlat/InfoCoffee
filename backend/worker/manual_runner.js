@@ -1,17 +1,11 @@
 // backend/worker/manual_runner.js
 const path = require('path');
 
-// ВАЖНО: Загружаем переменные окружения ПЕРЕД всеми остальными импортами
-if (process.env.NODE_ENV === 'production') {
-    console.log('[ENV] Production mode detected. Loading .env');
-    require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-} else {
-    process.env.NODE_ENV = 'development'; // Принудительно устанавливаем для надежности
-    console.log('[ENV] Defaulting to development mode. Loading .env.development');
-    require('dotenv').config({ path: path.resolve(__dirname, '../.env.development') });
-}
+// Централизованная загрузка окружения
+require('../utils/envLoader');
 
 require('../utils/logger'); // Глобальное подключение логгера
+
 const { pool } = require('../db');
 const { decrypt, encrypt } = require('../utils/security');
 const { getNewVendistaToken } = require('../utils/vendista');

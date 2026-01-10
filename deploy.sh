@@ -1,198 +1,52 @@
 #!/bin/bash
-# --- CONFIGURATION ---
-WEB_ROOT="/var/www/va"
-# --- END CONFIGURATION ---
+# deploy.sh - Script for deploying updates to the Production Server (VA)
 
-set -e # Exit immediately if a command exits with a non-zero status.
+# Configuration
+SERVER_ALIAS="ic"
+REMOTE_DIR="/root/VA"
+BRANCH="master"
 
-echo " "
-echo "--- [START] Deployment for InfoCoffee ---"
-echo " "
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
-# --- Шаг 1: Установка зависимостей БЭКЕНДА ---
-echo "[1/7] Checking backend dependencies..."
+echo -e "${YELLOW}Starting deployment to ${SERVER_ALIAS} (${REMOTE_DIR})...${NC}"
 
-# Улучшенная проверка зависимостей backend
-BACKEND_NEEDS_INSTALL=false
-
-# Проверяем существование node_modules
-if [ ! -d "backend/node_modules" ]; then
-    echo "      Backend node_modules not found."
-    BACKEND_NEEDS_INSTALL=true
+# 1. Push local changes
+echo -e "${YELLOW}1. Pushing local changes to GitHub...${NC}"
+git push origin $BRANCH
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Git push failed. Aborting.${NC}"
+    exit 1
 fi
 
-# Проверяем наличие .install-stamp
-if [ ! -f "backend/node_modules/.install-stamp" ]; then
-    echo "      Backend install stamp missing."
-    BACKEND_NEEDS_INSTALL=true
-fi
+# 2. SSH into server and update
+echo -e "${YELLOW}2. Connecting to server to pull changes...${NC}"
+ssh $SERVER_ALIAS "bash -s" << EOF
+    set -e # Exit on error
 
-# Проверяем актуальность package.json
-if [ -f "backend/node_modules/.install-stamp" ] && [ "backend/package.json" -nt "backend/node_modules/.install-stamp" ]; then
-    echo "      Backend package.json is newer than install stamp."
-    BACKEND_NEEDS_INSTALL=true
-fi
+    echo "   -> cd ${REMOTE_DIR}"
+    cd ${REMOTE_DIR}
 
-# Проверяем актуальность package-lock.json
-if [ -f "backend/node_modules/.install-stamp" ] && [ "backend/package-lock.json" -nt "backend/node_modules/.install-stamp" ]; then
-    echo "      Backend package-lock.json is newer than install stamp."
-    BACKEND_NEEDS_INSTALL=true
-fi
+    echo "   -> git pull origin ${BRANCH}"
+    git pull origin ${BRANCH}
 
-if [ "$BACKEND_NEEDS_INSTALL" = true ]; then
-    echo "      Backend dependencies need to be installed..."
-    (cd backend && npm install --omit=dev)
-    # Создаем директорию если не существует и обновляем метку
-    mkdir -p backend/node_modules
-    touch backend/node_modules/.install-stamp
-    echo "      Backend dependencies installed and stamp updated."
+    echo "   -> npm install (in backend)"
+    cd backend
+    npm install --production
+
+    echo "   -> Restarting PM2 processes..."
+    # Update process list just in case config changed
+    pm2 reload ../ecosystem.config.js --update-env
+
+    echo "   -> Deployment Success!"
+EOF
+
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}Deployment completed successfully!${NC}"
 else
-    echo "      Backend dependencies are up-to-date. Skipping."
+    echo -e "${RED}Deployment failed on server.${NC}"
+    exit 1
 fi
-
-# ДИАГНОСТИКА: Проверим ключевые зависимости
-echo "[DIAGNOSTIC] Checking critical backend dependencies..."
-MISSING_DEPS=""
-
-# Проверяем все критические зависимости из package.json
-for dep in dotenv express cors pg jsonwebtoken bcryptjs axios moment-timezone node-cron node-telegram-bot-api toad-scheduler node-pg-migrate; do
-    if [ -d "backend/node_modules/$dep" ]; then
-        echo "      ✅ $dep is installed"
-    else
-        echo "      ❌ $dep is MISSING"
-        MISSING_DEPS="$MISSING_DEPS $dep"
-    fi
-done
-
-# Если есть отсутствующие зависимости, принудительно переустанавливаем
-if [ -n "$MISSING_DEPS" ]; then
-    echo "      🔄 CRITICAL DEPENDENCIES MISSING. Force reinstalling backend dependencies..."
-    (cd backend && rm -rf node_modules package-lock.json && npm install --omit=dev)
-    touch backend/node_modules/.install-stamp
-    echo "      ✅ Backend dependencies force-reinstalled."
-fi
-
-# --- Шаг 2: Установка зависимостей и сборка ФРОНТЕНДА ---
-echo "[2/7] Checking frontend dependencies and building..."
-
-# Улучшенная проверка зависимостей frontend
-FRONTEND_NEEDS_INSTALL=false
-
-# Проверяем существование node_modules
-if [ ! -d "frontend/node_modules" ]; then
-    echo "      Frontend node_modules not found."
-    FRONTEND_NEEDS_INSTALL=true
-fi
-
-# Проверяем наличие .install-stamp
-if [ ! -f "frontend/node_modules/.install-stamp" ]; then
-    echo "      Frontend install stamp missing."
-    FRONTEND_NEEDS_INSTALL=true
-fi
-
-# Проверяем актуальность package.json
-if [ -f "frontend/node_modules/.install-stamp" ] && [ "frontend/package.json" -nt "frontend/node_modules/.install-stamp" ]; then
-    echo "      Frontend package.json is newer than install stamp."
-    FRONTEND_NEEDS_INSTALL=true
-fi
-
-# Проверяем актуальность package-lock.json
-if [ -f "frontend/node_modules/.install-stamp" ] && [ "frontend/package-lock.json" -nt "frontend/node_modules/.install-stamp" ]; then
-    echo "      Frontend package-lock.json is newer than install stamp."
-    FRONTEND_NEEDS_INSTALL=true
-fi
-
-if [ "$FRONTEND_NEEDS_INSTALL" = true ]; then
-    echo "      Frontend dependencies need to be installed..."
-    (cd frontend && npm install)
-    # Создаем директорию если не существует и обновляем метку
-    mkdir -p frontend/node_modules
-    touch frontend/node_modules/.install-stamp
-    echo "      Frontend dependencies installed and stamp updated."
-else
-    echo "      Frontend dependencies are up-to-date. Skipping."
-fi
-
-echo "      Building frontend..."
-(cd frontend && REACT_APP_API_BASE_URL="https://infocoffee.ru/api" npm run build)
-echo "      Frontend built."
-
-
-# Шаг 3: Проверка директории сборки
-if [ ! -d "frontend/build" ]; then
-  echo "      ERROR: 'frontend/build' directory not found. Build failed. Aborting."
-  exit 1
-fi
-echo "      Build verified."
-
-# Шаг 4: Обновление версии приложения (для сброса кеша)
-echo "[4/7] Updating application version..."
-./update_app_version.sh
-echo "      Done."
-
-# Шаг 5: Синхронизация файлов в корень веб-сервера
-echo "[5/7] Syncing files to ${WEB_ROOT}..."
-sudo rsync -a --delete frontend/build/ ${WEB_ROOT}/
-echo "      Done."
-
-# Шаг 6: Установка прав на файлы
-echo "[6/7] Setting file permissions..."
-sudo chown -R www-data:www-data ${WEB_ROOT}
-sudo find ${WEB_ROOT} -type d -exec chmod 755 {} \;
-sudo find ${WEB_ROOT} -type f -exec chmod 644 {} \;
-echo "      Done."
-
-# ИСПРАВЛЕНИЕ: Корневые зависимости не нужны на проде, только для dev-режима
-echo "[SKIP] Root dependencies not needed in production."
-
-echo "Setting script permissions..."
-chmod +x scripts/run-manual-job.sh
-
-# Шаг 7: Перезапуск PM2 сервисов через ecosystem.config.js
-echo "[7/7] Restarting backend services via ecosystem.config.js..."
-
-# Проверяем наличие существующих PM2 процессов
-if pm2 list 2>/dev/null | grep -q "infocoffee-backend\|infocoffee-scheduler"; then
-    echo "      Found existing PM2 processes. Performing smart restart..."
-    # Проверяем, нужна ли полная перезагрузка (например, при изменении package.json или критичных файлов)
-    if [[ -n "${FORCE_RELOAD:-}" ]] || git diff HEAD~1 --name-only | grep -q "package\.json\|ecosystem\.config\.js\|\.env"; then
-        echo "      Critical files changed or FORCE_RELOAD set. Performing full restart..."
-        pm2 stop ecosystem.config.js
-        pm2 delete ecosystem.config.js
-        pm2 start ecosystem.config.js
-        echo "      ✅ PM2 processes force-reloaded successfully."
-    else
-        echo "      No critical changes detected. Using graceful restart..."
-        pm2 restart ecosystem.config.js --update-env
-        echo "      ✅ PM2 processes restarted gracefully."
-    fi
-else
-    echo "      No existing PM2 processes found. Starting fresh from ecosystem.config.js..."
-    pm2 start ecosystem.config.js
-    echo "      ✅ PM2 processes started successfully."
-fi
-
-# Сохраняем конфигурацию PM2 для автозапуска при перезагрузке сервера
-pm2 save
-echo "      ✅ PM2 configuration saved for auto-startup."
-
-# Шаг 8: Перезапуск Nginx для применения изменений
-echo "[8/8] Restarting Nginx to apply changes..."
-if sudo systemctl is-active --quiet nginx; then
-    sudo systemctl restart nginx
-    echo "      ✅ Nginx restarted successfully."
-else
-    echo "      ⚠️ Nginx is not running. Skipping restart."
-fi
-
-# Показываем итоговый статус
-echo " "
-echo "📊 Final PM2 Status:"
-pm2 list
-echo " "
-echo "      All backend services are running in PRODUCTION mode! 🚀"
-
-echo " "
-echo "--- [SUCCESS] Deployment finished! ---"
-echo " "
-exit 0
