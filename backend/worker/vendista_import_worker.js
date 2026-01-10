@@ -474,6 +474,10 @@ async function processTransactions(ownerUserId, transactions, client, results, i
 
             // Correctly use ON CONFLICT with the transaction ID from Vendista
             const dbStartTime = Date.now();
+            
+            // DEBUG LOG
+            console.log(`[DEBUG] Inserting TX ${transaction.id}, User: ${ownerUserId}, Sum: ${transaction.sum}`);
+            
             const insertResult = await client.query(`
                 INSERT INTO transactions (
                     id, user_id, coffee_shop_id, machine_item_id, amount, transaction_time,
