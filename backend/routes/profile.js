@@ -79,9 +79,11 @@ router.post('/settings', authMiddleware, async (req, res) => {
             updateFields.push(`acquiring = $${queryIndex++}`);
             updateValues.push(acquiringNum); 
         }
-        if (setup_date !== undefined) {
+        // ВАЖНО: setup_date - критичное поле! Не удаляем его при пустой строке
+        // Пропускаем обновление, если пришла пустая строка или null
+        if (setup_date !== undefined && setup_date !== null && setup_date !== '') {
             updateFields.push(`setup_date = $${queryIndex++}`);
-            updateValues.push(setup_date === '' ? null : setup_date);
+            updateValues.push(setup_date);
         }
         // first_name и user_name теперь обновляются через /complete-registration, здесь их нет
 
