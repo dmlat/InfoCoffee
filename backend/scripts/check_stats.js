@@ -8,6 +8,7 @@ async function check() {
         const res = await pool.query(`
             SELECT user_id, COUNT(*) as count, SUM(amount) as sum
             FROM transactions 
+            WHERE transaction_time >= '2026-01-01'
             GROUP BY user_id
         `);
         
