@@ -33,6 +33,11 @@ ssh $SERVER_ALIAS "bash -s" << EOF
     echo "   -> git pull origin ${BRANCH}"
     git pull origin ${BRANCH}
 
+    echo "   -> update TELEGRAM_WEB_APP_URL in backend/.env"
+    bash ./update_app_version.sh
+    echo "   -> TELEGRAM_WEB_APP_URL now:"
+    grep "^TELEGRAM_WEB_APP_URL=" backend/.env
+
     echo "   -> npm install (in backend)"
     cd backend
     npm install --production
