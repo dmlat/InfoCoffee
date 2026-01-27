@@ -104,7 +104,7 @@ async function runScheduledJob(jobName, dateSubtractArgs, isFullHistory) {
   try {
     // Fetch all necessary user fields
     const usersRes = await pool.query(`
-        SELECT id, vendista_api_token, setup_date, telegram_id, vendista_payment_status, first_name, user_name 
+        SELECT id, vendista_api_token, setup_date, telegram_id, vendista_payment_status, vendista_token_status, first_name, user_name 
         FROM users 
         WHERE vendista_api_token IS NOT NULL AND setup_date IS NOT NULL
     `);
@@ -143,6 +143,12 @@ async function runScheduledJob(jobName, dateSubtractArgs, isFullHistory) {
       if (user.vendista_payment_status === 'payment_required') {
           console.log(`[Cron ${logTime}] [${jobName}] Skipping user ${user.id} (${user.first_name || 'N/A'}) - payment required`);
           await logJobStatus(user.id, jobName, 'skipped_payment_required', null, 'User has payment_required status');
+          continue;
+      }
+
+      if (user.vendista_token_status === 'invalid_creds') {
+          console.log(`[Cron ${logTime}] [${jobName}] Skipping user ${user.id} (${user.first_name || 'N/A'}) - invalid credentials`);
+          await logJobStatus(user.id, jobName, 'skipped_invalid_creds', null, 'User has invalid credentials');
           continue;
       }
 
@@ -207,6 +213,12 @@ async function manualImportLastNDays(days, targetUserId, isFullHistory = false) 
             // Пропускаем пользователей с неоплаченным статусом
             if (user.vendista_payment_status === 'payment_required') {
                 console.log(`[Cron ${logTime}] [${jobName}] Skipping user ${user.id} (${user.first_name || 'N/A'}) - payment required`);
+                continue;
+            }
+
+            // Пропускаем пользователей с невалидными кредами
+            if (user.vendista_token_status === 'invalid_creds') {
+                console.log(`[Cron ${logTime}] [${jobName}] Skipping user ${user.id} (${user.first_name || 'N/A'}) - invalid credentials`);
                 continue;
             }
             

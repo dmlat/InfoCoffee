@@ -202,7 +202,7 @@ async function syncAllTerminals() {
     try {
         // Получаем только пользователей с активным статусом оплаты
         const usersRes = await client.query(`
-            SELECT id, vendista_api_token, vendista_payment_status, first_name, user_name 
+            SELECT id, vendista_api_token, vendista_payment_status, vendista_token_status, first_name, user_name 
             FROM users 
             WHERE vendista_api_token IS NOT NULL
         `);
@@ -214,6 +214,13 @@ async function syncAllTerminals() {
             // Пропускаем пользователей с неоплаченным статусом
             if (user.vendista_payment_status === 'payment_required') {
                 console.log(`[Terminal Sync Worker] Skipping user ${user.id} (${user.first_name || 'N/A'}) - payment required`);
+                skippedUsers++;
+                continue;
+            }
+
+            // Пропускаем пользователей с невалидными кредами (чтобы не спамить в админку)
+            if (user.vendista_token_status === 'invalid_creds') {
+                console.log(`[Terminal Sync Worker] Skipping user ${user.id} (${user.first_name || 'N/A'}) - invalid credentials`);
                 skippedUsers++;
                 continue;
             }

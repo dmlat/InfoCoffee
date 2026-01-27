@@ -54,8 +54,9 @@ async function refreshToken(userId) {
             await client.query("UPDATE users SET vendista_token_status = 'invalid_creds' WHERE id = $1", [userId]);
             await client.query('COMMIT');
             sendErrorToAdmin({
-                message: `Failed to refresh token for user ${userId}: Credentials not found or decryption failed. Manual intervention required.`,
-                context: 'refreshToken'
+                errorMessage: `Failed to refresh token for user ${userId}: Credentials not found or decryption failed. Manual intervention required.`,
+                errorContext: 'refreshToken',
+                userId: userId
             });
             return { success: false, error: 'invalid_credentials' };
         }
@@ -78,8 +79,9 @@ async function refreshToken(userId) {
             );
             await client.query('COMMIT');
             sendErrorToAdmin({
-                message: `Failed to refresh token for user ${userId}: Invalid credentials.`,
-                context: 'refreshToken'
+                errorMessage: `Failed to refresh token for user ${userId}: Invalid credentials.`,
+                errorContext: 'refreshToken',
+                userId: userId
             });
             return { success: false, error: newTokenResponse.error };
         }
@@ -90,8 +92,10 @@ async function refreshToken(userId) {
         }
         console.error(`[Vendista Util] Critical error during token refresh for user ${userId}:`, error);
         sendErrorToAdmin({
-            message: `Critical error during token refresh for user ${userId}: ${error.message}`,
-            context: 'refreshToken'
+            errorMessage: `Critical error during token refresh for user ${userId}: ${error.message}`,
+            errorContext: 'refreshToken',
+            userId: userId,
+            errorStack: error.stack
         });
         return { success: false, error: 'internal_error' };
     } finally {
