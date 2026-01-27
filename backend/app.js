@@ -29,6 +29,7 @@ const recipesRoutes = require('./routes/recipes');
 const warehouseRoutes = require('./routes/warehouse'); // <-- Убедимся, что он есть
 const inventoryRoutes = require('./routes/inventory'); // <-- НОВЫЙ ИМПОРТ
 const tasksRoutes = require('./routes/tasks'); // <-- НОВЫЙ ИМПОРТ
+const analyticsRoutes = require('./routes/analytics'); // <-- НОВЫЙ ИМПОРТ АНАЛИТИКИ
 // <--- ИНИЦИАЛИЗАЦИЯ БОТА (с диагностикой)
 console.log('[APP.JS] Loading bot...');
 let startPolling;
@@ -63,6 +64,7 @@ app.use('/api/recipes', recipesRoutes);
 app.use('/api/warehouse', warehouseRoutes);
 app.use('/api/inventory', inventoryRoutes); // <-- НОВОЕ ПОДКЛЮЧЕНИЕ
 app.use('/api/tasks', tasksRoutes); // <-- НОВАЯ СТРОКА
+app.use('/api/analytics', analyticsRoutes); // <-- АНАЛИТИКА
 app.use('/api/presets', presetsRoutes);
 app.use('/api', configRoutes); // Убедимся, что роут используется
 

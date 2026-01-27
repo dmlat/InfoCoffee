@@ -15,6 +15,13 @@ export const PERIODS = [
     { label: 'ВАШ ПЕРИОД', getRange: () => [null, null] }
 ];
 
+export const ANALYTICS_PERIODS = [
+    { label: 'ЗА 7 ДНЕЙ', days: 7, grouping: 'day' },
+    { label: 'ЗА 30 ДНЕЙ', days: 30, grouping: 'day' },
+    { label: 'ЗА 90 ДНЕЙ', days: 90, grouping: 'week' },
+    { label: 'ЗА ГОД', days: 365, grouping: 'month' }
+];
+
 export function formatDateForInput(date) {
     if (!date) return '';
     const d = new Date(date);

@@ -48,5 +48,5 @@ if [ $? -eq 0 ]; then
     echo -e "${GREEN}Deployment completed successfully!${NC}"
 else
     echo -e "${RED}Deployment failed on server.${NC}"
-    exit 1
+  exit 1
 fi

@@ -104,6 +104,166 @@ input[type="date"].period-date-input:disabled {
   margin-bottom: 24px;
 }
 
+/* --- Switchable stats block --- */
+.stats-switch-card {
+  border-radius: 14px;
+  margin-bottom: 24px;
+}
+
+.stats-switch-header {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.stats-switch {
+  display: inline-flex;
+  gap: 6px;
+  background: #23272f;
+  border: 1px solid #303548;
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.stats-switch-btn {
+  background: none;
+  border: none;
+  color: #8a9db8;
+  padding: 6px 10px;
+  font-size: 0.8em;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.stats-switch-btn:hover {
+  color: #c6c6c6;
+  background-color: #2d313a;
+}
+
+.stats-switch-btn.active {
+  color: #8ae6ff;
+  background-color: #2a2e37;
+}
+
+.drink-row {
+  cursor: pointer;
+}
+
+.drink-row:hover td {
+  background-color: #313642;
+}
+
+.drink-stats-table tbody tr.drink-row.row-odd td {
+  background-color: #2c303a !important;
+}
+
+.drink-stats-table tbody tr.drink-row.row-even td {
+  background-color: transparent !important;
+}
+
+.drink-stats-table {
+  table-layout: fixed;
+}
+
+.drink-stats-table th:last-child,
+.drink-stats-table td:last-child {
+  width: 90px;
+  min-width: 80px;
+  white-space: nowrap;
+}
+
+.td-drink-name {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.drink-name-text {
+  display: inline;
+}
+
+.toggle-arrow {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 6px solid #a0b0c8;
+  transition: transform 0.2s ease-in-out, border-color 0.2s;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.toggle-arrow.open {
+  transform: rotate(90deg);
+}
+
+.drink-details-row td {
+  padding: 0 !important;
+  background: #262a32 !important;
+  border-bottom: none;
+}
+
+.drink-details-row {
+  display: none;
+}
+
+.drink-details-row.open {
+  display: table-row;
+}
+
+.drink-details-inner {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+  padding: 0;
+}
+
+.drink-details-row.open .drink-details-inner {
+  max-height: 600px;
+  opacity: 1;
+  padding: 0;
+}
+
+.drink-details-table {
+  width: 100%;
+  font-size: 0.9em;
+  border: 1px solid #e0e0e0;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.drink-details-table th,
+.drink-details-table td {
+  padding: 6px 10px;
+  border: none !important;
+}
+
+.drink-details-table th:last-child,
+.drink-details-table td:last-child {
+  width: 90px;
+  min-width: 80px;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.drink-details-table tbody tr td {
+  border-bottom: 1px dashed rgba(224, 224, 224, 0.35) !important;
+  border-right: 1px dashed rgba(224, 224, 224, 0.35) !important;
+}
+
+.drink-details-table tbody tr td:last-child {
+  border-right: none !important;
+}
+
+.drink-details-table tbody tr:last-child td {
+  border-bottom: none !important;
+}
+.drink-details-table .indent {
+  padding-left: 16px;
+}
+
 /* 
   Блок .coffee-stats-card теперь является контейнером для таблицы (.table-block)
   и не должен иметь внутренних отступов (padding).
@@ -132,7 +292,7 @@ input[type="date"].period-date-input:disabled {
 }
 .summary-table td {
   padding: 8px 12px;
-  border-bottom: 1px solid #2a2e37;
+  border-bottom: 1px dashed rgba(224, 224, 224, 0.35);
   color: #c6c6c6;
 }
 .summary-table .value-cell {
@@ -248,5 +408,25 @@ input[type="date"].period-date-input:disabled {
     white-space: nowrap; /* Запрещаем перенос содержимого */
     min-width: 60px; /* Минимальная ширина по заголовку */
     padding-left: 4px; /* Уменьшаем отступ слева */
+  }
+
+  .drink-details-table {
+    font-size: 0.85em;
+  }
+
+  .drink-details-table th,
+  .drink-details-table td {
+    padding: 6px 6px;
+  }
+
+  .stats-switch {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .stats-switch-btn {
+    flex: 1;
+    text-align: center;
+    padding: 6px 4px;
   }
 }

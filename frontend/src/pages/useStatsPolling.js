@@ -5,8 +5,10 @@ import apiClient from '../api';
 export default function useStatsPolling(apiPeriod, token) { // token уже добавлен
   const [stats, setStats] = useState({ revenue: 0, salesCount: 0, expensesSum: 0 });
   const [coffeeStats, setCoffeeStats] = useState([]);
+  const [drinkStats, setDrinkStats] = useState([]);
   const [statsLoading, setStatsLoading] = useState(true);
   const [coffeeLoading, setCoffeeLoading] = useState(true);
+  const [drinkLoading, setDrinkLoading] = useState(true);
   const [error, setError] = useState('');
   
   const timerRef = useRef(null);
@@ -19,6 +21,7 @@ export default function useStatsPolling(apiPeriod, token) { // token уже до
       if (!isBackgroundUpdate) {
           setStatsLoading(false);
           setCoffeeLoading(false);
+          setDrinkLoading(false);
           setError('Период не задан полностью.');
       }
       return;
@@ -27,6 +30,7 @@ export default function useStatsPolling(apiPeriod, token) { // token уже до
       if (!isBackgroundUpdate) {
           setStatsLoading(false);
           setCoffeeLoading(false);
+          setDrinkLoading(false);
           setError('Отсутствует токен авторизации.');
        }
       return;
@@ -35,6 +39,7 @@ export default function useStatsPolling(apiPeriod, token) { // token уже до
     if (!isBackgroundUpdate) {
       setStatsLoading(true);
       setCoffeeLoading(true);
+      setDrinkLoading(true);
       setError('');
     }
 
@@ -65,6 +70,19 @@ export default function useStatsPolling(apiPeriod, token) { // token уже до
       if (!isBackgroundUpdate) setCoffeeLoading(false);
     }
 
+    try {
+      const drinkRes = await apiClient.get('/transactions/drink-stats', {
+        params: { from: apiPeriod.dateFrom, to: apiPeriod.dateTo }
+      });
+      setDrinkStats(drinkRes.data.stats || []);
+    } catch (e) {
+      console.error("Error fetching drink stats:", e);
+      if (!isBackgroundUpdate) setDrinkStats([]);
+      currentError += `Ошибка статистики по напиткам (${e.response?.data?.error || e.message}).`;
+    } finally {
+      if (!isBackgroundUpdate) setDrinkLoading(false);
+    }
+
     if (currentError.trim()) {
         setError(currentError.trim());
     } else if (!isBackgroundUpdate) { 
@@ -77,6 +95,7 @@ export default function useStatsPolling(apiPeriod, token) { // token уже до
     initialFetchDoneRef.current = false;
     setStatsLoading(true);
     setCoffeeLoading(true);
+    setDrinkLoading(true);
     fetchAll(false).then(() => {
       initialFetchDoneRef.current = true;
     });
@@ -101,5 +120,5 @@ export default function useStatsPolling(apiPeriod, token) { // token уже до
     };
   }, [apiPeriod, fetchAll, token]); // <--- ИСПРАВЛЕНИЕ: Добавляем token в массив зависимостей
 
-  return { stats, statsLoading, coffeeStats, coffeeLoading, error };
+  return { stats, statsLoading, coffeeStats, coffeeLoading, drinkStats, drinkLoading, error };
 }

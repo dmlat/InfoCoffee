@@ -8,6 +8,6 @@ services:
       POSTGRES_USER: coffee_admin
       POSTGRES_PASSWORD: supersecret
     ports:
-      - 5432:5432
+      - 6432:5432
     volumes:
       - ./pgdata:/var/lib/postgresql/data

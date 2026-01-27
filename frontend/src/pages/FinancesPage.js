@@ -30,6 +30,11 @@ export default function FinancesPage() { // Удаляем user из пропс�
     return { from: formatDateForInput(todayRange[0]), to: formatDateForInput(todayRange[1]) };
   }, [pageKey, getTodayRange]);
 
+  const getInitialStatsViewMode = useCallback(() => {
+    const savedMode = localStorage.getItem(`${pageKey}_statsViewMode`);
+    return savedMode === 'stands' ? 'stands' : 'drinks';
+  }, [pageKey]);
+
   const [currentPeriodPreset, setCurrentPeriodPreset] = useState(getInitialPeriodPreset);
   const [userCustomPeriodSelection, setUserCustomPeriodSelection] = useState(getInitialUserCustomPeriod);
 
@@ -72,7 +77,13 @@ export default function FinancesPage() { // Удаляем user из пропс�
 
   // console.log('[FinancesPage] Rendering. Auth loading:', isAuthLoading, 'Token available:', !!token, 'API Period:', apiPeriod);
   
-  const { stats, statsLoading, coffeeStats, coffeeLoading, error: statsError } = useStatsPolling(apiPeriod, isAuthLoading ? null : token);
+  const { stats, statsLoading, coffeeStats, coffeeLoading, drinkStats, drinkLoading, error: statsError } = useStatsPolling(apiPeriod, isAuthLoading ? null : token);
+  const [expandedDrinks, setExpandedDrinks] = useState({});
+  const [statsViewMode, setStatsViewMode] = useState(getInitialStatsViewMode);
+
+  useEffect(() => {
+    localStorage.setItem(`${pageKey}_statsViewMode`, statsViewMode);
+  }, [pageKey, statsViewMode]);
 
   const handlePeriodPresetChange = (p) => {
     setCurrentPeriodPreset(p);
@@ -116,6 +127,13 @@ export default function FinancesPage() { // Удаляем user из пропс�
         // console.log('[FinancesPage] Custom date changed. New API Period:', newApiDates);
       }
     }
+  };
+
+  const toggleDrinkRow = (machineItemId) => {
+    setExpandedDrinks(prev => ({
+      ...prev,
+      [machineItemId]: !prev[machineItemId]
+    }));
   };
   
   const revenue = stats.revenue || 0;
@@ -225,13 +243,96 @@ export default function FinancesPage() { // Удаляем user из пропс�
                     <td className="profit-label">Чистая Прибыль</td>
                     <td className="value-cell profit-value">{netProfit.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2})}{`\u00A0`}₽</td>
                 </tr>
-                <tr><td>Маржинальность (от общей выручки)</td><td className="value-cell">{margin}%</td></tr>
+                <tr><td>Маржинальность (Всей сети)</td><td className="value-cell">{margin}%</td></tr>
             </tbody>
             </table>
             )}
         </div>
 
-        <div className="table-block coffee-stats-card">
+        <div className="table-block stats-switch-card">
+            <div className="table-block-header stats-switch-header">
+              <div className="stats-switch">
+                <button
+                  className={`stats-switch-btn ${statsViewMode === 'drinks' ? 'active' : ''}`}
+                  onClick={() => setStatsViewMode('drinks')}
+                  type="button"
+                >
+                  НАПИТКИ
+                </button>
+                <button
+                  className={`stats-switch-btn ${statsViewMode === 'stands' ? 'active' : ''}`}
+                  onClick={() => setStatsViewMode('stands')}
+                  type="button"
+                >
+                  СТОЙКИ
+                </button>
+              </div>
+            </div>
+
+            {statsViewMode === 'drinks' && (
+            <table className="data-table coffee-stats-table drink-stats-table">
+              <thead>
+                <tr>
+                  <th>Напиток</th>
+                  <th className="text-right">Продажи</th>
+                </tr>
+              </thead>
+              <tbody>
+                {drinkLoading && !statsError && (
+                  <tr><td colSpan={2} className="loading-message text-center">Загрузка продаж...</td></tr>
+                )}
+                {!drinkLoading && !statsError && (!drinkStats || drinkStats.length === 0) && (
+                  <tr className="empty-data-row"><td colSpan={2}>Нет данных по напиткам за период</td></tr>
+                )}
+                {!drinkLoading && !statsError && drinkStats && drinkStats.length > 0 && (
+                  drinkStats.map((row, idx) => {
+                    const isExpanded = !!expandedDrinks[row.machine_item_id];
+                    const nameSet = new Set((row.terminals || []).map(t => t.recipe_name).filter(Boolean));
+                    const hasMultipleNames = nameSet.size > 1 || row.display_name === 'Смешанные названия';
+                    const rowClass = idx % 2 === 0 ? 'row-odd' : 'row-even';
+                    return (
+                      <React.Fragment key={row.machine_item_id}>
+                        <tr className={`drink-row ${rowClass} ${isExpanded ? 'expanded' : ''}`} onClick={() => toggleDrinkRow(row.machine_item_id)}>
+                          <td className="td-drink-name">
+                            <span className={`toggle-arrow ${isExpanded ? 'open' : ''}`} />
+                            <span className="drink-name-text">{row.display_name}</span>
+                          </td>
+                          <td className="td-sales-count text-right">{Number(row.total_count).toLocaleString('ru-RU')}</td>
+                        </tr>
+                        <tr className={`drink-details-row ${isExpanded ? 'open' : ''}`}>
+                          <td colSpan={2}>
+                            <div className="drink-details-inner">
+                              <table className={`data-table drink-details-table ${hasMultipleNames ? 'has-names' : 'no-names'}`}>
+                                <tbody>
+                                  {row.terminals && row.terminals.length > 0 ? (
+                                    row.terminals.map((terminal) => (
+                                      <tr key={`${row.machine_item_id}-${terminal.terminal_id}`}>
+                                        <td className="td-terminal-name indent">{terminal.terminal_name}</td>
+                                        {hasMultipleNames && (
+                                          <td className="td-drink-name">{terminal.recipe_name}</td>
+                                        )}
+                                        <td className="td-sales-count text-right">{Number(terminal.sales_count).toLocaleString('ru-RU')}</td>
+                                      </tr>
+                                    ))
+                                  ) : (
+                                    <tr className="empty-data-row">
+                                      <td colSpan={hasMultipleNames ? 3 : 2}>Нет данных по стойкам</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+            )}
+
+            {statsViewMode === 'stands' && (
             <table className="data-table coffee-stats-table"> 
             <thead>
                 <tr>
@@ -258,6 +359,7 @@ export default function FinancesPage() { // Удаляем user из пропс�
                 )}
             </tbody>
             </table>
+            )}
         </div>
       </div>
     </div>

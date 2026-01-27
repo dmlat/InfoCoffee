@@ -101,6 +101,98 @@ router.get('/coffee-stats', authMiddleware, async (req, res) => {
     }
 });
 
+// Stats-endpoint by drinks with per-terminal breakdown
+router.get('/drink-stats', authMiddleware, async (req, res) => {
+    const { ownerUserId } = req.user;
+    let { from, to } = req.query;
+    try {
+        let dateFrom;
+        let dateTo;
+
+        try {
+            if (!from || !to) {
+                const now = moment().tz(TIMEZONE);
+                dateFrom = now.startOf('month').toISOString();
+                dateTo = now.endOf('month').toISOString();
+            } else {
+                dateFrom = moment.tz(from, TIMEZONE).startOf('day').toISOString();
+                dateTo = moment.tz(to, TIMEZONE).endOf('day').toISOString();
+            }
+        } catch (dateError) {
+            console.error('[GET /api/transactions/drink-stats] Date parsing error:', dateError);
+            res.status(400).json({ success: false, error: 'Неверный формат даты' });
+            return;
+        }
+
+        const result = await db.query(`
+            SELECT
+                tr.machine_item_id,
+                t.id as terminal_id,
+                t.name as terminal_name,
+                r.name as recipe_name,
+                COUNT(tr.id) FILTER (WHERE tr.result = '1' AND tr.reverse_id = 0) as sales_count
+            FROM transactions tr
+            JOIN terminals t
+                ON t.vendista_terminal_id = tr.coffee_shop_id
+                AND t.user_id = tr.user_id
+            LEFT JOIN recipes r
+                ON r.terminal_id = t.id
+                AND r.machine_item_id = tr.machine_item_id
+            WHERE tr.user_id = $1
+              AND tr.transaction_time >= $2 AND tr.transaction_time <= $3
+              AND tr.machine_item_id IS NOT NULL
+            GROUP BY tr.machine_item_id, t.id, t.name, r.name
+        `, [ownerUserId, dateFrom, dateTo]);
+
+        const grouped = new Map();
+        result.rows.forEach(row => {
+            const machineItemId = row.machine_item_id;
+            const safeName = row.recipe_name || `Напиток #${machineItemId}`;
+            if (!grouped.has(machineItemId)) {
+                grouped.set(machineItemId, {
+                    machine_item_id: machineItemId,
+                    display_name: safeName,
+                    total_count: 0,
+                    name_variants: new Set(),
+                    terminals: []
+                });
+            }
+            const entry = grouped.get(machineItemId);
+            const count = Number(row.sales_count) || 0;
+            entry.total_count += count;
+            entry.name_variants.add(safeName);
+            entry.terminals.push({
+                terminal_id: row.terminal_id,
+                terminal_name: row.terminal_name,
+                recipe_name: safeName,
+                sales_count: count
+            });
+        });
+
+        const data = Array.from(grouped.values()).map(item => {
+            const hasMultipleNames = item.name_variants.size > 1;
+            return {
+                machine_item_id: item.machine_item_id,
+                display_name: hasMultipleNames ? 'Смешанные названия' : item.display_name,
+                total_count: item.total_count,
+                terminals: item.terminals.sort((a, b) => b.sales_count - a.sales_count)
+            };
+        }).sort((a, b) => b.total_count - a.total_count);
+
+        res.json({ success: true, stats: data });
+    } catch (err) {
+        console.error(`[GET /api/transactions/drink-stats] UserID: ${ownerUserId} - Error:`, err);
+        sendErrorToAdmin({
+            userId: ownerUserId,
+            errorContext: `GET /api/transactions/drink-stats - UserID: ${ownerUserId}`,
+            errorMessage: err.message,
+            errorStack: err.stack,
+            additionalInfo: { query: req.query }
+        }).catch(notifyErr => console.error("Failed to send admin notification from GET /api/transactions/drink-stats:", notifyErr));
+        res.status(500).json({ success: false, error: 'Ошибка агрегации по напиткам' });
+    }
+});
+
 // Get all transactions (legacy or for detailed view)
 router.get('/', authMiddleware, async (req, res) => {
     const { ownerUserId, telegramId } = req.user;

@@ -1,6 +1,6 @@
 // frontend/src/api.js
 import axios from 'axios';
-import { clearUserDataFromLocalStorage, saveUserDataToLocalStorage } from './utils/user';
+import { clearUserDataFromLocalStorage, saveUserDataToLocalStorage, getUser } from './utils/user';
 
 let isRefreshing = false;
 let failedQueue = [];
@@ -36,9 +36,17 @@ apiClient.interceptors.request.use(config => {
 
 apiClient.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('app_token');
+        // ИСПРАВЛЕНИЕ: Читаем токен через утилиту getUser(), так как он хранится внутри authData JSON
+        const userData = getUser();
+        const token = userData?.token;
+        
+        // console.log('[API Request Interceptor] URL:', config.url);
+        // console.log('[API Request Interceptor] Token found:', !!token);
+        
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
+        } else {
+            console.warn('[API Request Interceptor] No token found in authData!');
         }
         return config;
     },
