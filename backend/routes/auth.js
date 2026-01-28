@@ -375,6 +375,24 @@ router.post('/telegram-handshake', async (req, res) => {
 
     // УНИФИЦИРОВАННАЯ ЛОГИКА ОТВЕТОВ ДЛЯ ВСЕХ РОЛЕЙ
     if (role === 'owner' && userForResponse.vendista_api_token) {
+        
+        // --- ПРОВЕРКА СТАТУСА ТОКЕНА ---
+        if (userForResponse.vendista_token_status === 'invalid_creds') {
+            console.log(`[Auth Handshake] ⚠️ User has invalid_creds status. Requiring re-authentication.`);
+            return res.json({
+                success: true,
+                message: 'reauth_required',
+                user: {
+                    id: userForResponse.id,
+                    telegram_id: userForResponse.telegram_id.toString(),
+                    first_name: userForResponse.first_name,
+                    user_name: userForResponse.user_name,
+                    setup_date: userForResponse.setup_date
+                }
+            });
+        }
+        // ------------------------------
+
         // Owner с завершенной регистрацией
         const token = jwt.sign(
             { userId: userForResponse.id, telegramId: userForResponse.telegram_id.toString(), accessLevel: role },
@@ -918,7 +936,7 @@ router.post('/refresh-app-token', async (req, res) => {
         let userDataForClient;
 
         const ownerRes = await pool.query(
-            'SELECT id, setup_date, tax_system, acquiring, vendista_api_token, first_name, user_name FROM users WHERE telegram_id = $1::bigint',
+            'SELECT id, setup_date, tax_system, acquiring, vendista_api_token, vendista_token_status, first_name, user_name FROM users WHERE telegram_id = $1::bigint',
             [current_telegram_id_refresh]
         );
 
@@ -928,6 +946,7 @@ router.post('/refresh-app-token', async (req, res) => {
                 id: userFromDb.id,
                 first_name: userFromDb.first_name,
                 has_vendista_token: !!userFromDb.vendista_api_token,
+                token_status: userFromDb.vendista_token_status,
                 vendista_token_preview: userFromDb.vendista_api_token ? userFromDb.vendista_api_token.substring(0, 15) + '...' : null
             });
         } else {
@@ -936,6 +955,18 @@ router.post('/refresh-app-token', async (req, res) => {
 
         if (ownerRes.rows.length > 0 && ownerRes.rows[0].vendista_api_token) {
             const ownerUser = ownerRes.rows[0];
+
+            // --- ПРОВЕРКА СТАТУСА ТОКЕНА ПРИ ОБНОВЛЕНИИ ---
+            if (ownerUser.vendista_token_status === 'invalid_creds') {
+                console.log(`[Refresh Token] ⚠️ User has invalid_creds status. Rejecting refresh and requiring re-auth.`);
+                return res.status(403).json({ 
+                    success: false, 
+                    error: 'reauth_required',
+                    message: 'Vendista credentials are invalid or expired. Please update them.'
+                });
+            }
+            // ---------------------------------------------
+
             tokenPayload = { 
                 userId: ownerUser.id, 
                 telegramId: current_telegram_id_refresh,

@@ -106,13 +106,30 @@ function AuthProvider({ children }) {
                 
                 const { token, user: userData } = response.data;
 
-                // Если бэкенд требует регистрации (неожиданный случай), обрабатываем как ошибку
-                if (response.data.message === 'registration_required') {
-                  const errText = 'Refresh check resulted in "registration_required". This indicates a server-side logic issue for an existing user.';
-                  authLogger.error('💥 CRITICAL: Unexpected registration_required during refresh', { 
+                // Если бэкенд требует регистрации или ПОВТОРНОЙ авторизации
+                if (response.data.message === 'registration_required' || response.data.message === 'reauth_required') {
+                  const isReauth = response.data.message === 'reauth_required';
+                  const logMessage = isReauth 
+                    ? '🔄 Re-authentication required (invalid_creds)' 
+                    : '💥 CRITICAL: Unexpected registration_required during refresh';
+                  
+                  authLogger.warn(logMessage, { 
                     message: response.data.message,
                     localUserAccessLevel: localUser?.user?.accessLevel 
                   });
+                  
+                  // Если это reauth, перенаправляем на регистрацию в режиме восстановления
+                  if (isReauth && response.data.user) {
+                    localStorage.setItem('telegram_id_unsafe', response.data.user.telegram_id);
+                    localStorage.setItem('firstName_unsafe', response.data.user.first_name || '');
+                    localStorage.setItem('username_unsafe', response.data.user.user_name || '');
+                    
+                    // Устанавливаем специальный статус для AppRouter
+                    setAuthStatus('reauth_required'); 
+                    return;
+                  }
+
+                  const errText = 'Refresh check resulted in "registration_required". This indicates a server-side logic issue for an existing user.';
                   
                   // Отправляем в Telegram только для критических случаев
                   await authLogger.sendAuthErrorToTelegram(
@@ -213,8 +230,10 @@ function AuthProvider({ children }) {
                 userTelegramId: userData?.telegram_id 
               });
 
-              if (message === 'registration_required') {
-                authLogger.info('📝 Registration required for new user', {
+              if (message === 'registration_required' || message === 'reauth_required') {
+                const isReauth = message === 'reauth_required';
+                
+                authLogger.info(isReauth ? '🔄 Re-authentication required' : '📝 Registration required for new user', {
                   userTelegramId: userData?.telegram_id,
                   userFirstName: userData?.first_name
                 });
@@ -226,7 +245,7 @@ function AuthProvider({ children }) {
                   localStorage.setItem('username_unsafe', userData.user_name || '');
                 }
                 
-                setAuthStatus('registration_required');
+                setAuthStatus(isReauth ? 'reauth_required' : 'registration_required');
                 return;
               }
               
@@ -501,8 +520,8 @@ function AppRouter() {
                     <Route path="/" element={
                         authStatus === 'authenticated' 
                             ? <Navigate to="/dashboard" replace /> 
-                            : authStatus === 'registration_required'
-                                ? <RegisterPage />
+                            : (authStatus === 'registration_required' || authStatus === 'reauth_required')
+                                ? <RegisterPage isReconnect={authStatus === 'reauth_required'} />
                                 : (process.env.NODE_ENV === 'development' 
                                     ? <DevEntryPage /> 
                                     : window.Telegram?.WebApp?.initData 

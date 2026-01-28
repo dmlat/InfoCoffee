@@ -1,0 +1,484 @@
+/* frontend/src/pages/AnalyticsPage.css */
+
+.analytics-page {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.analytics-page .sidebar-area {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.analytics-page .main-content-area {
+  width: 100%;
+}
+
+.analytics-page .date-inputs-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.analytics-page .date-input-item {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.analytics-page .date-input-item label {
+  font-size: 0.95em;
+  font-weight: 500;
+  color: #a0b0c8;
+  display: block;
+  margin-bottom: 4px;
+  text-align: left;
+}
+
+.analytics-page input[type="date"].period-date-input {
+  background-color: #2e3340;
+  color: #c6c6c6;
+  border: 1px solid #303548;
+  padding: 7px 8px;
+  height: 36px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.85em;
+  width: 100%;
+}
+
+.analytics-page input[type="date"].period-date-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+  cursor: pointer;
+}
+
+.analytics-page input[type="date"].period-date-input:disabled {
+  background-color: #20232a;
+  opacity: 0.6;
+}
+
+.analytics-page .period-buttons-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 0px;
+  box-sizing: border-box;
+}
+
+.analytics-page .period-btn {
+  background-color: #2e3340;
+  color: #a0b0c8;
+  border: 1px solid #303548;
+  padding: 8px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  text-align: center;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  font-size: 0.9em;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.analytics-page .period-btn:hover {
+  background-color: #383e4c;
+  border-color: #484e5c;
+  color: #c6c6c6;
+}
+
+.analytics-page .period-btn.active {
+  background-color: #3e67e0;
+  color: #fff;
+  border-color: #3e67e0;
+  font-weight: 600;
+}
+
+.terminal-selector-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #282c34;
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+
+.terminal-selector-area .terminal-selector-label {
+  color: #a0b0c8;
+  font-size: 0.9em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.terminal-selector-area .terminal-selector-button {
+  background: #3e67e0;
+  border: none;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+  min-width: 140px;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  flex: 1;
+}
+
+.terminal-selector-area .terminal-selector-button:hover {
+  background: #4a75f0;
+  box-shadow: 0 4px 8px rgba(62, 103, 224, 0.3);
+}
+
+.terminal-selector-area .terminal-selector-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.analytics-page .summary-card {
+  background: #282c34;
+  padding: 12px 0;
+  border-radius: 14px;
+}
+
+.analytics-card-header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  margin-bottom: 0px;
+  min-height: 28px;
+}
+
+.analytics-page .summary-card-title {
+  padding: 0;
+  margin: 0;
+  font-size: 0.9em;
+  color: #8ae6ff;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+
+.chart-container {
+  transition: opacity 0.8s ease;
+}
+
+.chart-container.chart-loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Анимация для меток оси Y */
+.recharts-cartesian-axis-tick-value {
+  transition: opacity 0.8s ease-in-out, fill 0.8s ease-in-out;
+}
+
+.chart-loading .recharts-cartesian-axis-tick-value {
+  opacity: 0.3;
+}
+
+/* Анимация для кастомных меток (tspan) */
+.y-axis-tick text {
+  transition: opacity 0.8s ease-in-out;
+}
+
+.chart-loading .y-axis-tick text {
+  opacity: 0.3;
+}
+
+.chart-toggle-btn {
+  background: none;
+  border: none;
+  color: #a0b0c8;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease, color 0.2s;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+}
+
+.chart-toggle-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.chart-toggle-btn:hover {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.chart-toggle-btn.collapsed {
+  transform: rotate(-90deg);
+}
+
+.chart-expandable-content {
+  overflow: hidden;
+  transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out, padding 0.4s ease-in-out;
+  max-height: 2000px;
+  opacity: 1;
+}
+
+.chart-expandable-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  pointer-events: none;
+}
+
+.analytics-drinks-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.analytics-drink-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 140px) 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.analytics-drink-row .drink-name {
+  color: #a0b0c8;
+  font-size: 0.85em;
+  line-height: 1.2;
+}
+
+.drink-name-line {
+  white-space: nowrap;
+}
+
+.drink-bar-cell {
+  width: 100%;
+}
+
+.drink-bar-track {
+  width: 100%;
+  background: #2b2f38;
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.drink-bar {
+  height: 20px;
+  background: #4f81c7;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  box-sizing: border-box;
+  min-width: 18px;
+}
+
+.drink-bar-value {
+  color: #fff;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.analytics-terminal-modal {
+  min-width: 320px;
+}
+
+.analytics-terminal-modal .terminal-option {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 10px;
+  cursor: pointer;
+  color: #c6c6c6;
+  border-bottom: 1px solid #353a45;
+  transition: background-color 0.2s;
+  border-radius: 4px;
+}
+
+.analytics-terminal-modal .terminal-option:last-child {
+  border-bottom: none;
+}
+
+.analytics-terminal-modal .terminal-option:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.analytics-terminal-modal .all-terminals {
+  margin-bottom: 8px;
+  background-color: rgba(62, 103, 224, 0.1);
+  border-bottom: none;
+}
+
+.analytics-terminal-modal .terminal-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  max-height: 50vh;
+  padding-right: 4px;
+}
+
+.analytics-terminal-modal .terminal-options-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.analytics-terminal-modal .terminal-options-list::-webkit-scrollbar-track {
+  background: #1e222a;
+}
+
+.analytics-terminal-modal .terminal-options-list::-webkit-scrollbar-thumb {
+  background: #3e67e0;
+  border-radius: 3px;
+}
+
+.analytics-terminal-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.analytics-top-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 14px 18px;
+}
+
+.top-summary-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.top-summary-title {
+  font-size: 0.85em;
+  color: #8ae6ff;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.top-summary-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.top-summary-list li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: flex-start; /* Изменено с center на flex-start */
+  font-size: 0.85em;
+  color: #c6c6c6;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 4px;
+  min-height: 24px;
+}
+
+.top-summary-list li:last-child {
+  border-bottom: none;
+}
+
+.top-summary-list .item-name {
+  color: #a0b0c8;
+  white-space: normal; /* Разрешаем перенос текста */
+  overflow: visible;
+  text-overflow: clip;
+  word-wrap: break-word;
+  line-height: 1.2;
+}
+
+.top-summary-list .item-value {
+  font-weight: 500;
+  white-space: nowrap;
+  display: flex;
+  align-items: flex-start; /* Выравнивание значений по верху */
+  justify-content: flex-end;
+  padding-top: 0;
+}
+
+.value-count {
+  width: 55px; /* Фиксированная ширина для количества */
+  text-align: right;
+}
+
+.value-separator {
+  margin: 0 8px;
+  color: #555;
+}
+
+.value-revenue {
+  width: 85px; /* Фиксированная ширина для суммы */
+  text-align: right;
+}
+
+@media (max-width: 767px) {
+  .analytics-top-summary {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 14px;
+  }
+
+  .analytics-page .period-buttons-container {
+    gap: 6px;
+  }
+
+  .analytics-page .period-btn {
+    font-size: 0.75em;
+    padding: 6px 4px;
+    min-height: 32px;
+    line-height: 1.1;
+  }
+
+  .analytics-card-header {
+    padding: 0 10px;
+    gap: 6px;
+  }
+
+  .terminal-selector-area {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .terminal-selector-area .terminal-selector-label {
+    font-size: 0.8em;
+  }
+
+  .terminal-selector-area .terminal-selector-button {
+    min-width: 100px;
+    padding: 5px 10px;
+    font-size: 0.75em;
+  }
+
+  .chart-toggle-btn {
+    padding: 2px;
+  }
+}

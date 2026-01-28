@@ -16,7 +16,7 @@ function normalizeCommission(input) {
   return String(input).replace(',', '.').replace(/[^0-9.]/g, '');
 }
 
-export default function RegisterPage() {
+export default function RegisterPage({ isReconnect = false }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { setAuthenticated } = useAuth();
@@ -39,6 +39,18 @@ export default function RegisterPage() {
   const [finalRegStatus, setFinalRegStatus] = useState({ status: 'idle', message: '' });
 
   useEffect(() => {
+    // Если это режим восстановления (reconnect), пробуем получить данные из localStorage
+    if (isReconnect) {
+       const storedTgId = localStorage.getItem('telegram_id_unsafe');
+       const storedFirstName = localStorage.getItem('firstName_unsafe');
+       const storedUsername = localStorage.getItem('username_unsafe');
+       
+       if (storedTgId) setTelegramId(storedTgId);
+       if (storedFirstName) setFirstName(storedFirstName);
+       if (storedUsername) setUsername(storedUsername);
+       return;
+    }
+
     const params = new URLSearchParams(location.search);
     const tgIdFromQuery = params.get('tg_id');
     const statusFromQuery = params.get('status');
@@ -84,7 +96,7 @@ export default function RegisterPage() {
 
   const handleFinalRegistrationSubmit = async (e) => {
     e.preventDefault();
-    setFinalRegStatus({ status: 'loading', message: 'Завершение регистрации...' });
+    setFinalRegStatus({ status: 'loading', message: isReconnect ? 'Обновление данных...' : 'Завершение регистрации...' });
 
     if (!setupDate) {
       setFinalRegStatus({ status: 'error', message: 'Укажите дату установки кофейни.' });
@@ -119,13 +131,13 @@ export default function RegisterPage() {
 
       if (response.data.success && response.data.token) {
         
-        setFinalRegStatus({ status: 'success', message: 'Регистрация успешно завершена! Вход в приложение...' });
+        setFinalRegStatus({ status: 'success', message: isReconnect ? 'Данные обновлены! Вход в приложение...' : 'Регистрация успешно завершена! Вход в приложение...' });
         
         // Используем новую функцию для установки состояния без полной перезагрузки
         setAuthenticated(response.data.token, response.data.user);
 
       } else {
-        const errorMessage = response.data.error || 'Ошибка при завершении регистрации.';
+        const errorMessage = response.data.error || (isReconnect ? 'Ошибка при обновлении данных.' : 'Ошибка при завершении регистрации.');
         setFinalRegStatus({ status: 'error', message: errorMessage });
         authLogger.error('Registration failed on backend', { response: response.data }, {
             telegramId,
@@ -186,16 +198,22 @@ export default function RegisterPage() {
       <div className="auth-form-wrapper">
         <h1>InfoCoffee.ru</h1>
         <p className="auth-welcome-text">
-          {firstName ? `Привет, ${firstName}! ` : 'Добро пожаловать! '} 
-          {registrationStatus === 'registration_incomplete' 
-            ? 'Завершите настройку вашего аккаунта.' 
-            : 'Давайте настроим ваш аккаунт.'}
+          {firstName ? `Привет, ${firstName}! ` : (isReconnect ? 'С возвращением! ' : 'Добро пожаловать! ')} 
+          {isReconnect 
+            ? 'Необходимо обновить подключение к Vendista.'
+            : (registrationStatus === 'registration_incomplete' 
+                ? 'Завершите настройку вашего аккаунта.' 
+                : 'Давайте настроим ваш аккаунт.')}
         </p>
 
         {currentStep === 1 && (
           <>
-            <h2>Регистрация: Шаг 1 из 2</h2>
-            <p className="auth-step-info">Введите ваши учетные данные от Vendista для подключения.</p>
+            <h2>{isReconnect ? 'Обновление доступа: Шаг 1 из 2' : 'Регистрация: Шаг 1 из 2'}</h2>
+            <p className="auth-step-info">
+               {isReconnect 
+                 ? 'Ваши учетные данные Vendista устарели или изменились. Введите их заново для восстановления работы.'
+                 : 'Введите ваши учетные данные от Vendista для подключения.'}
+            </p>
             <form onSubmit={handleVendistaCredentialsSubmit} className="auth-form">
               <div className="form-field">
                 <label htmlFor="vendistaLogin">Логин Vendista</label>
@@ -223,8 +241,12 @@ export default function RegisterPage() {
 
         {currentStep === 2 && (
           <>
-            <h2>Регистрация: Шаг 2 из 2</h2>
-            <p className="auth-step-info">Укажите детали для более точных расчетов.</p>
+            <h2>{isReconnect ? 'Обновление доступа: Шаг 2 из 2' : 'Регистрация: Шаг 2 из 2'}</h2>
+            <p className="auth-step-info">
+              {isReconnect 
+                ? 'Проверьте настройки. Дата установки и налоги могли сохраниться.'
+                : 'Укажите детали для более точных расчетов.'}
+            </p>
             <form onSubmit={handleFinalRegistrationSubmit} className="auth-form">
               <div className="form-field">
                 <label htmlFor="setupDate">Дата установки кофейни <span className="required-asterisk">*</span></label>
@@ -250,7 +272,7 @@ export default function RegisterPage() {
                  <small className="form-field-hint">Необязательный шаг. Пример: 2,1 (через точку или запятую)</small>
               </div>
               <button type="submit" className="auth-button-primary" disabled={finalRegStatus.status === 'loading'} style={{marginTop: '20px'}}>
-                {finalRegStatus.status === 'loading' ? 'Регистрация...' : 'Завершить регистрацию'}
+                {finalRegStatus.status === 'loading' ? (isReconnect ? 'Обновление...' : 'Регистрация...') : (isReconnect ? 'Обновить данные' : 'Завершить регистрацию')}
               </button>
               {finalRegStatus.message && (
                 <div className={`auth-message ${finalRegStatus.status === 'error' ? 'auth-error' : 'auth-success'}`}>

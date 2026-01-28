@@ -42,6 +42,12 @@ ssh $SERVER_ALIAS "bash -s" << EOF
     cd backend
     npm install --production
 
+    echo "   -> Build and deploy frontend"
+    cd ../frontend
+    npm install
+    npm run build
+    rsync -a --delete build/ /var/www/va/
+
     echo "   -> Restarting PM2 processes..."
     # Update process list just in case config changed
     pm2 reload ../ecosystem.config.js --update-env
