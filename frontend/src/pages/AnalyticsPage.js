@@ -115,65 +115,6 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const topProducts = useMemo(() => {
-    const productMap = {};
-    salesData.forEach(item => {
-      const id = item.machine_item_id;
-      // Если имя пустое или Unknown, пробуем найти нормальное
-      const cleanName = (item.product_name && !item.product_name.startsWith('Unknown')) ? item.product_name : null;
-      
-      if (!productMap[id]) {
-        productMap[id] = { 
-          name: cleanName || item.product_name || `Товар #${id}`, 
-          count: 0, 
-          revenue: 0 
-        };
-      } else if (cleanName && (!productMap[id].name || productMap[id].name.startsWith('Unknown') || productMap[id].name.startsWith('Товар #'))) {
-        // Обновляем имя, если нашли более качественное
-        productMap[id].name = cleanName;
-      }
-      
-      productMap[id].count += Number(item.count) || 0;
-      productMap[id].revenue += Number(item.revenue) || 0;
-    });
-    return Object.values(productMap)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }, [salesData]);
-
-  const topTerminals = useMemo(() => {
-    const termMap = {};
-    salesData.forEach(item => {
-      const id = item.coffee_shop_id;
-      if (!id) return;
-      if (!termMap[id]) {
-        termMap[id] = { name: item.terminal_name || `Стойка ${id}`, revenue: 0 };
-      }
-      termMap[id].revenue += Number(item.revenue) || 0;
-    });
-    return Object.values(termMap)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
-  }, [salesData]);
-
-  const chartData = useMemo(() => {
-    const productMap = {};
-    salesData.forEach(item => {
-      const id = item.machine_item_id;
-      const cleanName = (item.product_name && !item.product_name.startsWith('Unknown')) ? item.product_name : null;
-
-      if (!productMap[id]) {
-        productMap[id] = { product_name: cleanName || item.product_name || `Товар #${id}`, count: 0 };
-      } else if (cleanName && (!productMap[id].product_name || productMap[id].product_name.startsWith('Unknown') || productMap[id].product_name.startsWith('Товар #'))) {
-        productMap[id].product_name = cleanName;
-      }
-      productMap[id].count += Number(item.count) || 0;
-    });
-    return Object.values(productMap).sort((a, b) => b.count - a.count);
-  }, [salesData]);
-
-  const chartHeight = Math.max(300, chartData.length * 45);
-
   useEffect(() => {
     localStorage.setItem(`${PAGE_KEY}_periodLabel`, currentPeriodPreset.label);
     localStorage.setItem(`${PAGE_KEY}_userCustomFrom`, userCustomPeriodSelection.from);
@@ -259,12 +200,20 @@ export default function AnalyticsPage() {
         terminal_ids: selectedTerminalIds.length > 0 ? selectedTerminalIds.join(',') : undefined
       };
       const res = await api.get('/analytics/sales', { params });
-      console.log('Analytics Sales Data:', res.data); // Добавим лог для проверки структуры
       const rows = Array.isArray(res.data.salesData) ? res.data.salesData : [];
-      setSalesData(rows.map(row => ({
-        ...row,
-        count: Number(row.count) || 0
-      })));
+      
+      const mappedRows = rows.map(row => {
+        const isUnknown = row.product_name && row.product_name.startsWith('Unknown Product');
+        return {
+          ...row,
+          product_name: isUnknown ? 'Без названия' : row.product_name,
+          isUnknown: isUnknown,
+          count: Number(row.count) || 0,
+          revenue: Number(row.revenue) || 0
+        };
+      });
+      
+      setSalesData(mappedRows);
     } catch (err) {
       console.error('Failed to load analytics sales data', err);
       setSalesData([]);
@@ -296,6 +245,8 @@ export default function AnalyticsPage() {
     }
     return `Выбрано: ${selectedTerminalIds.length}`;
   }, [selectedTerminalIds, terminals]);
+
+  const chartHeight = Math.max(300, salesData.length * 45);
 
   return (
     <div className="page-container analytics-page">
@@ -344,39 +295,6 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="main-content-area">
-        {salesData.length > 0 && (
-          <div className="summary-card">
-            <div className="analytics-top-summary">
-              <div className="top-summary-column">
-                <div className="top-summary-title">Топ 5 позиций:</div>
-                <ul className="top-summary-list">
-                  {topProducts.map((p, i) => (
-                    <li key={i}>
-                      <span className="item-name" title={p.name}>{p.name}</span>
-                      <span className="item-value">
-                        <span className="value-count">{p.count} шт.</span>
-                        <span className="value-separator">|</span>
-                        <span className="value-revenue">{(p.revenue / 100).toLocaleString()} ₽</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="top-summary-column">
-                <div className="top-summary-title">Топ 5 стоек:</div>
-                <ul className="top-summary-list">
-                  {topTerminals.map((t, i) => (
-                    <li key={i}>
-                      <span className="item-name" title={t.name}>{t.name}</span>
-                      <span className="item-value">{(t.revenue / 100).toLocaleString()} ₽</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="summary-card analytics-drinks-card">
           <div className="analytics-card-header" onClick={() => setIsChartExpanded(!isChartExpanded)} style={{ cursor: 'pointer' }}>
             <button 
@@ -397,57 +315,50 @@ export default function AnalyticsPage() {
             {!loading && !error && salesData.length === 0 && (
               <p className="empty-data-message">Нет данных за период</p>
             )}
-
             {salesData.length > 0 && (
-              <div className={`chart-container ${loading ? 'chart-loading' : ''}`}>
-              <ResponsiveContainer width="100%" height={chartHeight}>
-                <BarChart
-                  data={chartData}
-                  layout="vertical"
-                    margin={{ top: 10, right: 40, left: -20, bottom: 20 }}
-                    barSize={24}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#353a40" />
-                    <XAxis type="number" stroke="#ccc" fontSize={11} />
-                    <YAxis
-                      dataKey="product_name"
-                      type="category"
-                      width={100}
-                      stroke="#ccc"
-                      fontSize={10}
-                      tick={(props) => {
-                        const { x, y, payload } = props;
-                        const lines = splitLabel(payload.value, 10);
-                        return (
-                          <g transform={`translate(${x},${y})`} className="y-axis-tick">
-                            <text x={-10} y={0} textAnchor="end" fill="#a0b0c8" fontSize={10}>
-                              {lines.map((line, i) => (
-                                <tspan key={i} x={-10} dy={i === 0 ? -((lines.length - 1) * 6) : 12}>
-                                  {line}
-                                </tspan>
-                              ))}
-                            </text>
-                          </g>
-                        );
-                      }}
-                    />
-                    <Tooltip
-                      cursor={{fill: 'rgba(255,255,255,0.05)'}}
-                      contentStyle={{ backgroundColor: '#282c34', border: '1px solid #3a3e47', borderRadius: '8px' }}
-                      itemStyle={{ color: '#8ae6ff' }}
-                    />
-                    <Bar
-                      dataKey="count"
-                      fill="#4f81c7"
-                      radius={[0, 4, 4, 0]}
-                      isAnimationActive={true}
-                      animationDuration={400}
-                      animationEasing="ease-out"
-                    >
-                      <LabelList dataKey="count" position="right" fill="#fff" fontSize={11} offset={8} />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className={`analytics-custom-grid ${loading ? 'chart-loading' : ''}`}>
+                <div className="analytics-grid-header">
+                  <div className="header-col-name">
+                    <span className="total-badge">Всего</span>
+                  </div>
+                  <div className="header-col-chart">
+                    <span className="total-badge">{salesData.reduce((sum, item) => sum + item.count, 0)} шт.</span>
+                  </div>
+                  <div className="header-col-revenue">
+                    <span className="total-badge">{(salesData.reduce((sum, item) => sum + item.revenue, 0) / 100).toLocaleString()} ₽</span>
+                  </div>
+                </div>
+                {salesData.map((item, index) => {
+                   const isFree = item.product_name === 'Бесплатные напитки';
+                   const totalSales = salesData.reduce((sum, i) => sum + i.count, 0);
+                   const percentage = totalSales > 0 ? ((item.count / totalSales) * 100).toFixed(1) : 0;
+                   return (
+                  <div key={index} className="analytics-grid-row">
+                    <div className="grid-col-name">
+                      <div className={`drink-name ${item.isUnknown ? 'unknown' : ''} ${isFree ? 'free' : ''}`}>
+                        {splitLabel(item.product_name, 10).map((line, i) => (
+                          <div key={i}>{line}</div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid-col-chart">
+                      <div className="bar-wrapper">
+                        <div 
+                          className="bar-fill" 
+                          style={{ 
+                            width: `${(item.count / Math.max(...salesData.map(d => d.count))) * 100}%`,
+                            animationDuration: '0.8s'
+                          }}
+                        >
+                        </div>
+                        <span className="bar-label">{item.count} шт. / {percentage}%</span>
+                      </div>
+                    </div>
+                    <div className="grid-col-revenue">
+                      <span className="revenue-text">{(item.revenue / 100).toLocaleString()} ₽</span>
+                    </div>
+                  </div>
+                )})}
               </div>
             )}
           </div>

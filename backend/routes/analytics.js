@@ -83,6 +83,7 @@ router.get('/financials', authMiddleware, async (req, res) => {
             WHERE t.user_id = $1 
               AND transaction_time AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Moscow' >= $2::date
               AND transaction_time AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Moscow' <= $3::date + interval '1 day' - interval '1 second'
+              AND t.result = '1' AND t.reverse_id = 0
               ${terminalFilter}
             GROUP BY ${groupByClause}
             ORDER BY 1 ASC
@@ -100,6 +101,7 @@ router.get('/financials', authMiddleware, async (req, res) => {
             WHERE t.user_id = $1 
               AND transaction_time AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Moscow' >= $2::date
               AND transaction_time AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Moscow' <= $3::date + interval '1 day' - interval '1 second'
+              AND t.result = '1' AND t.reverse_id = 0
               ${terminalFilter}
         `;
         const totalsResult = await pool.query(totalsQuery, queryParams);
@@ -141,25 +143,27 @@ router.get('/sales', authMiddleware, async (req, res) => {
         
         const query = `
             SELECT 
-                t.machine_item_id,
-                COALESCE(
-                    (SELECT name FROM recipes r 
-                     WHERE r.machine_item_id = t.machine_item_id 
-                       AND r.terminal_id IN (SELECT id FROM terminals WHERE user_id = $1) 
-                     LIMIT 1), 
-                    'Unknown Product ' || t.machine_item_id
-                ) as product_name,
+                CASE WHEN t.amount = 0 THEN -1 ELSE t.machine_item_id END as machine_item_id,
+                CASE 
+                    WHEN t.amount = 0 THEN 'Бесплатные напитки'
+                    ELSE COALESCE(
+                        (SELECT name FROM recipes r 
+                         WHERE r.machine_item_id = t.machine_item_id 
+                           AND r.terminal_id IN (SELECT id FROM terminals WHERE user_id = $1) 
+                         LIMIT 1), 
+                        'Unknown Product ' || COALESCE(t.machine_item_id::text, 'N/A')
+                    )
+                END as product_name,
                 COUNT(*) as count,
-                SUM(amount) as revenue,
-                t.coffee_shop_id,
-                (SELECT name FROM terminals WHERE vendista_terminal_id = t.coffee_shop_id AND user_id = $1 LIMIT 1) as terminal_name
+                SUM(amount) as revenue
             FROM transactions t
             WHERE t.user_id = $1 
               AND transaction_time AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Moscow' >= $2::date
               AND transaction_time AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Moscow' <= $3::date + interval '1 day' - interval '1 second'
-              AND t.amount > 0 -- Only sales
+              -- Include all valid transactions (paid and free)
+              AND t.result = '1' AND t.reverse_id = 0
               ${terminalFilter}
-            GROUP BY t.machine_item_id, t.coffee_shop_id
+            GROUP BY 1, 2
             ORDER BY count DESC
         `;
 
@@ -177,4 +181,5 @@ router.get('/sales', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
+
 

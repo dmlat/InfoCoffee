@@ -153,6 +153,7 @@
   background: #282c34;
   padding: 12px 0;
   border-radius: 14px;
+  overflow: hidden;
 }
 
 .analytics-card-header {
@@ -178,32 +179,169 @@
   align-items: center;
 }
 
-.chart-container {
+/* --- NEW CUSTOM GRID STYLES --- */
+.analytics-custom-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
   transition: opacity 0.8s ease;
+  position: relative;
 }
 
-.chart-container.chart-loading {
-  opacity: 0.6;
+.analytics-grid-header {
+  display: grid;
+  grid-template-columns: 85px 1fr 65px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 0 10px;
+}
+
+.header-col-chart {
+  display: flex;
+  justify-content: center;
+}
+
+.header-col-revenue {
+  text-align: right;
+}
+
+.total-badge {
+  font-size: 0.75em;
+  color: #8ae6ff;
+  font-weight: 600;
+  background: rgba(138, 230, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.analytics-custom-grid::after {
+  content: '';
+  position: absolute;
+  left: 109px; /* 14px padding + 85px name col + 10px gap */
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: #4a4e57;
+  z-index: 1;
+}
+
+.analytics-custom-grid::before {
+  content: '';
+  position: absolute;
+  left: 109px;
+  right: 89px; /* 14px padding + 65px revenue col + 10px gap */
+  bottom: 14px;
+  height: 1px;
+  background: #4a4e57;
+  z-index: 1;
+}
+
+.analytics-grid-row {
+  display: grid;
+  grid-template-columns: 85px 1fr 65px;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  position: relative;
+  z-index: 2;
+}
+
+.analytics-grid-row:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.analytics-grid-row:nth-child(even) {
+  background: transparent;
+}
+
+.analytics-grid-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.grid-col-name .drink-name {
+  color: #a0b0c8;
+  font-size: 0.75em;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.grid-col-name .drink-name.unknown {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+.grid-col-name .drink-name.free {
+  color: #8ae6ff;
+  font-weight: 600;
+}
+
+.grid-col-chart .bar-wrapper {
+  width: 100%;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.grid-col-chart .bar-fill {
+  height: 100%;
+  background: #4f81c7;
+  border-radius: 0 4px 4px 0;
+  min-width: 2px;
+  transition: width 0.8s ease-out;
+}
+
+.grid-col-chart .bar-label {
+  color: #fff;
+  font-size: 0.75em;
+  font-weight: 600;
+  white-space: nowrap;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.grid-col-revenue {
+  text-align: right;
+}
+
+.grid-col-revenue .revenue-text {
+  color: #8ae6ff;
+  font-size: 0.8em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chart-loading {
+  opacity: 0.5;
   pointer-events: none;
 }
 
-/* Анимация для меток оси Y */
-.recharts-cartesian-axis-tick-value {
-  transition: opacity 0.8s ease-in-out, fill 0.8s ease-in-out;
+.chart-expandable-content {
+  overflow: hidden;
+  transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out;
+  max-height: 2000px;
+  opacity: 1;
 }
 
-.chart-loading .recharts-cartesian-axis-tick-value {
-  opacity: 0.3;
+.chart-expandable-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
-/* Анимация для кастомных меток (tspan) */
-.y-axis-tick text {
-  transition: opacity 0.8s ease-in-out;
-}
-
-.chart-loading .y-axis-tick text {
-  opacity: 0.3;
-}
+/* --- END NEW CUSTOM GRID STYLES --- */
 
 .chart-toggle-btn {
   background: none;
@@ -232,74 +370,6 @@
 
 .chart-toggle-btn.collapsed {
   transform: rotate(-90deg);
-}
-
-.chart-expandable-content {
-  overflow: hidden;
-  transition: max-height 0.4s ease-in-out, opacity 0.3s ease-in-out, padding 0.4s ease-in-out;
-  max-height: 2000px;
-  opacity: 1;
-}
-
-.chart-expandable-content.collapsed {
-  max-height: 0;
-  opacity: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  pointer-events: none;
-}
-
-.analytics-drinks-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.analytics-drink-row {
-  display: grid;
-  grid-template-columns: minmax(90px, 140px) 1fr;
-  align-items: center;
-  gap: 12px;
-}
-
-.analytics-drink-row .drink-name {
-  color: #a0b0c8;
-  font-size: 0.85em;
-  line-height: 1.2;
-}
-
-.drink-name-line {
-  white-space: nowrap;
-}
-
-.drink-bar-cell {
-  width: 100%;
-}
-
-.drink-bar-track {
-  width: 100%;
-  background: #2b2f38;
-  border-radius: 6px;
-  padding: 2px;
-}
-
-.drink-bar {
-  height: 20px;
-  background: #4f81c7;
-  border-radius: 5px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: 8px;
-  box-sizing: border-box;
-  min-width: 18px;
-}
-
-.drink-bar-value {
-  color: #fff;
-  font-size: 0.85em;
-  font-weight: 600;
 }
 
 .analytics-terminal-modal {
@@ -360,93 +430,7 @@
   margin-top: 12px;
 }
 
-.analytics-top-summary {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  padding: 14px 18px;
-}
-
-.top-summary-column {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.top-summary-title {
-  font-size: 0.85em;
-  color: #8ae6ff;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-
-.top-summary-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.top-summary-list li {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
-  align-items: flex-start; /* Изменено с center на flex-start */
-  font-size: 0.85em;
-  color: #c6c6c6;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  padding-bottom: 4px;
-  min-height: 24px;
-}
-
-.top-summary-list li:last-child {
-  border-bottom: none;
-}
-
-.top-summary-list .item-name {
-  color: #a0b0c8;
-  white-space: normal; /* Разрешаем перенос текста */
-  overflow: visible;
-  text-overflow: clip;
-  word-wrap: break-word;
-  line-height: 1.2;
-}
-
-.top-summary-list .item-value {
-  font-weight: 500;
-  white-space: nowrap;
-  display: flex;
-  align-items: flex-start; /* Выравнивание значений по верху */
-  justify-content: flex-end;
-  padding-top: 0;
-}
-
-.value-count {
-  width: 55px; /* Фиксированная ширина для количества */
-  text-align: right;
-}
-
-.value-separator {
-  margin: 0 8px;
-  color: #555;
-}
-
-.value-revenue {
-  width: 85px; /* Фиксированная ширина для суммы */
-  text-align: right;
-}
-
 @media (max-width: 767px) {
-  .analytics-top-summary {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    padding: 14px;
-  }
-
   .analytics-page .period-buttons-container {
     gap: 6px;
   }
@@ -480,5 +464,34 @@
 
   .chart-toggle-btn {
     padding: 2px;
+  }
+
+  .analytics-custom-grid::after {
+    left: 95px; /* 14px padding + 75px name col + 6px gap */
+  }
+
+  .analytics-custom-grid::before {
+    left: 95px;
+    right: 80px; /* 14px padding + 60px revenue col + 6px gap */
+  }
+
+  .analytics-grid-header {
+    grid-template-columns: 75px 1fr 60px;
+    gap: 6px;
+    padding: 0 8px;
+  }
+
+  .analytics-grid-row {
+    grid-template-columns: 75px 1fr 60px;
+    gap: 6px;
+    padding: 4px 8px;
+  }
+  
+  .grid-col-name .drink-name {
+    font-size: 0.7em;
+  }
+  
+  .grid-col-revenue .revenue-text {
+    font-size: 0.75em;
   }
 }
