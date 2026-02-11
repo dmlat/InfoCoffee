@@ -1,0 +1,52 @@
+.iphoneMockup {
+  .bottomNav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0 0 20px;
+    z-index: 30;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    .navWrap {
+      pointer-events: auto;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      background: rgba(20, 18, 17, 0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius-nav);
+      padding: 6px;
+      box-shadow: var(--shadow-nav);
+      width: 94%;
+    }
+    .navItem {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 4px;
+      border-radius: var(--radius-nav-item);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      svg {
+        width: 18px;
+        height: 18px;
+        stroke: currentColor;
+      }
+      .t {
+        font-size: 9px;
+        font-weight: 500;
+      }
+      &.active {
+        background: var(--accent-dim);
+        color: var(--accent);
+        border: 1px solid var(--accent);
+      }
+    }
+  }
+}

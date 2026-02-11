@@ -1,0 +1,189 @@
+---
+import MockupHeader from "./MockupHeader.astro";
+import MockupPeriodPicker from "./MockupPeriodPicker.astro";
+
+interface Props {
+  active?: boolean;
+}
+
+const { active = false } = Astro.props;
+---
+
+<div class={`tab-content ${active ? 'active' : ''}`} data-tab="finance">
+  <MockupHeader title="Финансы" />
+
+  <MockupPeriodPicker id="periodCard" />
+
+  <div class="hero" data-highlight="pnl">
+    <div class="heroTop">
+      <span class="heroLabel">Чистая прибыль</span>
+    </div>
+
+    <div class="heroValue" id="financeProfit">...</div>
+
+    <div class="heroDelta" id="financeProfitDelta" style="display: none;">
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="3"
+        stroke-linecap="round"
+        stroke-linejoin="round"><path d="M18 15l-6-6-6 6"></path></svg
+      >
+      <span class="deltaValue">...</span>
+    </div>
+
+    <div class="heroGrid" data-highlight="efficiency">
+      <div class="heroKpi">
+        <div class="l">Выручка</div>
+        <div class="v" id="financeRevenue">...</div>
+      </div>
+      <div class="heroKpi">
+        <div class="l">Рентабельность</div>
+        <div class="v" id="financeProfitability">...</div>
+      </div>
+      <div class="heroKpi">
+        <div class="l">Продажи</div>
+        <div class="v" id="financeSales">...</div>
+      </div>
+      <div class="heroKpi">
+        <div class="l">Средний чек</div>
+        <div class="v" id="financeAvgCheck">...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="detailsList" data-highlight="deductions">
+    <div class="listItem">
+      <div class="l">РАСХОДЫ / СЕБЕСТОИМОСТЬ</div>
+      <div class="v" id="financeExpenses">...</div>
+    </div>
+    <div class="listItem">
+      <div class="l">Рентабельность</div>
+      <div class="v" id="financeProfitabilityDetails">...</div>
+    </div>
+    <div class="listItem">
+      <div class="l">НАЛОГИ (УСН) <span class="sub" id="financeTaxesHint">6%</span></div>
+      <div class="v" id="financeTaxesValue">...</div>
+    </div>
+    <div class="listItem">
+      <div class="l">ЭКВАЙРИНГ <span class="sub" id="financeAcquiringPct">...</span></div>
+      <div class="v" id="financeAcquiringValue">...</div>
+    </div>
+  </div>
+
+  <script>
+    import { getSalesStats } from "@/lib/salesService";
+
+    function formatCurrency(value) {
+      return value.toLocaleString("ru-RU", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      });
+    }
+
+    // Initialize each mockup instance separately
+    const initFinance = () => {
+      document.querySelectorAll('[data-iphone-mockup]').forEach((mockupContainer) => {
+        if (mockupContainer.getAttribute('data-finance-initialized') === 'true') return;
+        mockupContainer.setAttribute('data-finance-initialized', 'true');
+
+        const setVal = (id, val) => {
+          const el = mockupContainer.querySelector(`#${id}`) as HTMLElement;
+          if (el) el.innerText = val;
+        };
+
+        async function updateFinance(state) {
+          const rangeStart = state.startDate && state.endDate && state.startDate > state.endDate ? state.endDate : state.startDate;
+          const rangeEnd = state.startDate && state.endDate && state.startDate > state.endDate ? state.startDate : state.endDate;
+
+          const { totalCount, totalRevenue, totalCost } = await getSalesStats({
+            startDate: rangeStart,
+            endDate: rangeEnd,
+            locationIds: state.selectedLocationIds,
+          });
+
+          const taxPct = 6;
+          const acquiringPct = 1.5;
+          const acquiringValue = totalRevenue * (acquiringPct / 100);
+          const taxValue = totalRevenue * (taxPct / 100);
+          const expenses = totalCost;
+          const profit = totalRevenue - acquiringValue - taxValue - expenses;
+          const profitabilityPct = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
+          const avgCheck = totalCount > 0 ? totalRevenue / totalCount : 0;
+
+          setVal('financeRevenue', formatCurrency(totalRevenue) + ' ₽');
+          setVal('financeProfitability', profitabilityPct.toFixed(1) + '%');
+          setVal('financeProfitabilityDetails', profitabilityPct.toFixed(1) + '%');
+          setVal('financeSales', String(totalCount));
+          setVal('financeAvgCheck', avgCheck.toFixed(2) + ' ₽');
+          setVal('financeProfit', formatCurrency(profit) + ' ₽');
+          setVal('financeAcquiringPct', acquiringPct.toFixed(1) + '%');
+          setVal('financeAcquiringValue', formatCurrency(acquiringValue) + ' ₽');
+          setVal('financeTaxesValue', formatCurrency(taxValue) + ' ₽');
+          setVal('financeExpenses', formatCurrency(expenses) + ' ₽');
+          
+          const profitDeltaEl = mockupContainer.querySelector('#financeProfitDelta') as HTMLElement;
+          if (profitDeltaEl) {
+            const showDelta = ["За сегодня", "За вчера", "За неделю", "За месяц"].includes(state.periodLabel);
+            const deltaValueEl = profitDeltaEl.querySelector('.deltaValue') as HTMLElement;
+            if (showDelta) {
+              profitDeltaEl.style.display = "flex";
+              let prevStart = new Date(rangeStart);
+              let prevEnd = new Date(rangeEnd || rangeStart);
+              if (state.periodLabel === "За сегодня" || state.periodLabel === "За вчера") {
+                prevStart.setDate(prevStart.getDate() - 1);
+                prevEnd.setDate(prevEnd.getDate() - 1);
+              } else if (state.periodLabel === "За неделю") {
+                prevStart.setDate(prevStart.getDate() - 7);
+                prevEnd.setDate(prevEnd.getDate() - 7);
+              } else if (state.periodLabel === "За месяц") {
+                prevStart.setMonth(prevStart.getMonth() - 1);
+                prevEnd.setMonth(prevEnd.getMonth() - 1);
+              }
+
+              const prevStats = await getSalesStats({
+                startDate: prevStart,
+                endDate: prevEnd,
+                locationIds: state.selectedLocationIds,
+              });
+
+              const prevAcquiringValue = prevStats.totalRevenue * (acquiringPct / 100);
+              const prevTaxValue = prevStats.totalRevenue * (taxPct / 100);
+              const prevProfit = prevStats.totalRevenue - prevAcquiringValue - prevTaxValue - prevStats.totalCost;
+              const diffVal = profit - prevProfit;
+              const diffPct = prevProfit !== 0 ? (diffVal / Math.abs(prevProfit)) * 100 : 0;
+              
+              if (deltaValueEl) {
+                const isPositive = diffVal >= 0;
+                const sign = isPositive ? '+' : '-';
+                profitDeltaEl.className = `heroDelta ${isPositive ? 'positive' : 'negative'}`;
+                const arrowEl = profitDeltaEl.querySelector('svg') as HTMLElement;
+                if (arrowEl) arrowEl.style.transform = isPositive ? 'rotate(0deg)' : 'rotate(180deg)';
+                deltaValueEl.innerText = `${sign}${formatCurrency(Math.abs(diffVal))} ₽ (${sign}${Math.abs(diffPct).toFixed(0)}%)`;
+              }
+            } else {
+              profitDeltaEl.style.display = "none";
+            }
+          }
+        }
+
+        mockupContainer.addEventListener('mockup:statechange', (e: any) => {
+          updateFinance(e.detail);
+        });
+
+        // Request initial state in case we missed the event
+        mockupContainer.dispatchEvent(new CustomEvent('mockup:request-state'));
+      });
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initFinance);
+    } else {
+      initFinance();
+    }
+
+  </script>
+</div>

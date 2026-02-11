@@ -1,0 +1,359 @@
+.iphoneMockup {
+  .periodCard {
+    border-radius: var(--radius-card);
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.02)
+    );
+    border: 1px solid var(--stroke);
+    padding: 0; // Changed from 14px to match template structure where padding is inside content
+    margin-bottom: var(--block-gap);
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
+
+    &.expanded {
+      background: linear-gradient(
+        180deg,
+        #1c1917 0%,
+        #141211 100%
+      );
+      border-color: rgba(192, 128, 88, 0.3);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .periodHeader {
+      padding: 14px; // Added padding here because it was removed from .periodCard
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .periodLeft {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .periodBtn {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+    }
+    .periodValue {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .chev {
+      width: 16px;
+      height: 16px;
+      color: var(--accent);
+      margin-top: 2px;
+      transition: transform 0.3s;
+    }
+    &.expanded .chev {
+      transform: rotate(180deg);
+    }
+    .periodDate {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .calendarIcon {
+      color: var(--accent);
+      width: 20px;
+      height: 20px;
+    }
+    .periodContent {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      border-top: 1px solid transparent;
+      pointer-events: none;
+    }
+    &.expanded .periodContent {
+      max-height: 1000px;
+      opacity: 1;
+      border-top: 1px solid var(--stroke);
+      padding: 16px;
+      overflow: visible;
+      pointer-events: auto;
+    }
+  }
+
+  .presets {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .presetBtn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 8px 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: center;
+    &.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+  }
+
+  .calendarWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .calHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4px;
+  }
+  .calNavBtn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 0;
+    display: grid;
+    place-items: center;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .calPickers {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    width: 100%;
+    position: relative; // Added for absolute positioning of children if needed
+  }
+  .customSelect {
+    position: static; // Changed from relative to allow monthGrid to center relative to calPickers
+    overflow: visible;
+    z-index: 1600; 
+    &.open .customSelectMenu {
+      display: block;
+    }
+  }
+  .customSelectTrigger {
+    background: transparent;
+    border: 0;
+    padding: 4px 0;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    pointer-events: auto; 
+    position: relative; // Keep trigger relative for its own needs
+  }
+  .customSelectMenu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%; // Center relative to parent (calPickers)
+    transform: translateX(-50%);
+    min-width: 120px; 
+    background: #1c1917; 
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    padding: 8px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+    display: none;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 1700;
+    list-style: none;
+    margin: 0;
+    pointer-events: auto;
+
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+
+    &.monthGrid {
+      top: calc(100% + 8px);
+      width: 280px;
+      max-width: 280px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding: 12px;
+      z-index: 3000; 
+      max-height: none;
+      background: #1c1917;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+      pointer-events: auto;
+      
+      &.open {
+        display: grid;
+      }
+
+      .customSelectOption {
+        padding: 12px 4px;
+        text-align: center;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 500;
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text);
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        &.active {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+        }
+      }
+    }
+
+    &.yearGrid {
+      display: none;
+      top: calc(100% + 8px);
+      width: 140px;
+      grid-template-columns: 1fr;
+      gap: 4px;
+      padding: 8px;
+      z-index: 3000;
+      max-height: 220px;
+      overflow-y: auto;
+
+      &.open {
+        display: grid;
+      }
+
+      .customSelectOption {
+        padding: 10px 14px;
+        text-align: left;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 500;
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text);
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        &.active {
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
+        }
+      }
+    }
+  }
+  .customSelectOption {
+    padding: 10px 14px;
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 2px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    &.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+  }
+
+  .calGrid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    row-gap: 6px;
+  }
+  .weekday {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted2);
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .day {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--text);
+    cursor: pointer;
+    &.range-start,
+    &.range-end,
+    &.single-selected {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      z-index: 2;
+      border-radius: 8px;
+    }
+    &.disabled {
+      opacity: 0.2;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    &.range-start {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    &.range-end {
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+    &.in-range {
+      background: var(--accent-dim);
+      color: #fff;
+      border-radius: 0;
+    }
+  }
+  .applyBtn {
+    margin-top: 8px;
+    width: 100%;
+    padding: 12px;
+    border-radius: 14px;
+    border: 0;
+    background: var(--accent);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+}

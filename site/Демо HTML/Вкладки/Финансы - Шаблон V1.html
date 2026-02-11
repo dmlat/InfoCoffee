@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Финансы — Платиновый Лед</title>
+  <style>
+    /* ========================================= */
+    /* 1. INDUSTRIAL STRICT THEME CONFIG         */
+    /* ========================================= */
+    :root {
+      /* ГЕОМЕТРИЯ */
+      --phone-width: 375px;
+      --screen-radius: 40px;
+      --notch-height: 47px;
+      
+      /* ОСНОВНЫЕ ФОНЫ */
+      --bg-deep: #0B0E14;    /* Почти черный антрацит */
+      --bg-panel: #151921;   /* Темный металлик */
+      
+      /* МЕТАЛЛИЧЕСКИЕ ПОВЕРХНОСТИ */
+      /* Линейный градиент под 45 градусов: Светлый блик -> Темная сталь */
+      --metal-gradient: linear-gradient(145deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.01) 100%);
+      --metal-border: rgba(255, 255, 255, 0.12);
+      /* Эффект фаски (свет сверху, тень снизу) */
+      --metal-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 10px 20px rgba(0, 0, 0, 0.6);
+
+      /* ТЕКСТ И АКЦЕНТЫ */
+      --text-main: #E2E8F0;
+      --text-muted: #64748B; /* Slate 500 */
+      --accent-steel: #94A3B8; /* Светлая сталь */
+      --accent-blue: #3B82F6;  /* Industrial Blue (для активных элементов) */
+      
+      /* ХОЛОДНЫЙ ИЗУМРУД (DELTA) */
+      --cold-emerald: #10B981; 
+      --cold-emerald-bg: rgba(16, 185, 129, 0.1);
+
+      /* ХРОМИРОВАННЫЙ ТЕКСТ (PROFIT) */
+      --chrome-text: linear-gradient(180deg, #FFFFFF 20%, #94A3B8 100%);
+      
+      --radius: 16px;
+      --gap: 12px; 
+    }
+
+    body {
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* РАМКА ТЕЛЕФОНА */
+    .phone-wrapper {
+      position: relative;
+      width: var(--phone-width);
+      height: 780px; /* Фиксированная высота для макета */
+      filter: drop-shadow(0 40px 80px rgba(0,0,0,0.9));
+    }
+    .phone-frame-img {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      z-index: 50;
+      pointer-events: none;
+      object-fit: contain;
+    }
+
+    /* ЭКРАН */
+    .phone-screen {
+      position: absolute;
+      top: 12px; left: 16px; right: 16px; bottom: 12px;
+      background: var(--bg-deep);
+      border-radius: var(--screen-radius);
+      overflow: hidden;
+      z-index: 10;
+      /* Шум для текстуры металла (опционально, через градиент) */
+      background-image: radial-gradient(circle at 50% 0%, #1E293B 0%, #0B0E14 60%);
+    }
+
+    .app-scroll {
+      height: 100%;
+      overflow-y: auto;
+      padding: var(--notch-height) 16px 90px 16px; /* 90px padding bottom for nav */
+      scrollbar-width: none;
+    }
+    .app-scroll::-webkit-scrollbar { display: none; }
+
+    /* ========================================= */
+    /* HEADER                                    */
+    /* ========================================= */
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px;
+      margin-top: 10px;
+    }
+    .page-title { 
+      font-size: 22px; 
+      font-weight: 700; 
+      color: var(--text-main); 
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .avatar-btn {
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      background: var(--metal-gradient);
+      border: 1px solid var(--metal-border);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    /* ========================================= */
+    /* COMPONENTS: INDUSTRIAL CARDS              */
+    /* ========================================= */
+    .card {
+      background: var(--metal-gradient);
+      border: 1px solid var(--metal-border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: var(--gap);
+      box-shadow: var(--metal-shadow);
+      position: relative;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    /* --- Period Selector --- */
+    .period-card {
+      display: flex; flex-direction: column;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .period-card.expanded {
+      background: #181E29; /* Чуть светлее при открытии */
+      border-color: rgba(255,255,255,0.25);
+    }
+    .period-header {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .period-label {
+      font-size: 15px; font-weight: 600; color: var(--text-main);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .period-sub {
+      font-size: 12px; color: var(--text-muted); margin-top: 4px; font-family: 'Courier New', monospace; /* Технический шрифт */
+    }
+    .icon-box {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent-steel);
+    }
+
+    /* Period Accordion Content */
+    .period-content {
+      max-height: 0; opacity: 0;
+      transition: all 0.4s ease;
+      margin-top: 0;
+    }
+    .period-card.expanded .period-content {
+      max-height: 500px; opacity: 1; margin-top: 16px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 16px;
+    }
+
+    /* Preset Buttons */
+    .presets-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;
+    }
+    .preset-btn {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.05);
+      color: var(--text-muted);
+      font-size: 11px; font-weight: 600;
+      padding: 10px 0; text-align: center;
+      border-radius: 8px;
+      transition: 0.2s;
+    }
+    .preset-btn.active {
+      background: var(--accent-steel);
+      color: #0F1219; /* Контраст черного на стали */
+      border-color: var(--accent-steel);
+      box-shadow: 0 0 10px rgba(148, 163, 184, 0.3);
+    }
+
+    /* Calendar Placeholders */
+    .cal-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; color: #fff; font-weight: 700; font-size: 13px; }
+    .cal-nav button { background: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--accent-steel); width: 28px; height: 28px; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .cal-day { 
+      font-size: 11px; color: var(--text-muted); padding: 8px 0; text-align: center; border-radius: 6px; 
+    }
+    .cal-day.active { background: var(--accent-steel); color: #000; font-weight: 700; }
+    .apply-btn {
+      width: 100%; margin-top: 12px; padding: 12px;
+      background: var(--text-main); color: #000;
+      border: none; border-radius: 10px; font-weight: 700; font-size: 13px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    /* --- Hero Section (Profit) --- */
+    .hero-label {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--text-muted); font-weight: 700; margin-bottom: 6px;
+    }
+    
+    .hero-value {
+      font-size: 42px; line-height: 1.1; font-weight: 800;
+      /* Эффект хрома */
+      background: var(--chrome-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 4px 4px rgba(0,0,0,0.5)); /* Тень для объема */
+      margin-bottom: 8px;
+    }
+
+    .hero-delta {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 600;
+      color: var(--cold-emerald);
+      background: rgba(16, 185, 129, 0.08);
+      padding: 4px 8px; border-radius: 6px;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    /* KPI Grid (Dashboard Style) */
+    .kpi-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 20px;
+    }
+    .kpi-item {
+      background: rgba(0,0,0,0.2); /* Вдавленные слоты */
+      border: 1px solid rgba(255,255,255,0.03);
+      border-radius: 10px;
+      padding: 12px;
+      /* Внутренняя тень для эффекта углубления */
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .kpi-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.5px; }
+    .kpi-val { font-size: 16px; font-weight: 700; color: #F1F5F9; }
+
+    /* --- Details Section --- */
+    .details-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap);
+    }
+    .detail-card {
+      padding: 16px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      min-height: 50px;
+    }
+    
+    /* ========================================= */
+    /* NAVIGATION BAR                            */
+    /* ========================================= */
+    .bottom-nav-container {
+      position: absolute; bottom: 20px; left: 0; right: 0;
+      display: flex; justify-content: center;
+      z-index: 100;
+    }
+    .nav-island {
+      background: rgba(21, 25, 33, 0.85);
+      border: 1px solid var(--metal-border);
+      backdrop-filter: blur(15px);
+      border-radius: 20px;
+      padding: 6px;
+      display: flex; gap: 4px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    .nav-item {
+      width: 50px; height: 50px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      border-radius: 14px;
+      color: var(--text-muted);
+      transition: 0.3s;
+    }
+    .nav-item svg { width: 20px; height: 20px; stroke-width: 2px; }
+    .nav-item span { font-size: 9px; margin-top: 3px; font-weight: 500; }
+    
+    .nav-item.active {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="phone-wrapper">
+    <img src="imock.png" alt="Phone Frame" class="phone-frame-img" onerror="this.style.display='none'">
+
+    <div class="phone-screen">
+      
+      <div class="app-scroll">
+        
+        <div class="topbar">
+          <div class="page-title">Statistics</div>
+          <div class="avatar-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D1D1D1" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+        </div>
+
+        <div class="card period-card" id="periodCard">
+          <div class="period-header">
+            <div>
+              <div class="period-label">
+                <span id="periodText">За месяц</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </div>
+              <div class="period-sub">31 дек 2025 — 29 янв 2026</div>
+            </div>
+            <div class="icon-box">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+              </svg>
+            </div>
+          </div>
+
+          <div class="period-content">
+            <div class="presets-grid">
+              <div class="preset-btn" data-val="День">День</div>
+              <div class="preset-btn" data-val="Вчера">Вчера</div>
+              <div class="preset-btn" data-val="Неделя">Неделя</div>
+              <div class="preset-btn active" data-val="Месяц">Месяц</div>
+            </div>
+            
+            <div class="cal-nav">
+              <button>‹</button>
+              <span>Январь 2026</span>
+              <button>›</button>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+            <button class="apply-btn">Применить</button>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="hero-label">Чистая прибыль</div>
+          <div class="hero-value">151 280,00 ₽</div>
+          <div class="hero-delta">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+            +11 190 ₽ (+8%)
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-item">
+              <div class="kpi-label">Выручка</div>
+              <div class="kpi-val">151к ₽</div>
+            </div>
+            <div class="kpi-item">
+              <div class="kpi-label">Маржа</div>
+              <div class="kpi-val">100%</div>
+            </div>
+            <div class="kpi-item">
+              <div class="kpi-label">Продажи</div>
+              <div class="kpi-val">971</div>
+            </div>
+            <div class="kpi-item">
+              <div class="kpi-label">Ср. чек</div>
+              <div class="kpi-val">155 ₽</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="details-row">
+          <div class="card detail-card">
+            <div class="kpi-label">Эквайринг</div>
+            <div class="kpi-val">0,00 ₽</div>
+          </div>
+          <div class="card detail-card">
+            <div class="kpi-label">Налоги (УСН)</div>
+            <div class="kpi-val">0,00 ₽</div>
+          </div>
+        </div>
+
+      </div> <nav class="bottom-nav-container">
+        <div class="nav-island">
+          <div class="nav-item active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 18V8"/><path d="M10 18V6"/><path d="M16 18v-4"/><path d="M22 18V10"/></svg>
+            <span>Фин</span>
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19h16"/><path d="M7 15l3-4 4 3 4-6"/></svg>
+            <span>Отчет</span>
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M3 12h3"/><path d="M18 12h3"/></svg>
+            <span>Стойки</span>
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 8l-9-4-9 4 9 4 9-4z"/><path d="M3 8v8l9 4 9-4V8"/></svg>
+            <span>Склад</span>
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span>Задачи</span>
+          </div>
+        </div>
+      </nav>
+
+    </div>
+  </div>
+
+  <script>
+    // Простая логика для визуализации
+    const periodCard = document.getElementById('periodCard');
+    const periodText = document.getElementById('periodText');
+    const presets = document.querySelectorAll('.preset-btn');
+    const calGrid = document.getElementById('calGrid');
+
+    // Аккордеон
+    periodCard.addEventListener('click', (e) => {
+      // Если клик по кнопке пресета или календарю - не сворачивать сразу
+      if(e.target.closest('.period-content') && !e.target.closest('.apply-btn')) return;
+      
+      periodCard.classList.toggle('expanded');
+    });
+
+    // Пресеты
+    presets.forEach(btn => {
+      btn.addEventListener('click', () => {
+        presets.forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        periodText.innerText = 'За ' + btn.dataset.val.toLowerCase();
+      });
+    });
+
+    // Генерация календаря (декоративная)
+    for(let i=1; i<=31; i++) {
+      const d = document.createElement('div');
+      d.className = 'cal-day';
+      d.innerText = i;
+      if(i >= 15 && i <= 24) d.classList.add('active'); // Имитация выбранного диапазона
+      calGrid.appendChild(d);
+    }
+  </script>
+</body>
+</html>

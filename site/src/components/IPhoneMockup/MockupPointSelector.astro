@@ -1,0 +1,141 @@
+---
+import { ALL_LOCATION_IDS, LOCATIONS } from "@/lib/salesService";
+
+interface Props {
+  // Any props if needed
+}
+---
+
+<div class="pointModal" id="pointModal">
+  <div class="pointModalHeader">
+    <div class="pointModalLeft">
+      <div class="pointModalTitle"><span class="pointModalValue">Торговые точки</span></div>
+      <div class="pointModalDesc">Выберите локации для анализа</div>
+    </div>
+  </div>
+  <div class="pointModalContent">
+    <div class="pointOptions" id="pointOptions"></div>
+    <button class="applyPointBtn" id="applyPointSelection">Применить выбор</button>
+  </div>
+</div>
+
+<script>
+  import { ALL_LOCATION_IDS, LOCATIONS } from "@/lib/salesService";
+
+  document.querySelectorAll('[data-iphone-mockup]').forEach((mockupContainer) => {
+    const pointModal = mockupContainer.querySelector('#pointModal') as HTMLElement;
+    const pointOptions = mockupContainer.querySelector('#pointOptions') as HTMLElement;
+    const applyPointSelection = mockupContainer.querySelector('#applyPointSelection') as HTMLElement;
+    const menuOverlay = mockupContainer.querySelector('#menuOverlay') as HTMLElement;
+    const pointDisplayValue = mockupContainer.querySelector('#pointDisplayValue') as HTMLElement;
+
+    let state: any = {
+      selectedLocationIds: [...ALL_LOCATION_IDS]
+    };
+
+    function getPointLabel() {
+      if (state.selectedLocationIds.length === ALL_LOCATION_IDS.length) return "Вся сеть";
+      if (state.selectedLocationIds.length === 1) {
+        const loc = LOCATIONS.find((item) => item.id === state.selectedLocationIds[0]);
+        return loc ? loc.name : "Точка";
+      }
+      const count = state.selectedLocationIds.length;
+      return `${count} точки`;
+    }
+
+    function updatePointButtons() {
+      if (!pointOptions) return;
+      const buttons = pointOptions.querySelectorAll(".presetBtn");
+      const isAllSelected = state.selectedLocationIds.length === ALL_LOCATION_IDS.length;
+      
+      buttons.forEach((btn) => {
+        const locId = (btn as HTMLElement).dataset.loc;
+        if (locId === "all") {
+          btn.classList.toggle("active", isAllSelected);
+        } else {
+          const id = parseInt(locId!);
+          btn.classList.toggle("active", !isAllSelected && state.selectedLocationIds.includes(id));
+        }
+      });
+    }
+
+    function buildPointOptions() {
+      if (!pointOptions) return;
+      pointOptions.innerHTML = "";
+      
+      const activeTab = mockupContainer.querySelector('.navItem.active')?.getAttribute('data-tab-target');
+      
+      if (activeTab !== 'stock') {
+        const allBtn = document.createElement("button");
+        allBtn.className = "presetBtn";
+        allBtn.dataset.loc = "all";
+        allBtn.innerText = "Вся сеть";
+        pointOptions.appendChild(allBtn);
+      }
+
+      LOCATIONS.forEach((loc) => {
+        const btn = document.createElement("button");
+        btn.className = "presetBtn";
+        btn.dataset.loc = String(loc.id);
+        btn.innerText = loc.name;
+        pointOptions.appendChild(btn);
+      });
+
+      updatePointButtons();
+    }
+
+    pointOptions?.addEventListener("click", (e) => {
+      const target = (e.target as HTMLElement).closest(".presetBtn") as HTMLElement;
+      if (!target) return;
+      const locId = target.dataset.loc;
+      
+      if (locId === "all") {
+        state.selectedLocationIds = [...ALL_LOCATION_IDS];
+      } else {
+        const id = parseInt(locId!);
+        if (state.selectedLocationIds.length === ALL_LOCATION_IDS.length) {
+          state.selectedLocationIds = [id];
+        } else {
+          if (state.selectedLocationIds.includes(id)) {
+            state.selectedLocationIds = state.selectedLocationIds.filter(i => i !== id);
+          } else {
+            state.selectedLocationIds.push(id);
+          }
+        }
+        if (state.selectedLocationIds.length === 0) state.selectedLocationIds = [...ALL_LOCATION_IDS];
+      }
+      updatePointButtons();
+    });
+
+    applyPointSelection?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (pointDisplayValue) {
+        const textNode = Array.from(pointDisplayValue.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+        if (textNode) textNode.textContent = ` ${getPointLabel()}`;
+        else pointDisplayValue.append(` ${getPointLabel()}`);
+      }
+      pointModal?.classList.remove("active");
+      const scrollArea = mockupContainer.querySelector('.app-scroll-area');
+      scrollArea?.classList.remove("no-scroll");
+      menuOverlay?.classList.remove("show");
+      
+      mockupContainer.dispatchEvent(new CustomEvent('mockup:update-state', { 
+        detail: { selectedLocationIds: state.selectedLocationIds } 
+      }));
+    });
+
+    mockupContainer.addEventListener('mockup:statechange', (e: any) => {
+      state.selectedLocationIds = [...e.detail.selectedLocationIds];
+      buildPointOptions();
+      
+      if (pointDisplayValue) {
+        const textNode = Array.from(pointDisplayValue.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+        if (textNode) textNode.textContent = ` ${getPointLabel()}`;
+        else pointDisplayValue.append(` ${getPointLabel()}`);
+      }
+    });
+
+    // Initial build
+    buildPointOptions();
+  });
+</script>

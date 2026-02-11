@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Финансы — Cold Metal</title>
+  <style>
+    /* ========================================= */
+    /* 1. НАСТРОЙКИ (Industrial Cold Metal)      */
+    /* ========================================= */
+    :root {
+      --phone-width: 365px;
+      --screen-radius: 42px;
+      --notch-height: 47px;
+
+      /* PALETTE: COLD METAL */
+      --bg-deep: #050608;       /* Почти черный */
+      --bg-surface: #0E1116;    /* Глубокий графит */
+      --bg-card: #15181F;       /* Основной цвет карточек */
+      
+      /* ACCENTS */
+      --ice-blue: #60A5FA;      /* Ледяной голубой (основной акцент) */
+      --ice-glow: rgba(96, 165, 250, 0.25);
+      --violet-steel: #818CF8;  /* Вторичный (ховеры, селекты) */
+      --good: #34D399;          /* Холодный изумруд (только для роста) */
+      --good-bg: rgba(52, 211, 153, 0.1);
+
+      /* TEXT & BORDERS */
+      --text-main: #E2E8F0;
+      --text-muted: #64748B;    /* Slate 500 */
+      --stroke-light: rgba(255, 255, 255, 0.08); /* Тонкая фаска */
+      --stroke-highlight: rgba(255, 255, 255, 0.15); /* Блик */
+
+      /* METRICS */
+      --radius: 16px;
+      --tabH: 76px; 
+    }
+
+    body {
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      color: var(--text-main);
+    }
+
+    .phone-wrapper {
+      position: relative;
+      width: var(--phone-width);
+      filter: drop-shadow(0 40px 80px rgba(0,0,0,0.9));
+    }
+
+    .phone-frame-img {
+      width: 100%;
+      display: block;
+      position: relative;
+      z-index: 50;
+      pointer-events: none;
+    }
+
+    .phone-screen {
+      position: absolute;
+      top: 10px; left: 15.5px; right: 15.5px; bottom: 10px;
+      background: var(--bg-deep);
+      border-radius: var(--screen-radius);
+      overflow: hidden;
+      z-index: 10;
+      /* Холодный фоновый градиент */
+      background: radial-gradient(circle at 50% 0%, #172033 0%, var(--bg-deep) 60%);
+    }
+
+    .app-scroll-area {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow-y: auto;
+      padding-top: var(--notch-height);
+      padding-bottom: calc(var(--tabH) + 20px);
+      padding-left: 18px;
+      padding-right: 18px;
+      scrollbar-width: none;
+    }
+    .app-scroll-area::-webkit-scrollbar { display: none; }
+
+    /* ========================================= */
+    /* COMPONENTS                                */
+    /* ========================================= */
+
+    /* SATIN CARD STYLE (Mixins) */
+    .metal-card {
+      background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.0) 45%, rgba(0,0,0,0.2) 100%), var(--bg-card);
+      border: 1px solid var(--stroke-light);
+      box-shadow: inset 1px 1px 0 rgba(255,255,255,0.05), 0 10px 20px rgba(0,0,0,0.3);
+      border-radius: var(--radius);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 2px 20px;
+    }
+    .title { 
+      font-size: 20px; font-weight: 700; color: #F1F5F9; 
+      text-transform: uppercase; letter-spacing: 2px;
+    }
+    
+    .avatarBtn {
+      width: 40px; height: 40px; border-radius: 12px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+      border: 1px solid var(--stroke-highlight);
+      display: grid; place-items: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+
+    /* PERIOD SELECTOR */
+    .periodCard {
+      padding: 0;
+      margin-bottom: 24px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .periodCard.expanded {
+      background: #141820;
+      border-color: var(--ice-blue);
+      box-shadow: 0 0 20px rgba(96, 165, 250, 0.1);
+    }
+
+    .periodHeader {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px;
+      cursor: pointer;
+    }
+    .periodBtn { display: flex; align-items: center; gap: 6px; }
+    .periodValue { font-size: 15px; font-weight: 600; color: #fff; letter-spacing: 0.5px; }
+    .periodDate { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family: monospace; }
+    .chev { color: var(--ice-blue); transition: transform 0.3s; }
+    
+    .periodContent {
+      max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+      background: rgba(0,0,0,0.2);
+    }
+    .periodCard.expanded .periodContent { max-height: 400px; }
+    .periodCard.expanded .chev { transform: rotate(180deg); }
+
+    .presets {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; 
+      padding: 0 16px 16px; border-bottom: 1px solid var(--stroke-light);
+    }
+    .presetBtn {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--stroke-light);
+      border-radius: 8px;
+      color: var(--text-muted); font-size: 11px; font-weight: 600;
+      padding: 10px 0; text-align: center; cursor: pointer;
+    }
+    .presetBtn.active {
+      background: rgba(96, 165, 250, 0.15);
+      color: var(--ice-blue);
+      border-color: var(--ice-blue);
+      box-shadow: 0 0 10px var(--ice-glow);
+    }
+
+    /* HERO SECTION (UPDATED) */
+    .hero-section {
+      text-align: center;
+      margin-bottom: 24px;
+      position: relative;
+    }
+    
+    .heroLabel {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      opacity: 0.8;
+    }
+
+    /* Updated Hero Number Style */
+    .heroValue {
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin: 0;
+      
+      /* Platinum Gradient Text */
+      background: linear-gradient(180deg, #F4F7FF 20%, #B8C2D6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      
+      /* Soft Shadow + Shine */
+      filter: drop-shadow(0 10px 15px rgba(0,0,0,0.4));
+      
+      /* Subtle top highlight via text-shadow hack or just reliance on gradient */
+    }
+
+    /* Delta Pill */
+    .deltaPill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 12px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(52, 211, 153, 0.3); /* Green border */
+      background: linear-gradient(90deg, rgba(52, 211, 153, 0.05), transparent);
+    }
+    .deltaText {
+      color: var(--good);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .deltaIcon { width: 10px; height: 10px; fill: var(--good); }
+
+    /* UNIFIED GRID SYSTEM */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .kpi-card {
+      padding: 14px 16px;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    
+    .kpi-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--text-muted); margin-bottom: 6px;
+    }
+    .kpi-val {
+      font-size: 18px; font-weight: 700; color: #F1F5F9;
+    }
+    .kpi-sub {
+      font-size: 11px; color: var(--text-muted); margin-top: 2px;
+    }
+
+    /* Section Divider */
+    .section-title {
+      font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--text-muted); margin: 25px 0 10px 4px; opacity: 0.6;
+    }
+
+    /* BOTTOM NAV */
+    .navContainer {
+      position: absolute; bottom: 20px; left: 0; right: 0;
+      display: flex; justify-content: center; z-index: 100;
+    }
+    .navWrap {
+      background: rgba(14, 17, 22, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--stroke-light);
+      border-radius: 24px;
+      padding: 6px 8px;
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+      width: 90%;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+    .navItem {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 50px;
+      border-radius: 16px;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .navItem svg { transition: stroke 0.2s; stroke-width: 1.5px; }
+    .navItem span { font-size: 9px; margin-top: 4px; font-weight: 500; }
+    
+    .navItem.active {
+      color: #fff;
+      background: rgba(255,255,255,0.03);
+      position: relative;
+    }
+    .navItem.active svg { stroke: var(--ice-blue); stroke-width: 2px; filter: drop-shadow(0 0 6px var(--ice-blue)); }
+
+  </style>
+</head>
+<body>
+
+  <div class="phone-wrapper">
+    <img src="imock.png" alt="" class="phone-frame-img" onerror="this.style.display='none'">
+
+    <div class="phone-screen" id="phoneScreen">
+      
+      <div style="height: 44px; width: 100%; position: absolute; top:0; z-index: 60; background: linear-gradient(180deg, rgba(5,6,8,0.9) 0%, transparent 100%);"></div>
+
+      <div class="app-scroll-area">
+        
+        <div class="topbar">
+          <div class="title">Statistics</div>
+          <div class="avatarBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D1D1D1" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+        </div>
+
+        <div class="metal-card periodCard" id="periodCard">
+          <div class="periodHeader">
+            <div class="periodLeft">
+              <div class="periodBtn">
+                <span class="periodValue" id="pVal">За месяц</span>
+                <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </div>
+              <div class="periodDate">01 янв — 31 янв 2026</div>
+            </div>
+            <svg style="color: var(--ice-blue);" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+            </svg>
+          </div>
+
+          <div class="periodContent">
+            <div class="presets">
+              <div class="presetBtn" data-range="today">День</div>
+              <div class="presetBtn" data-range="yesterday">Вчера</div>
+              <div class="presetBtn" data-range="7">Неделя</div>
+              <div class="presetBtn active" data-range="30">Месяц</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="hero-section">
+          <div class="heroLabel">Чистая прибыль</div>
+          <div class="heroValue">151 280,00 ₽</div>
+          
+          <div class="deltaPill">
+            <svg class="deltaIcon" viewBox="0 0 24 24"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
+            <span class="deltaText">+11 190 (8%)</span>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metal-card kpi-card">
+            <div class="kpi-label">Выручка</div>
+            <div class="kpi-val">151к ₽</div>
+          </div>
+          <div class="metal-card kpi-card">
+            <div class="kpi-label">Маржа</div>
+            <div class="kpi-val">100%</div>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metal-card kpi-card">
+            <div class="kpi-label">Продажи</div>
+            <div class="kpi-val">971</div>
+            <div class="kpi-sub">транзакций</div>
+          </div>
+          <div class="metal-card kpi-card">
+            <div class="kpi-label">Ср. чек</div>
+            <div class="kpi-val">155 ₽</div>
+            <div class="kpi-sub">на клиента</div>
+          </div>
+        </div>
+
+        <div class="section-title">Расходы и вычеты</div>
+
+        <div class="metrics-grid">
+          <div class="metal-card kpi-card">
+            <div class="kpi-label">Эквайринг</div>
+            <div class="kpi-val" style="opacity: 0.7">0,00 ₽</div>
+          </div>
+          <div class="metal-card kpi-card">
+            <div class="kpi-label">Налоги (УСН)</div>
+            <div class="kpi-val" style="opacity: 0.7">0,00 ₽</div>
+          </div>
+        </div>
+        
+        <div style="height: 40px;"></div>
+      </div> 
+      
+      <nav class="navContainer">
+        <div class="navWrap">
+          <div class="navItem active">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 18V8"/><path d="M10 18V6"/><path d="M16 18v-4"/><path d="M22 18V10"/></svg>
+            <span>Фин</span>
+          </div>
+          <div class="navItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19h16"/><path d="M7 15l3-4 4 3 4-6"/></svg>
+            <span>Отчет</span>
+          </div>
+          <div class="navItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M3 12h3"/><path d="M18 12h3"/></svg>
+            <span>Стойки</span>
+          </div>
+          <div class="navItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 8l-9-4-9 4 9 4 9-4z"/><path d="M3 8v8l9 4 9-4V8"/></svg>
+            <span>Склад</span>
+          </div>
+          <div class="navItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span>Задачи</span>
+          </div>
+        </div>
+      </nav>
+
+    </div> 
+  </div>
+
+  <script>
+    (function(){
+      const periodCard = document.getElementById('periodCard');
+      const pVal = document.getElementById('pVal');
+      const presetBtns = document.querySelectorAll('.presetBtn');
+
+      // Accordion Logic
+      periodCard.addEventListener('click', (e) => {
+        // Expand only if clicking header
+        if (e.target.closest('.periodHeader')) {
+          periodCard.classList.toggle('expanded');
+        }
+      });
+
+      // Preset Logic
+      presetBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation(); // prevent accordion toggle
+          presetBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          pVal.innerText = 'За ' + btn.innerText.toLowerCase();
+          
+          // Collapse after selection
+          setTimeout(() => periodCard.classList.remove('expanded'), 200);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

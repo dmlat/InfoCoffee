@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Финансы — Black Chrome</title>
+  <style>
+    /* ========================================= */
+    /* 1. НАСТРОЙКИ (Black Chrome Style)         */
+    /* ========================================= */
+    :root {
+      --phone-width: 365px;
+      --screen-radius: 42px;
+      --notch-height: 47px;
+
+      /* ЦВЕТОВАЯ ПАЛИТРА */
+      --bg-body: #050505;
+      --bg-screen: #0a0a0a;
+      
+      /* ГРАФИТ И ХРОМ */
+      --chrome-bg: linear-gradient(180deg, #1C1C1E 0%, #121214 100%);
+      --chrome-inset: inset 0 2px 6px rgba(0,0,0,0.6);
+      --chrome-border-top: rgba(255, 255, 255, 0.12);
+      --chrome-border-bot: rgba(0, 0, 0, 0.8);
+      
+      /* АКЦЕНТЫ */
+      --text-main: #E1E1E1;
+      --text-muted: #6B7280;
+      
+      /* ELECTRIC BLUE (Акцент) */
+      --accent: #2563EB; 
+      --accent-glow: rgba(37, 99, 235, 0.4);
+      --accent-text: #60A5FA;
+
+      /* DELTA (Зеленый) */
+      --good: #10B981; 
+      
+      --radius: 16px;
+      --block-gap: 16px; 
+    }
+
+    body {
+      background: var(--bg-body);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+    }
+
+    .phone-wrapper {
+      position: relative;
+      width: var(--phone-width);
+      filter: drop-shadow(0 30px 60px rgba(0,0,0,0.9));
+    }
+
+    .phone-frame-img {
+      width: 100%;
+      display: block;
+      position: relative;
+      z-index: 50;
+      pointer-events: none;
+    }
+
+    .phone-screen {
+      position: absolute;
+      top: 10px; left: 15.5px; right: 15.5px; bottom: 10px;
+      background: var(--bg-screen);
+      border-radius: var(--screen-radius);
+      overflow: hidden;
+      z-index: 10;
+      /* Тонкая текстура шума для реализма металла */
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E"), linear-gradient(180deg, #111 0%, #050505 100%);
+    }
+
+    .app-scroll-area {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow-y: auto;
+      padding-top: var(--notch-height);
+      padding-bottom: 90px;
+      padding-left: 16px;
+      padding-right: 16px;
+      scrollbar-width: none;
+    }
+    .app-scroll-area::-webkit-scrollbar { display: none; }
+
+    /* ========================================= */
+    /* COMPONENT: CHROME CARD                    */
+    /* ========================================= */
+    .chromeCard {
+      background: var(--chrome-bg);
+      border-radius: var(--radius);
+      /* "Железная" обводка: светлая сверху, темная снизу */
+      border-top: 1px solid var(--chrome-border-top);
+      border-bottom: 1px solid var(--chrome-border-bot);
+      border-left: 1px solid rgba(255,255,255,0.03);
+      border-right: 1px solid rgba(255,255,255,0.03);
+      
+      /* Эффект "впуклости" (Inset) */
+      box-shadow: var(--chrome-inset);
+      
+      padding: 16px;
+      margin-bottom: var(--block-gap);
+      position: relative;
+    }
+
+    /* HEADER */
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 2px 16px;
+      margin-top: 6px;
+    }
+    .title { 
+      font-size: 22px; font-weight: 700; color: #D4D4D4; 
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .avatarBtn {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: #1A1A1A;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+      display: grid; place-items: center;
+    }
+
+    /* PERIOD SELECTOR */
+    .periodHeader {
+      display: flex; justify-content: space-between; align-items: center;
+      cursor: pointer;
+    }
+    .periodBtn { display: flex; align-items: center; gap: 6px; margin-bottom: 2px;}
+    .periodValue { font-size: 15px; font-weight: 600; color: var(--text-main); }
+    .periodDate { font-size: 11px; color: var(--text-muted); font-family: monospace; letter-spacing: -0.5px;}
+    .chev { color: var(--accent-text); transition: transform 0.3s; }
+    
+    .periodContent {
+      max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+      margin-top: 0; opacity: 0;
+    }
+    .chromeCard.expanded .periodContent {
+      max-height: 400px; margin-top: 16px; opacity: 1;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding-top: 16px;
+    }
+    .chromeCard.expanded .chev { transform: rotate(180deg); }
+
+    /* Presets Buttons */
+    .presetBtn {
+      background: transparent; 
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px; 
+      color: var(--text-muted); font-size: 11px; font-weight: 600;
+      transition: all 0.2s;
+    }
+    .presetBtn.active {
+      background: rgba(37, 99, 235, 0.15); 
+      color: var(--accent-text); 
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    /* HERO SECTION */
+    .heroLabel { 
+      font-size: 10px; font-weight: 700; text-transform: uppercase; 
+      letter-spacing: 1.5px; color: var(--text-muted); 
+      margin-bottom: 4px;
+    }
+
+    /* CHROME TEXT GRADIENT */
+    .heroValue { 
+      font-size: 36px; 
+      font-weight: 800; 
+      letter-spacing: -0.5px;
+      margin: 10px 0;
+      
+      /* Градиент "Хром" с бликом посередине */
+      background: linear-gradient(0deg, #FFFFFF 0%, #9CA3AF 48%, #FFFFFF 52%, #CBD5E1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      
+      /* Тень внутрь (гравировка) + тень наружу */
+      text-shadow: 0px 2px 4px rgba(0,0,0,0.3);
+      filter: drop-shadow(0 1px 0 rgba(255,255,255,0.1));
+    }
+
+    .heroSub { 
+      font-size: 13px; font-weight: 600; color: var(--good); 
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+    }
+
+    /* SEPARATOR GRID (Lines instead of tiles) */
+    .heroStats {
+      display: grid; 
+      grid-template-columns: 1fr 1fr;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    .statItem {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      position: relative;
+    }
+    /* Вертикальный разделитель для нечетных элементов */
+    .statItem:nth-child(odd) { padding-right: 12px; border-right: 1px solid rgba(255,255,255,0.05); }
+    .statItem:nth-child(even) { padding-left: 12px; }
+    /* Убираем нижнюю границу у последних двух */
+    .statItem:nth-last-child(1), .statItem:nth-last-child(2) { border-bottom: none; padding-bottom: 0; }
+    /* Отступ сверху у первых двух */
+    .statItem:nth-child(1), .statItem:nth-child(2) { padding-top: 16px; }
+
+    .statL { font-size: 10px; color: #52525B; text-transform: uppercase; margin-bottom: 2px; }
+    .statV { font-size: 15px; font-weight: 600; color: #D4D4D4; }
+
+    /* EXPENSES LIST (Consolidated) */
+    .listTitle {
+      font-size: 13px; font-weight: 700; color: var(--text-muted);
+      margin-bottom: 12px; display: flex; justify-content: space-between;
+    }
+    .listRow {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .listRow:last-child { border-bottom: none; padding-bottom: 0; }
+    .listRow:first-child { padding-top: 0; }
+    
+    .rowName { font-size: 14px; color: #D1D5DB; }
+    .rowVal { font-size: 14px; font-weight: 600; color: #F3F4F6; }
+
+    /* NAVIGATION */
+    .bottomNav {
+      position: absolute; bottom: 20px; width: 100%; 
+      display: flex; justify-content: center; z-index: 100;
+    }
+    .navWrap {
+      background: rgba(20, 20, 23, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 8px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+      display: grid; grid-template-columns: repeat(5, 1fr); width: 85%; gap: 4px;
+    }
+    .navItem {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 8px 0; border-radius: 12px;
+      color: #52525B; transition: all 0.2s;
+    }
+    .navItem.active {
+      color: var(--accent-text);
+      background: rgba(37, 99, 235, 0.1);
+      box-shadow: inset 0 0 10px rgba(37, 99, 235, 0.1);
+    }
+    .navItem span { font-size: 9px; margin-top: 4px; font-weight: 600; }
+    .navItem svg { stroke-width: 2px; }
+
+    /* Calendar styles override for dark theme */
+    .calNavBtn { background: transparent; color: var(--accent-text); font-weight: bold; font-size: 18px; }
+    .applyBtn {
+      background: var(--accent); 
+      color: #fff; border:0; border-radius: 8px; width: 100%; padding: 12px;
+      font-weight: 700; margin-top: 15px;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+    .day { color: #52525b; }
+
+  </style>
+</head>
+<body>
+
+  <div class="phone-wrapper">
+    <img src="imock.png" alt="" class="phone-frame-img" onerror="this.style.display='none'">
+
+    <div class="phone-screen">
+      
+      <div style="position: absolute; top: 0; left: 0; right: 0; height: 80px; background: linear-gradient(180deg, rgba(5,5,5,0.9) 0%, rgba(5,5,5,0) 100%); z-index: 20; pointer-events: none;"></div>
+
+      <div class="app-scroll-area">
+        
+        <div class="topbar">
+          <div class="title">Статистика</div>
+          <div class="avatarBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D1D1D1" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+        </div>
+
+        <div class="chromeCard" id="periodCard">
+          <div class="periodHeader">
+            <div class="periodLeft">
+              <div class="periodBtn">
+                <span class="periodValue" id="pVal">Месяц</span>
+                <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </div>
+              <div class="periodDate" id="pDate">01.01 — 31.01</div>
+            </div>
+            <svg style="color: var(--accent-text); opacity: 0.8" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+            </svg>
+          </div>
+
+          <div class="periodContent">
+            <div class="presets" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px;">
+              <button class="presetBtn" data-range="today">День</button>
+              <button class="presetBtn" data-range="yesterday">Вчера</button>
+              <button class="presetBtn" data-range="7">Неделя</button>
+              <button class="presetBtn active" data-range="30">Месяц</button>
+            </div>
+            
+            <div class="calendarWrapper">
+              <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 10px; color: #D4D4D4; font-weight: 700; font-size: 14px;">
+                <button class="calNavBtn">‹</button>
+                <span>Январь 2026</span>
+                <button class="calNavBtn">›</button>
+              </div>
+              <div id="daysContainer" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center;"></div>
+              <button class="applyBtn">ПРИМЕНИТЬ</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="chromeCard">
+          <div class="heroLabel">Чистая прибыль</div>
+          <div class="heroValue">151 280 ₽</div>
+          
+          <div class="heroSub">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+            <span>+11 190 ₽ (8%)</span>
+          </div>
+          
+          <div class="heroStats">
+            <div class="statItem">
+              <div class="statL">Выручка</div>
+              <div class="statV">151 280 ₽</div>
+            </div>
+            <div class="statItem">
+              <div class="statL">Маржа</div>
+              <div class="statV">100%</div>
+            </div>
+            <div class="statItem">
+              <div class="statL">Продажи</div>
+              <div class="statV">971</div>
+            </div>
+            <div class="statItem">
+              <div class="statL">Ср. чек</div>
+              <div class="statV">155 ₽</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chromeCard listCard">
+          <div class="listTitle">
+            <span>СТРУКТУРА РАСХОДОВ</span>
+            <span style="color: var(--accent-text); opacity: 0.7;">0,00 ₽</span>
+          </div>
+          <div class="listRow">
+            <span class="rowName">Себестоимость</span>
+            <span class="rowVal">0,00 ₽</span>
+          </div>
+          <div class="listRow">
+            <span class="rowName">Эквайринг</span>
+            <span class="rowVal">0,00 ₽</span>
+          </div>
+          <div class="listRow">
+            <span class="rowName">Налоги (УСН)</span>
+            <span class="rowVal">0,00 ₽</span>
+          </div>
+        </div>
+        
+      </div> 
+      
+      <nav class="bottomNav">
+        <div class="navWrap">
+          <div class="navItem active">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <span>Фин</span>
+          </div>
+          <div class="navItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span>Отчет</span>
+          </div>
+          <div class="navItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <span>Смены</span>
+          </div>
+          <div class="navItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            <span>Склад</span>
+          </div>
+          <div class="navItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span>Задачи</span>
+          </div>
+        </div>
+      </nav>
+
+    </div> 
+  </div>
+
+  <script>
+    (function(){
+      const periodCard = document.getElementById('periodCard');
+      const pVal = document.getElementById('pVal');
+      const daysContainer = document.getElementById('daysContainer');
+      const presetBtns = document.querySelectorAll('.presetBtn');
+
+      // Аккордеон
+      periodCard.addEventListener('click', (e) => {
+        if (e.target.closest('.periodHeader')) {
+          periodCard.classList.toggle('expanded');
+        }
+      });
+
+      // Рендер дней (декоративный)
+      function renderStaticDays() {
+        daysContainer.innerHTML = '';
+        for(let i=1; i<=31; i++) {
+          const d = document.createElement('div');
+          d.style.fontSize = '12px';
+          d.style.padding = '8px 0';
+          d.innerText = i;
+          
+          if(i >= 10 && i <= 20) {
+            d.style.background = 'rgba(37, 99, 235, 0.2)'; // Blue range
+            d.style.color = '#fff';
+            if(i===10) d.style.borderRadius = '6px 0 0 6px';
+            if(i===20) d.style.borderRadius = '0 6px 6px 0';
+          } else {
+             d.style.color = '#52525B';
+          }
+          daysContainer.appendChild(d);
+        }
+      }
+
+      presetBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          presetBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          pVal.innerText = btn.innerText;
+          setTimeout(() => periodCard.classList.remove('expanded'), 300);
+        });
+      });
+
+      renderStaticDays();
+    })();
+  </script>
+</body>
+</html>

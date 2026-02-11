@@ -1,0 +1,152 @@
+:root {
+  /* Основные цвета из шаблона */
+  --bg0: #080707;
+  --bg1: #0A0908;
+  --card-bg: #121213;
+  --card-bg-2: #141416;
+
+  /* Фон страницы (слоёные пятна) */
+  --bg-start: #070707;
+  --bg-end: #0b0b0c;
+  --spot-primary: rgba(200, 139, 105, 0.22);
+  --spot-secondary: rgba(224, 176, 143, 0.14);
+  --spot-tertiary: rgba(200, 139, 105, 0.12);
+  --stroke: rgba(255, 255, 255, 0.12);
+  --stroke2: rgba(231, 229, 228, 0.2);
+  --text: #FAFAF9;
+  --muted: #A8A29E;
+  --muted2: rgba(168, 162, 158, 0.5);
+  --accent: rgb(192, 128, 88);
+  --accent2: #D97706;
+  --accent-dim: rgba(217, 119, 6, 0.15);
+  --accent-glow: rgba(217, 119, 6, 0.3);
+  --warn: #f59e0b;
+  --block-gap: 12px;
+  
+  /* Дельта (Green) */
+  --good: #10B981;
+  --good-bg: rgba(16, 185, 129, 0.1);
+  --good-border: rgba(16, 185, 129, 0.2);
+
+  --shadow: 0 26px 60px rgba(0, 0, 0, 0.55);
+  --radius: 20px;
+  --radius-nav: 18px;
+
+  /* Общие стили карточек: hero__floating-badge, .finance-card, .analytics-card */
+  --card-surface-border: 1px solid var(--stroke);
+  --card-surface-bg-opacity: 0.65;
+  --card-surface-bg: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .03)),
+                     radial-gradient(900px 280px at 20% 0%, rgba(200, 139, 105, .14), transparent 55%),
+                     radial-gradient(700px 260px at 90% 30%, rgba(255, 255, 255, .06), transparent 50%),
+                     linear-gradient(180deg, var(--card-bg), var(--card-bg-2));
+  --radius-nav-item: 12px;
+
+  --shadow-nav: 0 15px 40px rgba(0, 0, 0, 0.5);
+
+  --color-bg: #0b0f14;
+  --color-surface: #111826;
+  --color-text: #e6eef8;
+  --color-muted: #9fb3c8;
+  --color-primary: #5b8cff;
+  --color-primary-strong: #3a6bff;
+  --color-border: #1d2a3a;
+  --color-accent: #7ce3ff;
+  --color-success: #10B981;
+  --color-header-bg: rgba(11, 15, 20, 0.6);
+  --color-text-strong: #08121d;
+  --color-glow: rgba(91, 140, 255, 0.12);
+  --color-badge-bg: rgba(91, 140, 255, 0.16);
+  --color-badge-border: rgba(124, 227, 255, 0.4);
+  --color-card-bg: rgba(17, 24, 38, 0.9);
+  --color-card-border: rgba(124, 227, 255, 0.2);
+  --color-bar-muted: rgba(159, 179, 200, 0.35);
+  --color-note-bg: rgba(17, 24, 38, 0.6);
+
+  --font-family-base: "Inter", "Segoe UI", "Arial", sans-serif;
+  --font-size-base: 16px;
+
+  --font-size-hero: 44px;
+  --font-size-hero-desc: 17px;
+  --font-size-section-title: 28px;
+  --font-size-logo: 18px;
+  --font-size-tag: 13px;
+  --font-size-nav: 14px;
+  --font-size-button: 14px;
+  --font-size-badge: 13px;
+  --font-size-card-title: 18px;
+  --font-size-card-text: 14px;
+  --font-size-stat-value: 20px;
+  --font-size-stat-label: 13px;
+  --font-size-card-chip: 12px;
+  --font-size-card-total: 22px;
+  --font-size-card-caption: 12px;
+  --font-size-note: 13px;
+  --font-size-eyebrow: 12px;
+  --font-size-footer-title: 20px;
+  --letter-spacing-logo: 0.4px;
+  --letter-spacing-eyebrow: 0.18em;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+
+  --container-max-width: 1284px;
+  --container-padding: 24px;
+  --section-padding: 100px;
+  --radius-m: 16px;
+  --radius-s: 10px;
+  --gap-s: 12px;
+  --gap-m: 20px;
+  --gap-l: 32px;
+  --shadow-soft: 0 20px 60px rgba(15, 23, 42, 0.4);
+  --border-width: 1px;
+  --button-padding-y: 10px;
+  --button-padding-x: 18px;
+  --badge-padding-y: 6px;
+  --badge-padding-x: 14px;
+  --card-padding: 24px;
+  --card-padding-large: 32px;
+  --hero-gap: 48px;
+  --hero-bar-height: 10px;
+  --hero-preview-width: 360px;
+  --hero-note-padding: 16px;
+  --hero-card-gap: 16px;
+  --hero-card-footer-gap: 6px;
+  --button-padding-y-lg: 12px;
+  --button-padding-x-lg: 22px;
+  --radius-pill: 999px;
+  --card-min-height: 280px;
+  --hero-bar-secondary-width: 70%;
+  --hero-bar-muted-width: 55%;
+  --size-full: 100%;
+  --grid-min: 0;
+  --grid-fr: 1fr;
+  --order-negative: -1;
+  --app-preview-card-min-height: 180px;
+  --app-preview-card-min-width: 240px;
+  --app-preview-footer-padding: 24px;
+  --app-preview-chip-padding-y: 6px;
+  --app-preview-chip-padding-x: 12px;
+  --app-preview-card-gap: 10px;
+  --app-preview-card-highlight-offset: -2px;
+  --app-preview-card-highlight-shadow: 0 24px 60px rgba(59, 130, 246, 0.18);
+  --app-preview-button-padding-y: 12px;
+  --app-preview-button-padding-x: 24px;
+  --app-preview-footer-radius: 18px;
+  --app-preview-footer-gap: 20px;
+  --app-preview-title-gap: 16px;
+  --app-preview-grid-gap: 20px;
+  --app-preview-eyebrow-margin: 8px;
+  --app-preview-text-max-width: 560px;
+  --app-preview-card-border-width: 1px;
+  --app-preview-footer-border-width: 1px;
+  --color-surface-secondary: rgba(15, 23, 42, 0.6);
+  --color-surface-border: rgba(91, 140, 255, 0.2);
+  --transition-fast: 0.2s;
+  --header-blur: 12px;
+  --page-gradient-size: 1200px;
+  --page-gradient-stop: 70%;
+  --page-min-height: 100vh;
+  --primary-gradient-angle: 120deg;
+  --breakpoint-lg: 960px;
+  --breakpoint-md: 720px;
+}

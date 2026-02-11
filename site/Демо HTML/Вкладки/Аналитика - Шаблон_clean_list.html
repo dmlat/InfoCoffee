@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coffee Analytics Component</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --bar-color: #38bdf8;
+            --text-white: #ffffff;
+            --text-gray: #94a3b8;
+            --vol-color: #64748b;
+            --zebra-bg: rgba(255, 255, 255, 0.03);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            padding-top: 50px;
+        }
+
+        .analytics-card {
+            width: 333px;
+            background-color: var(--bg-color);
+            color: var(--text-white);
+            border-radius: 12px;
+            overflow: hidden;
+            padding-bottom: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        .content-wrapper {
+            width: 305px;
+            margin: 0 auto;
+        }
+
+        /* Шапка */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 16px 0 12px 0; /* Чуть компактнее шапка */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 4px; /* Минимальный отступ до списка */
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .header-stats {
+            font-size: 11px;
+            color: var(--text-gray);
+            font-weight: 400;
+        }
+
+        /* Список */
+        .list {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .item {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .item:nth-child(even) {
+            background-color: var(--zebra-bg);
+        }
+
+        /* ОСНОВНОЕ УПЛОТНЕНИЕ ЗДЕСЬ 
+           Padding 5px вместо 12px сближает блоки 
+        */
+        .item-row {
+            width: 305px;
+            margin: 0 auto;
+            padding: 5px 0; 
+        }
+
+        /* Верхняя строка: Название + Объем | Цена */
+        .top-layer {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            font-size: 13px;
+            margin-bottom: 3px; /* Текст ближе к бару */
+            line-height: 1.2;
+        }
+
+        .name-group {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .product-name {
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.95);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 160px;
+            font-size: 12px; /* Чуть меньше для компактности */
+        }
+
+        .product-vol {
+            font-size: 10px;
+            color: var(--vol-color);
+            font-weight: 400;
+        }
+
+        .product-revenue {
+            font-size: 12px;
+            font-weight: 700;
+            font-feature-settings: "tnum";
+            color: var(--text-white);
+        }
+
+        /* Гистограмма */
+        .bar-track {
+            position: relative;
+            width: 100%;
+            height: 18px; /* Сделали тоньше (было 20px) */
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background-color: var(--bar-color);
+            opacity: 0.85;
+            border-radius: 3px;
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            
+            /* Центрирование текста */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .bar-text {
+            font-size: 10px; /* Мелкий читаемый текст */
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            letter-spacing: -0.2px;
+        }
+
+        /* Аккордеон / Детали */
+        .details {
+            display: none;
+            width: 305px;
+            margin: 0 auto;
+            padding-bottom: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            margin-top: 2px;
+        }
+
+        .details-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--text-gray);
+            margin-top: 6px;
+            padding-left: 10px;
+            position: relative;
+        }
+        
+        .details-row::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            top: 0;
+            color: var(--bar-color);
+            opacity: 0.6;
+        }
+
+        .item.active .details {
+            display: block;
+        }
+        
+        .item.active {
+            background-color: rgba(56, 189, 248, 0.08) !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="analytics-card">
+        <div class="content-wrapper">
+            <div class="header">
+                <h1>Аналитика</h1>
+                <span class="header-stats">510 шт. • 85 551,9 ₽</span>
+            </div>
+        </div>
+
+        <div class="list">
+            
+            <div class="item">
+                <div class="item-row">
+                    <div class="top-layer">
+                        <div class="name-group">
+                            <span class="product-name">Шоколадно-Банановый...</span>
+                            <span class="product-vol">350 мл</span>
+                        </div>
+                        <span class="product-revenue">18 180 ₽</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: 100%;">
+                            <span class="bar-text">10.9% 101 шт.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="item active">
+                <div class="item-row">
+                    <div class="top-layer">
+                        <div class="name-group">
+                            <span class="product-name">Американо</span>
+                            <span class="product-vol">250 мл</span>
+                        </div>
+                        <span class="product-revenue">11 850 ₽</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: 78.2%;">
+                            <span class="bar-text">8.5% 79 шт.</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="details">
+                    <div class="details-row"><span>ТЦ Галерея</span><span>35% 28 шт.</span></div>
+                    <div class="details-row"><span>Москва, Тверская 14</span><span>37% 29 шт.</span></div>
+                    <div class="details-row"><span>БЦ «Сити»</span><span>23% 18 шт.</span></div>
+                    <div class="details-row"><span>Парк Горького</span><span>5% 4 шт.</span></div>
+                </div>
+            </div>
+
+            <div class="item">
+                <div class="item-row">
+                    <div class="top-layer">
+                        <div class="name-group">
+                            <span class="product-name">Капучино</span>
+                            <span class="product-vol">250 мл</span>
+                        </div>
+                        <span class="product-revenue">11 400 ₽</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: 75.2%;">
+                            <span class="bar-text">8.2% 76 шт.</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="details">
+                     <div class="details-row"><span>Детали скрыты</span><span>...</span></div>
+                </div>
+            </div>
+
+            <div class="item">
+                <div class="item-row">
+                    <div class="top-layer">
+                        <div class="name-group">
+                            <span class="product-name">Латте</span>
+                            <span class="product-vol">350 мл</span>
+                        </div>
+                        <span class="product-revenue">13 161,9 ₽</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: 72.2%;">
+                            <span class="bar-text">7.9% 73 шт.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="item">
+                <div class="item-row">
+                    <div class="top-layer">
+                        <div class="name-group">
+                            <span class="product-name">Банановый Раф</span>
+                            <span class="product-vol">350 мл</span>
+                        </div>
+                        <span class="product-revenue">11 700 ₽</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: 64.3%;">
+                            <span class="bar-text">7.0% 65 шт.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="item">
+                <div class="item-row">
+                    <div class="top-layer">
+                        <div class="name-group">
+                            <span class="product-name">Капучино</span>
+                            <span class="product-vol">350 мл</span>
+                        </div>
+                        <span class="product-revenue">11 160 ₽</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: 61.3%;">
+                            <span class="bar-text">6.7% 62 шт.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="item">
+                <div class="item-row">
+                    <div class="top-layer">
+                        <div class="name-group">
+                            <span class="product-name">Банановый Раф</span>
+                            <span class="product-vol">250 мл</span>
+                        </div>
+                        <span class="product-revenue">8 100 ₽</span>
+                    </div>
+                    <div class="bar-track">
+                        <div class="bar-fill" style="width: 53.4%;">
+                            <span class="bar-text">5.8% 54 шт.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        document.querySelectorAll('.item').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.item').forEach(i => {
+                   if (i !== item) i.classList.remove('active');
+                });
+                item.classList.toggle('active');
+            });
+        });
+    </script>
+</body>
+</html>

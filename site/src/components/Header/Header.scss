@@ -1,0 +1,151 @@
+.header {
+  position: fixed;
+  top: 0; // Прижимаем к самому верху
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  pointer-events: none;
+  padding: 0; // Убираем падинги, чтобы шапка была вплотную к краям
+}
+
+.header__inner {
+  pointer-events: all;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-l);
+  padding: 10px 24px; // Увеличиваем внутренние отступы для солидности
+  
+  // Стеклянный эффект (Glassmorphism)
+  background: rgba(15, 15, 15, 0.6); // Чуть плотнее фон
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08); // Только нижняя граница
+  
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.4);
+  
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  border-radius: 0; // Убираем скругления, чтобы шапка была монолитной по всей ширине
+}
+
+.header__brand {
+  display: flex;
+  align-items: center;
+}
+
+.header__logo-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.header__logo-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  background:
+    radial-gradient(18px 18px at 30% 30%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.16));
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.header__logo-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.header__logo-text {
+  font-size: 19px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.03em;
+  font-family: var(--font-family-base);
+  letter-spacing: 0.5px;
+}
+
+.header__nav {
+  display: flex;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 3px;
+  border-radius: 14px;
+}
+
+.header__link {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 11px;
+  transition: all 0.2s ease;
+}
+
+.header__link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.header__actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.header__button {
+  border-radius: 12px;
+  border: none;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.header__button--mockup {
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  font-weight: 500;
+}
+
+.header__button--mockup:hover {
+  color: #fff;
+}
+
+
+@media (max-width: 1024px) {
+  .header__nav {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    top: 10px;
+    padding: 0 10px;
+  }
+  
+  .header__inner {
+    padding: 6px 12px;
+  }
+  
+  .header__logo-text {
+    display: none;
+  }
+  
+  .header__button--mockup {
+    display: none;
+  }
+}

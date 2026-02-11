@@ -1,0 +1,196 @@
+---
+interface Props {
+  // Any props if needed
+}
+---
+
+<div class="focus-container" id="focusContainer" aria-hidden="true">
+  <div class="focus-backdrop"></div>
+  <div class="focus-stroke"></div>
+</div>
+
+<script>
+  document.querySelectorAll('[data-iphone-mockup]').forEach((mockupContainer) => {
+    const phoneScreen = mockupContainer.querySelector('.phone-screen') as HTMLElement;
+    const focusContainer = mockupContainer.querySelector('#focusContainer') as HTMLElement;
+    const scrollArea = mockupContainer.querySelector('.app-scroll-area') as HTMLElement;
+
+    let currentHighlightEl: HTMLElement | null = null;
+    let rafId: number | null = null;
+    let hideTimeout: any = null;
+
+    function parseRadius(value: string) {
+      if (!value) return 0;
+      const first = value.split(" ")[0];
+      const parsed = parseFloat(first);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+
+    function updateFocusPosition() {
+      if (!phoneScreen || !focusContainer || !currentHighlightEl) return;
+      
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const screenRect = phoneScreen.getBoundingClientRect();
+        const targetRect = currentHighlightEl!.getBoundingClientRect();
+        
+        const top = targetRect.top - screenRect.top;
+        const left = targetRect.left - screenRect.left;
+        const width = targetRect.width;
+        const height = targetRect.height;
+
+        // #region agent log
+        fetch('http://127.0.0.1:7246/ingest/88e9c59f-ee9b-4ba5-ae42-e75a10c70066', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location: 'MockupFocusManager.astro:updateFocusPosition',
+            message: 'Focus position update',
+            hypothesisId: 'A,B,D',
+            data: {
+              top,
+              height,
+              targetTag: currentHighlightEl?.tagName,
+              isExpanded: currentHighlightEl?.classList.contains('expanded'),
+              isVisible: focusContainer.classList.contains('is-visible')
+            },
+            timestamp: Date.now()
+          })
+        }).catch(() => {});
+        // #endregion
+        
+        const rawRadius = parseRadius(getComputedStyle(currentHighlightEl!).borderRadius);
+        const radius = Math.min(rawRadius, width / 2, height / 2);
+
+        focusContainer.style.setProperty('--t', `${top}px`);
+        focusContainer.style.setProperty('--l', `${left}px`);
+        focusContainer.style.setProperty('--w', `${width}px`);
+        focusContainer.style.setProperty('--h', `${height}px`);
+        focusContainer.style.setProperty('--rad', `${radius}px`);
+        
+        if (!focusContainer.classList.contains('is-visible')) {
+          focusContainer.classList.add('no-transition');
+          focusContainer.classList.add('is-visible');
+          // Force reflow
+          void focusContainer.offsetHeight;
+          focusContainer.classList.remove('no-transition');
+        }
+      });
+    }
+
+    function scheduleHide() {
+      if (hideTimeout) clearTimeout(hideTimeout);
+      hideTimeout = setTimeout(() => {
+        focusContainer?.classList.remove('is-visible');
+        currentHighlightEl = null;
+      }, 10);
+    }
+
+    mockupContainer.addEventListener('mockup:highlight', (e: any) => {
+      const { section, action } = e.detail;
+      
+      // Force switch to analytics tab if we are in the analytics preview section
+      const isAnalyticsPreview = mockupContainer.closest('#analytics') !== null;
+      if (isAnalyticsPreview) {
+        const analyticsNav = mockupContainer.querySelector('.navItem[data-tab-target="analytics"]') as HTMLElement;
+        if (analyticsNav && !analyticsNav.classList.contains('active')) {
+          analyticsNav.click();
+        }
+      }
+
+      const activeTab = mockupContainer.querySelector('.tab-content.active') as HTMLElement;
+
+      if (hideTimeout) {
+        clearTimeout(hideTimeout);
+        hideTimeout = null;
+      }
+
+      // Close only the previously highlighted card when switching section (not when just leaving)
+      if (section && section !== currentHighlightEl?.getAttribute('data-highlight')) {
+        if (currentHighlightEl?.classList.contains('drinkCard')) {
+          currentHighlightEl.classList.remove('expanded');
+          const breakdown = currentHighlightEl.querySelector('.cardBreakdown') as HTMLElement | null;
+          if (breakdown) breakdown.style.maxHeight = '0px';
+        }
+      }
+
+      if (section && activeTab) {
+        let el = activeTab.querySelector(`[data-highlight="${section}"]`) as HTMLElement;
+        // Fallback: second drinkCard when section targets "drinkCard clickable expanded"
+        if (!el && section.includes('drinkCard') && section.includes('expanded')) {
+          const drinkList = activeTab.querySelector('#drinkList');
+          const cards = drinkList?.querySelectorAll('.drinkCard');
+          if (cards && cards.length > 1) el = cards[1] as HTMLElement;
+        }
+        if (el) {
+          currentHighlightEl = el;
+          
+          if (action === 'expand-mockup-card') {
+            activeTab.querySelectorAll('.drinkCard.expanded').forEach(card => {
+              if (card !== el) {
+                card.classList.remove('expanded');
+                const bd = card.querySelector('.cardBreakdown') as HTMLElement | null;
+                if (bd) bd.style.maxHeight = '0px';
+              }
+            });
+            el.classList.add('expanded');
+            
+            // Trigger the click event or manual expansion logic for the breakdown
+            const breakdown = el.querySelector('.cardBreakdown') as HTMLElement | null;
+            if (breakdown) {
+              // #region agent log
+              fetch('http://127.0.0.1:7246/ingest/88e9c59f-ee9b-4ba5-ae42-e75a10c70066', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  location: 'MockupFocusManager.astro:expand-mockup-card',
+                  message: 'Expanding card',
+                  hypothesisId: 'A,C',
+                  data: {
+                    scrollHeight: breakdown.scrollHeight,
+                    currentMaxHeight: breakdown.style.maxHeight
+                  },
+                  timestamp: Date.now()
+                })
+              }).catch(() => {});
+              // #endregion
+              // If it's the first time or height is 0, we need to set it
+              if (!breakdown.style.maxHeight || breakdown.style.maxHeight === '0px') {
+                breakdown.style.maxHeight = `${breakdown.scrollHeight}px`;
+              }
+            }
+
+            // Multiple updates to ensure focus frame follows expansion animation
+            const updateFrames = [10, 30, 50, 80, 120, 160, 200, 250, 300, 350, 400, 450, 500, 600];
+            updateFrames.forEach(ms => setTimeout(() => updateFocusPosition(), ms));
+            
+            // Final check after animation should definitely be finished
+            setTimeout(() => updateFocusPosition(), 800);
+          }
+
+          updateFocusPosition();
+        } else {
+          scheduleHide();
+        }
+      } else {
+        // If section is null (mouse left the preview area), close any expanded drinkCards
+        if (currentHighlightEl?.classList.contains('drinkCard')) {
+          currentHighlightEl.classList.remove('expanded');
+          const breakdown = currentHighlightEl.querySelector('.cardBreakdown') as HTMLElement | null;
+          if (breakdown) breakdown.style.maxHeight = '0px';
+        }
+        scheduleHide();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (currentHighlightEl) updateFocusPosition();
+    });
+
+    scrollArea?.addEventListener('scroll', () => {
+      if (currentHighlightEl && focusContainer?.classList.contains('is-visible')) {
+        updateFocusPosition();
+      }
+    });
+  });
+</script>

@@ -1,0 +1,245 @@
+---
+import IPhoneMockup from "@/components/IPhoneMockup/IPhoneMockup.astro";
+---
+
+<section class="stock-preview" id="stock">
+  <div class="container">
+    <div class="stock-preview__grid">
+      <div class="stock-preview__left">
+        <div class="stock-preview__header">
+          <h2 class="stock-preview__title">Умный склад и остатки</h2>
+        </div>
+
+        <div class="stock-preview__menu">
+          <div class="stock-card stock-card--smart">
+            <span class="stock-card__bg" aria-hidden="true"></span>
+            <div class="stock-card__content">
+              <h3 class="stock-card__title">Контроль и уведомления</h3>
+              <p class="stock-card__text">
+                Отслеживайте остатки на точках в реальном времени и установите порог запасов для уведомлений о нехватке
+              </p>
+
+              <div class="stock-card__ing-preview">
+                <div class="ingCard" id="stockPreviewIngCard">
+                  <div class="ingInfo">
+                    <div class="ingName">Кофе</div>
+                    <div class="ingStock">Склад: —</div>
+                  </div>
+                  <div class="ingControls">
+                    <button class="qtyBtn minus">−</button>
+                    <div class="progressWrapper">
+                      <div class="progressBar"></div>
+                      <div class="limitLine"></div>
+                      <div class="progressText">
+                        — <span class="dim">/ —</span>
+                      </div>
+                    </div>
+                    <button class="qtyBtn plus">+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stock-card stock-card--fast">
+            <span class="stock-card__bg" aria-hidden="true"></span>
+            <div class="stock-card__content">
+              <h3 class="stock-card__title">Быстрая заправка</h3>
+              <p class="stock-card__text">
+                Пополняйте остатки в один тап. Больше никакого ручного ввода граммов — используйте готовые пресеты.
+              </p>
+
+              <div class="stock-card__step-preview">
+                <div class="stock-card__step-header">
+                  <span class="stock-card__step-label">Шаг пополнения (мл, гр, шт)</span>
+                  <span class="stock-card__step-chip">своё</span>
+                </div>
+                <div class="stock-card__step-strip">
+                  <button class="stock-card__step-btn">19 000</button>
+                  <button class="stock-card__step-btn">1000</button>
+                  <button class="stock-card__step-btn stock-card__step-btn--active">100</button>
+                  <button class="stock-card__step-btn">10</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stock-card stock-card--double">
+            <span class="stock-card__bg" aria-hidden="true"></span>
+            <div class="stock-card__content">
+              <h3 class="stock-card__title">Двойной учет</h3>
+              <p class="stock-card__text">
+                Списывайте товары со склада точки прямо в кофемашину
+              </p>
+
+              <div class="stock-card__chain">
+                <div class="stock-card__chain-item">
+                  <div class="stock-card__chain-icon stock-card__chain-icon--warehouse" aria-hidden="true">
+                    <svg
+                      class="stock-card__chain-svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M18 21V10a1 1 0 0 0-1-1H7a1 1 0 0 0-1-1v11"></path>
+                      <path
+                        d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 1.132-1.803l7.95-3.974a2 2 0 0 1 1.837 0l7.948 3.974A2 2 0 0 1 22 8z"
+                      ></path>
+                      <path d="M6 13h12"></path>
+                      <path d="M6 17h12"></path>
+                    </svg>
+                  </div>
+                </div>
+
+                <div class="stock-card__chain-center">
+                  <div class="stock-card__chain-arrow">
+                    <div class="stock-card__chain-segment"></div>
+                    <div class="stock-card__chain-segment"></div>
+                    <div class="stock-card__chain-segment"></div>
+                    <div class="stock-card__chain-segment"></div>
+                    <div class="stock-card__chain-segment"></div>
+                    <div class="stock-card__chain-segment"></div>
+                    <div class="stock-card__chain-segment"></div>
+                    <div class="stock-card__chain-segment"></div>
+                    <div class="stock-card__chain-tip"></div>
+                  </div>
+                  <div class="stock-card__chain-caption">Автоматический учет</div>
+                </div>
+
+                <div class="stock-card__chain-item">
+                  <div class="stock-card__chain-icon stock-card__chain-icon--machine" aria-hidden="true">
+                    <svg
+                      class="stock-card__chain-svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+                      <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+                      <line x1="6" y1="1" x2="6" y2="4"></line>
+                      <line x1="10" y1="1" x2="10" y2="4"></line>
+                      <line x1="14" y1="1" x2="14" y2="4"></line>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stock-card stock-card--scale">
+            <span class="stock-card__bg" aria-hidden="true"></span>
+            <div class="stock-card__content stock-card__content--with-icon">
+              <div class="stock-card__text-block">
+                <h3 class="stock-card__title">Масштабируемость</h3>
+                <p class="stock-card__text">
+                  Управляйте одной стойкой или сетью из 100 точек в едином интерфейсе.
+                </p>
+              </div>
+              <div class="stock-card__locations" aria-hidden="true">
+                <div class="stock-card__location-dot stock-card__location-dot--main"></div>
+                <div class="stock-card__location-dot stock-card__location-dot--secondary"></div>
+                <div class="stock-card__location-dot stock-card__location-dot--secondary"></div>
+                <div class="stock-card__location-ring"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stock-preview__actions">
+          <button class="btn btn--primary">Попробовать</button>
+        </div>
+      </div>
+
+      <div class="stock-preview__right">
+        <IPhoneMockup hideBottomNav={true} activeTab="stock" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  (function () {
+    const section = document.getElementById('stock');
+    if (!section) return;
+
+    const previewCard = document.getElementById('stockPreviewIngCard') as HTMLElement | null;
+    if (!previewCard) return;
+
+    const previewStockEl = previewCard.querySelector('.ingStock') as HTMLElement | null;
+    const previewProgressBar = previewCard.querySelector('.progressBar') as HTMLElement | null;
+    const previewLimitLine = previewCard.querySelector('.limitLine') as HTMLElement | null;
+    const previewProgressText = previewCard.querySelector('.progressText') as HTMLElement | null;
+
+    function syncCoffeeFromMockup() {
+      const mockup = section.querySelector('[data-iphone-mockup]');
+      const machineList = mockup?.querySelector('.machineList');
+      const coffeeCard = machineList?.querySelector('.ingCard[data-ing="coffee"]') as HTMLElement | null;
+      if (!coffeeCard || !previewCard) return;
+
+      const coffeeStockEl = coffeeCard.querySelector('.ingStock') as HTMLElement | null;
+      const coffeeProgressBar = coffeeCard.querySelector('.progressBar') as HTMLElement | null;
+      const coffeeLimitLine = coffeeCard.querySelector('.limitLine') as HTMLElement | null;
+      const coffeeProgressText = coffeeCard.querySelector('.progressText') as HTMLElement | null;
+
+      // Синхронизируем данные склада
+      if (coffeeStockEl && previewStockEl) {
+        previewStockEl.textContent = coffeeStockEl.textContent || '';
+      }
+
+      // Синхронизируем прогресс-бар
+      if (coffeeProgressBar && previewProgressBar) {
+        previewProgressBar.style.width = coffeeProgressBar.style.width;
+      }
+      if (coffeeLimitLine && previewLimitLine) {
+        previewLimitLine.style.left = coffeeLimitLine.style.left;
+      }
+      if (coffeeProgressText && previewProgressText) {
+        previewProgressText.innerHTML = coffeeProgressText.innerHTML;
+      }
+
+      // Состояние критичности (рамка и цвет бара)
+      previewCard.classList.remove('status-critical', 'status-warning', 'status-ok');
+      if (coffeeCard.classList.contains('status-critical')) {
+        previewCard.classList.add('status-critical');
+      } else if (coffeeCard.classList.contains('status-warning')) {
+        previewCard.classList.add('status-warning');
+      } else if (coffeeCard.classList.contains('status-ok')) {
+        previewCard.classList.add('status-ok');
+      }
+
+      if (coffeeCard.dataset.ing) {
+        previewCard.dataset.ing = coffeeCard.dataset.ing;
+      }
+    }
+
+    function startObserving() {
+      const mockup = section.querySelector('[data-iphone-mockup]');
+      const machineList = mockup?.querySelector('.machineList');
+      if (!machineList) {
+        setTimeout(startObserving, 300);
+        return;
+      }
+      syncCoffeeFromMockup();
+      const observer = new MutationObserver(() => {
+        syncCoffeeFromMockup();
+      });
+      observer.observe(machineList, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => setTimeout(startObserving, 400));
+    } else {
+      setTimeout(startObserving, 400);
+    }
+  })();
+</script>
+
+<style lang="scss">
+  @use "@/components/StockPreview/StockPreview.scss";
+</style>

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Плитка — Контроль и роли</title>
+  <style>
+    :root{
+      --bg0:#070B14;
+      --bg1:#090F1D;
+      --stroke:rgba(255,255,255,.08);
+      --text:#EAF0FF;
+      --muted:rgba(234,240,255,.68);
+      --shadow: 0 26px 60px rgba(0,0,0,.55);
+      --radius: 28px;
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    }
+    *{box-sizing:border-box}
+
+    html, body { height:100%; }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:var(--font);
+      color:var(--text);
+
+      background-image:
+        radial-gradient(1200px 700px at 50% -120px, rgba(109,92,255,.22), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      background-repeat:no-repeat;
+      background-size:cover;
+      background-position:center top;
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+
+      padding:32px 18px;
+    }
+
+    .card{
+      width:min(420px, 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow: var(--shadow);
+      padding:26px;
+    }
+
+    .title{margin:0 0 8px;font-size:20px;}
+    .desc{margin:0 0 14px;color:var(--muted);font-size:14.5px;line-height:1.5;}
+
+    .roles{display:grid;gap:10px;}
+
+    .role{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+
+      min-width:0;        /* важно для flex */
+      overflow:hidden;    /* страховка от вылезания */
+    }
+
+    .role-left{
+      display:flex;
+      gap:10px;
+      align-items:center;
+
+      flex:1 1 auto;
+      min-width:0;
+    }
+
+    .ico{
+      width:36px;height:36px;border-radius:14px;
+      display:grid;place-items:center;
+      background: rgba(255,255,255,.06);
+      flex:0 0 auto;
+    }
+
+    .role-text{min-width:0;}
+    .role-text b{
+      display:block;
+      font-size:13px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .role-text span{
+      display:block;
+      font-size:11.5px;
+      color:rgba(234,240,255,.6);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .pill{
+      padding:7px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+      white-space:nowrap;
+
+      border:1px solid rgba(109,92,255,.3);
+      background: rgba(109,92,255,.12);
+      color:#CFCBFF;
+
+      flex:0 0 auto;
+      flex-shrink:0;
+    }
+
+    .service .pill{
+      border-color: rgba(255,255,255,.2);
+      background: rgba(255,255,255,.06);
+      color: rgba(234,240,255,.75);
+    }
+  </style>
+</head>
+<body>
+  <article class="card">
+    <h3 class="title">Контроль и роли</h3>
+    <p class="desc">
+      Гибкая система доступов для сотрудников. Постановка задач через бота и контроль исполнения защищают от хаоса и ошибок.
+    </p>
+
+    <div class="roles">
+      <div class="role admin">
+        <div class="role-left">
+          <div class="ico">👑</div>
+          <div class="role-text">
+            <b>Админ</b>
+            <span>Полный доступ ко всем данным</span>
+          </div>
+        </div>
+        <div class="pill">Полный доступ</div>
+      </div>
+
+      <div class="role service">
+        <div class="role-left">
+          <div class="ico">🛠</div>
+          <div class="role-text">
+            <b>Сервис</b>
+            <span>Без выручки и редактирования рецептов</span>
+          </div>
+        </div>
+        <div class="pill">Ограниченный</div>
+      </div>
+    </div>
+  </article>
+</body>
+</html>

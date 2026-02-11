@@ -1,0 +1,224 @@
+---
+import MockupHeader from "./MockupHeader.astro";
+import MockupPeriodPicker from "./MockupPeriodPicker.astro";
+
+interface Props {
+  active?: boolean;
+}
+
+const { active = false } = Astro.props;
+---
+
+<div class={`tab-content ${active ? 'active' : ''}`} data-tab="analytics">
+  <MockupHeader title="Аналитика" />
+
+  <MockupPeriodPicker id="periodCardAnalytics" />
+
+
+  <div class="pointSelector" id="pointSelectorBtn" data-highlight="pointSelector">
+    <div class="pointInfo">
+      <span class="pointLabel">Торговая точка</span>
+      <div class="pointValue" id="pointDisplayValue">
+        <svg class="pointIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+      </div>
+    </div>
+    <div class="pointAction">
+      <svg class="chev" style="transform: rotate(-90deg);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 9l6 6 6-6"></path>
+      </svg>
+    </div>
+  </div>
+
+  <div class="analyticsBlock" data-highlight="drinkList" style="border-radius: 16px; margin: -4px -8px; padding: 3px 8px;">
+    <div class="sectionHeader" data-highlight="sectionHeader" style="border-radius: 16px; margin: -4px -8px; padding: 3px 8px;">
+      <div class="secTitle">
+        Статистика
+        <button class="displayModeToggle" id="displayModeToggle" aria-label="Переключить режим отображения">
+          <svg class="modeIcon standard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="3" y1="9" x2="21" y2="9"></line>
+            <line x1="3" y1="15" x2="21" y2="15"></line>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+          </svg>
+          <svg class="modeIcon compact" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="secTotal" id="totalSummary">...</div>
+    </div>
+    <div class="drinkList standardMode" id="drinkList"></div>
+    <div class="compactList compactMode" id="compactList" style="display: none;"></div>
+  </div>
+
+  <script>
+    import { getSalesStats } from "@/lib/salesService";
+
+    function formatCurrency(value) {
+      return value.toLocaleString("ru-RU", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      });
+    }
+
+    // Initialize each mockup instance separately
+    const initAnalytics = () => {
+      document.querySelectorAll('[data-iphone-mockup]').forEach((mockupContainer) => {
+        if (mockupContainer.getAttribute('data-analytics-initialized') === 'true') return;
+        mockupContainer.setAttribute('data-analytics-initialized', 'true');
+
+        const displayModeToggle = mockupContainer.querySelector('#displayModeToggle') as HTMLElement;
+        const drinkList = mockupContainer.querySelector('#drinkList') as HTMLElement;
+        const compactList = mockupContainer.querySelector('#compactList') as HTMLElement;
+        const totalSummary = mockupContainer.querySelector('#totalSummary') as HTMLElement;
+
+        async function updateAnalytics(state) {
+          const rangeStart = state.startDate && state.endDate && state.startDate > state.endDate ? state.endDate : state.startDate;
+          const rangeEnd = state.startDate && state.endDate && state.startDate > state.endDate ? state.startDate : state.endDate;
+
+          const { totalCount, totalRevenue, products } = await getSalesStats({
+            startDate: rangeStart,
+            endDate: rangeEnd,
+            locationIds: state.selectedLocationIds,
+          });
+
+          if (totalSummary) totalSummary.innerText = `${totalCount} шт • ${formatCurrency(totalRevenue)} ₽`;
+
+          const maxCount = products.length > 0 ? Math.max(...products.map(p => p.count)) : 0;
+          
+          // Render Standard List
+          if (drinkList) {
+            drinkList.innerHTML = products.map((item, index) => {
+              const pctOfTotal = totalCount > 0 ? (item.count / totalCount) * 100 : 0;
+              const relativeWidth = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+              const breakdown = item.byLocation.filter((entry) => entry.count > 0);
+              const showBreakdown = breakdown.length > 1;
+              
+              let highlightAttr = '';
+              if (index === 0) highlightAttr = 'data-highlight="drinkCard clickable"';
+              if (index === 1) highlightAttr = 'data-highlight="drinkCard clickable expanded"';
+
+              return `
+                <div class="drinkCard ${showBreakdown ? "clickable" : ""}" ${highlightAttr} style="border-radius: 16px;">
+                  <div class="cardMain">
+                    <div class="cardInfo">
+                      <div class="cardRow top"><div class="nameWrapper"><div class="cardName">${item.product.name}</div>${showBreakdown ? '<svg class="cardExpandIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>' : ""}</div><div class="cardRevenue">${formatCurrency(item.revenue)} ₽</div></div>
+                      <div class="cardRow bottom"><div class="cardMetaLeft">${item.product.volume}</div><div class="cardMetaRight"><span class="cardPctText">${pctOfTotal.toFixed(1)}%</span><span class="cardCountText">${item.count} шт.</span></div></div>
+                    </div>
+                    <div class="progressLine" style="width: ${relativeWidth}%"></div>
+                  </div>
+                  ${showBreakdown ?
+                  `<div class="cardBreakdown"><div class="breakdownList">${breakdown.map((entry) => `<div class="breakdownRow"><span class="bdName">${entry.location.name}</span><div class="bdValues"><span class="bdPct">${entry.pct.toFixed(0)}%</span><span class="bdCount">${entry.count} шт.</span></div></div>`).join("")}</div></div>` : ""}
+                </div>
+              `;
+            }).join("");
+
+            drinkList.querySelectorAll(".drinkCard.clickable").forEach((card) => {
+              card.addEventListener("click", () => {
+                const breakdown = card.querySelector(".cardBreakdown") as HTMLElement | null;
+                const hadExpanded = card.classList.contains("expanded");
+
+                if (breakdown) {
+                  if (hadExpanded) {
+                    // Closing: start from current height and animate to 0
+                    breakdown.style.maxHeight = `${breakdown.scrollHeight}px`;
+                    void breakdown.offsetHeight;
+                    card.classList.remove("expanded");
+                    breakdown.style.maxHeight = "0px";
+                  } else {
+                    // Only one card open: close others first
+                    drinkList.querySelectorAll(".drinkCard.expanded").forEach((other) => {
+                      if (other === card) return;
+                      const otherBreakdown = other.querySelector(".cardBreakdown") as HTMLElement | null;
+                      if (otherBreakdown) {
+                        otherBreakdown.style.maxHeight = `${otherBreakdown.scrollHeight}px`;
+                        void otherBreakdown.offsetHeight;
+                        other.classList.remove("expanded");
+                        otherBreakdown.style.maxHeight = "0px";
+                      }
+                    });
+                    // Opening: from 0 to full scrollHeight
+                    breakdown.style.maxHeight = "0px";
+                    card.classList.add("expanded");
+                    requestAnimationFrame(() => {
+                      breakdown.style.maxHeight = `${breakdown.scrollHeight}px`;
+                    });
+                  }
+                } else {
+                  card.classList.toggle("expanded");
+                }
+              });
+            });
+          }
+
+          // Render Compact List
+          if (compactList) {
+            compactList.innerHTML = products.map((item) => {
+              const pctOfTotal = totalCount > 0 ? (item.count / totalCount) * 100 : 0;
+              const relativeWidth = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+              const breakdown = item.byLocation.filter((entry) => entry.count > 0);
+              const showBreakdown = breakdown.length > 1;
+              return `
+                <div class="compactItem ${showBreakdown ? "has-details" : ""}">
+                  <div class="compactItemRow">
+                    <div class="compactTopLayer">
+                      <div class="compactNameGroup"><span class="compactProductName">${item.product.name}</span><span class="compactProductVol">${item.product.volume}</span></div>
+                      <span class="compactProductRevenue">${formatCurrency(item.revenue)} ₽</span>
+                    </div>
+                    <div class="compactBarTrack"><div class="compactBarFill" style="width: ${relativeWidth}%;"><span class="compactBarText">${pctOfTotal.toFixed(1)}% ${item.count} шт.</span></div></div>
+                  </div>
+                  ${showBreakdown ?
+                  `<div class="compactDetails">${breakdown.map(entry => `<div class="compactDetailsRow"><span>${entry.location.name}</span><span>${entry.pct.toFixed(0)}% ${entry.count} шт.</span></div>`).join("")}</div>` : ""}
+                </div>
+              `;
+            }).join("");
+
+            compactList.querySelectorAll(".compactItem.has-details").forEach((item) => {
+              item.addEventListener("click", () => {
+                compactList.querySelectorAll(".compactItem").forEach(i => { if (i !== item) i.classList.remove("active"); });
+                item.classList.toggle("active");
+              });
+            });
+          }
+        }
+
+        displayModeToggle?.addEventListener('click', () => {
+          const standardIcon = displayModeToggle.querySelector('.modeIcon.standard') as HTMLElement;
+          const compactIcon = displayModeToggle.querySelector('.modeIcon.compact') as HTMLElement;
+          
+          const isCompact = drinkList.style.display === 'none';
+          if (isCompact) {
+            drinkList.style.display = 'flex';
+            compactList.style.display = 'none';
+            if (standardIcon) standardIcon.style.display = 'block';
+            if (compactIcon) compactIcon.style.display = 'none';
+          } else {
+            drinkList.style.display = 'none';
+            compactList.style.display = 'flex';
+            if (standardIcon) standardIcon.style.display = 'none';
+            if (compactIcon) compactIcon.style.display = 'block';
+          }
+        });
+
+        mockupContainer.addEventListener('mockup:statechange', (e: any) => {
+          updateAnalytics(e.detail);
+        });
+
+        // Request initial state in case we missed the event
+        mockupContainer.dispatchEvent(new CustomEvent('mockup:request-state'));
+      });
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initAnalytics);
+    } else {
+      initAnalytics();
+    }
+
+  </script>
+</div>

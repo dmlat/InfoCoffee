@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Финансы — Dark Steel</title>
+  <style>
+    /* ========================================= */
+    /* 1. НАСТРОЙКИ (Dark Steel + Cyan)          */
+    /* ========================================= */
+    :root {
+      --phone-width: 365px;
+      --screen-radius: 42px;
+      --notch-height: 47px;
+
+      /* PALETTE */
+      --bg-body: #050505;
+      --bg-screen: #0B0E14; /* Почти черный, холодный */
+      --bg-card: #131720;   /* Темная сталь */
+      
+      --text-main: #FFFFFF;
+      --text-muted: #64748B; /* Slate 500 */
+      
+      /* ACCENTS */
+      --cyan: #06B6D4;      /* Основной акцент (Cyan-500) */
+      --cyan-dim: rgba(6, 182, 212, 0.15);
+      --good: #10B981;      /* Только для дельты */
+      
+      /* METAL BORDERS */
+      --stroke-outer: rgba(255, 255, 255, 0.08);
+      --stroke-inner: rgba(255, 255, 255, 0.03);
+
+      --radius: 12px;       /* Более строгий радиус */
+      --tabH: 70px; 
+      --block-gap: 12px; 
+    }
+
+    body {
+      background: var(--bg-body);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      color: var(--text-main);
+    }
+
+    .phone-wrapper {
+      position: relative;
+      width: var(--phone-width);
+      filter: drop-shadow(0 40px 80px rgba(0,0,0,0.9));
+    }
+
+    .phone-frame-img {
+      width: 100%;
+      display: block;
+      position: relative;
+      z-index: 50;
+      pointer-events: none;
+    }
+
+    .phone-screen {
+      position: absolute;
+      top: 10px; left: 15.5px; right: 15.5px; bottom: 10px;
+      border-radius: var(--screen-radius);
+      overflow: hidden;
+      z-index: 10;
+      /* Чистый темный фон без цветных пятен */
+      background: linear-gradient(180deg, #10131A 0%, #0B0E14 100%);
+    }
+
+    .statusBar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 47px;
+      z-index: 60;
+      /* Легкий градиент для читаемости статус бара */
+      background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+    }
+
+    .app-scroll-area {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow-y: auto;
+      padding-top: var(--notch-height);
+      padding-bottom: calc(var(--tabH) + 20px);
+      padding-left: 16px;
+      padding-right: 16px;
+      scrollbar-width: none;
+    }
+    .app-scroll-area::-webkit-scrollbar { display: none; }
+
+    /* ========================================= */
+    /* COMPONENTS                                */
+    /* ========================================= */
+
+    /* METAL CARD MIXIN */
+    .metal-card {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      /* Двойной контур для объема */
+      border: 1px solid var(--stroke-outer);
+      box-shadow: inset 0 0 0 1px var(--stroke-inner); 
+      position: relative;
+    }
+
+    /* Header */
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 2px 18px;
+    }
+    .title { 
+      font-size: 20px; font-weight: 700; color: #E2E8F0; 
+      letter-spacing: 0.5px;
+    }
+    .avatarBtn {
+      width: 36px; height: 36px; border-radius: 10px;
+      border: 1px solid var(--stroke-outer);
+      background: rgba(255,255,255,0.03);
+      display: grid; place-items: center;
+    }
+
+    /* Period Card */
+    .periodCard {
+      padding: 0;
+      margin-bottom: var(--block-gap);
+      overflow: hidden;
+      transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .periodHeader {
+      padding: 14px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+      cursor: pointer;
+    }
+    .periodLeft { display: flex; flex-direction: column; gap: 2px; }
+    .periodBtn { display: flex; align-items: center; gap: 6px; }
+    
+    .periodValue { 
+      font-size: 15px; font-weight: 600; color: #fff; 
+    }
+    .chev { color: var(--cyan); transition: transform 0.3s; }
+    .periodDate { font-size: 11px; color: var(--text-muted); font-family: monospace; letter-spacing: -0.5px; }
+    
+    .periodIcon { color: var(--cyan); opacity: 0.8; }
+
+    /* Accordion Logic */
+    .periodCard.expanded {
+      background: #161A24;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+    }
+    .periodCard.expanded .chev { transform: rotate(180deg); }
+    
+    .periodContent {
+      max-height: 0; opacity: 0;
+      transition: all 0.3s ease;
+      border-top: 1px solid transparent;
+    }
+    .periodCard.expanded .periodContent {
+      max-height: 400px; opacity: 1;
+      border-top: 1px solid var(--stroke-outer);
+      padding: 16px;
+    }
+
+    /* Presets */
+    .presets {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;
+    }
+    .presetBtn {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--stroke-outer);
+      border-radius: 8px;
+      color: var(--text-muted); font-size: 11px; font-weight: 500;
+      padding: 8px 0; text-align: center; cursor: pointer;
+      transition: 0.2s;
+    }
+    .presetBtn.active {
+      background: var(--cyan-dim);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    /* Calendar */
+    .calHeader { display:flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .calNavBtn { 
+      background: transparent; border: 1px solid var(--stroke-outer); 
+      color: var(--text-muted); width: 28px; height: 28px; border-radius: 6px; 
+      display:grid; place-items:center; cursor: pointer;
+    }
+    .calTitle { font-size: 13px; font-weight: 600; color: #fff; }
+    
+    .calGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+    .day { 
+      font-size: 12px; color: var(--text-muted); padding: 6px 0; border-radius: 4px; 
+    }
+    .day.active { background: var(--cyan); color: #000; font-weight: 700; }
+    .day.range { background: var(--cyan-dim); color: #fff; }
+
+    .applyBtn {
+      background: var(--cyan); 
+      border: none; width: 100%; border-radius: 8px;
+      padding: 10px; margin-top: 14px;
+      color: #000; font-weight: 700; font-size: 13px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    /* HERO BLOCK (Net Profit) */
+    .hero {
+      padding: 20px 16px;
+      margin-bottom: var(--block-gap);
+      display: flex; flex-direction: column;
+    }
+
+    .heroTop { 
+      display: flex; justify-content: space-between; align-items: flex-end; 
+      margin-bottom: 8px;
+    }
+    .heroLabel { 
+      font-size: 11px; font-weight: 600; text-transform: uppercase; 
+      letter-spacing: 1px; color: var(--text-muted); 
+    }
+    
+    /* Цифра с "плитой" */
+    .heroMain {
+      position: relative;
+      padding: 4px 0 12px 0;
+    }
+    /* Подложка-пластина */
+    .heroPlate {
+      position: absolute;
+      bottom: 0; left: 0;
+      width: 60px; height: 4px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 100%);
+      border-radius: 2px;
+    }
+
+    .heroValue {
+      font-size: 36px; font-weight: 700;
+      color: #FFFFFF; /* Pure white */
+      letter-spacing: -0.5px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      display: flex; align-items: flex-start;
+    }
+    
+    .heroCurrency { font-size: 0.6em; margin-left: 6px; color: var(--text-muted); font-weight: 400; margin-top: 4px; }
+    
+    /* Маленькая подпись справа сверху от цифры */
+    .heroPeriodBadge {
+      font-size: 10px; color: var(--text-muted);
+      border: 1px solid var(--stroke-outer);
+      padding: 2px 6px; border-radius: 4px;
+      margin-left: auto;
+      transform: translateY(-4px);
+    }
+
+    .heroDelta {
+      margin-top: 8px;
+      font-size: 13px; font-weight: 600; color: var(--good);
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(16, 185, 129, 0.1);
+      padding: 4px 8px; border-radius: 6px;
+      align-self: flex-start;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    /* KPI Grid */
+    .kpiGrid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px;
+    }
+    
+    /* Плоские мини-карточки */
+    .kpiItem {
+      background: rgba(255,255,255,0.01); /* Почти прозрачные */
+      border: 1px solid var(--stroke-outer);
+      box-shadow: inset 0 0 0 1px var(--stroke-inner);
+      padding: 12px;
+      border-radius: 10px;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .kpiLabel { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .kpiVal { font-size: 16px; font-weight: 700; color: #E2E8F0; }
+
+    /* Bottom Nav */
+    .bottomNav {
+      position: absolute; bottom: 20px; width: 100%; 
+      display: flex; justify-content: center; z-index: 100;
+    }
+    .navWrap {
+      background: rgba(19, 23, 32, 0.95); /* Плотный темный фон */
+      border: 1px solid var(--stroke-outer);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 6px;
+      width: 90%;
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+    }
+    .navItem {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 10px 0; border-radius: 14px;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .navItem svg { opacity: 0.7; transition: 0.2s; }
+    .navItem span { font-size: 9px; margin-top: 4px; font-weight: 500; opacity: 0.7; }
+    
+    .navItem.active {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--stroke-outer);
+      color: #fff;
+    }
+    .navItem.active svg { color: var(--cyan); opacity: 1; filter: drop-shadow(0 0 5px var(--cyan-dim)); }
+    .navItem.active span { opacity: 1; }
+
+  </style>
+</head>
+<body>
+
+  <div class="phone-wrapper">
+    <img src="imock.png" alt="" class="phone-frame-img" onerror="this.style.display='none'">
+
+    <div class="phone-screen">
+      <div class="statusBar"></div>
+
+      <div class="app-scroll-area">
+        
+        <div class="topbar">
+          <div class="title">STATISTICS</div>
+          <div class="avatarBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+        </div>
+
+        <div class="metal-card periodCard" id="periodCard">
+          <div class="periodHeader">
+            <div class="periodLeft">
+              <div class="periodBtn">
+                <span class="periodValue" id="pVal">За месяц</span>
+                <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </div>
+              <div class="periodDate">01.01.2026 — 31.01.2026</div>
+            </div>
+            <svg class="periodIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+            </svg>
+          </div>
+
+          <div class="periodContent">
+            <div class="presets">
+              <div class="presetBtn" data-label="За день">День</div>
+              <div class="presetBtn" data-label="За вчера">Вчера</div>
+              <div class="presetBtn" data-label="За неделю">Неделя</div>
+              <div class="presetBtn active" data-label="За месяц">Месяц</div>
+            </div>
+            
+            <div class="calWrapper">
+              <div class="calHeader">
+                <button class="calNavBtn">‹</button>
+                <div class="calTitle">Январь 2026</div>
+                <button class="calNavBtn">›</button>
+              </div>
+              <div class="calGrid" id="calGrid"></div>
+              <button class="applyBtn">Применить</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="metal-card hero">
+          <div class="heroTop">
+            <span class="heroLabel">Чистая прибыль</span>
+            <div class="heroPeriodBadge">за месяц</div>
+          </div>
+          
+          <div class="heroMain">
+            <div class="heroValue">
+              151 280<span style="opacity:0.5; font-size:0.7em; margin-top:5px;">,00</span>
+              <span class="heroCurrency">₽</span>
+            </div>
+            <div class="heroPlate"></div> </div>
+
+          <div class="heroDelta">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+            +11 190 ₽ (8%)
+          </div>
+          
+          <div class="kpiGrid">
+            <div class="kpiItem">
+              <div class="kpiLabel">Выручка</div>
+              <div class="kpiVal">151 000</div>
+            </div>
+            <div class="kpiItem">
+              <div class="kpiLabel">Маржа</div>
+              <div class="kpiVal">100%</div>
+            </div>
+            <div class="kpiItem">
+              <div class="kpiLabel">Продажи</div>
+              <div class="kpiVal">971</div>
+            </div>
+            <div class="kpiItem">
+              <div class="kpiLabel">Ср. чек</div>
+              <div class="kpiVal">155 ₽</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpiGrid" style="margin-top: 12px;">
+          <div class="metal-card kpiItem">
+            <div class="kpiLabel">Эквайринг</div>
+            <div class="kpiVal">0,00 ₽</div>
+          </div>
+          <div class="metal-card kpiItem">
+            <div class="kpiLabel">Налоги (УСН)</div>
+            <div class="kpiVal">0,00 ₽</div>
+          </div>
+        </div>
+        
+      </div> 
+      
+      <nav class="bottomNav">
+        <div class="navWrap">
+          <div class="navItem active">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <span>Фин</span>
+          </div>
+          <div class="navItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <span>Отчет</span>
+          </div>
+          <div class="navItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            <span>Стойки</span>
+          </div>
+          <div class="navItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            <span>Склад</span>
+          </div>
+          <div class="navItem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span>Задачи</span>
+          </div>
+        </div>
+      </nav>
+
+    </div> 
+  </div>
+
+  <script>
+    // JS Logic for Interactivity
+    (function(){
+      const periodCard = document.getElementById('periodCard');
+      const pVal = document.getElementById('pVal');
+      const calGrid = document.getElementById('calGrid');
+      const presetBtns = document.querySelectorAll('.presetBtn');
+
+      // Toggle Accordion
+      periodCard.addEventListener('click', (e) => {
+        if (e.target.closest('.periodHeader')) {
+          periodCard.classList.toggle('expanded');
+        }
+      });
+
+      // Render Static Calendar
+      function renderCalendar() {
+        calGrid.innerHTML = '';
+        for(let i=1; i<=31; i++) {
+          const d = document.createElement('div');
+          d.className = 'day';
+          d.innerText = i;
+          
+          // Demo selection logic
+          if(i >= 1 && i <= 31) {
+            d.classList.add('range');
+            if (i === 31) d.classList.add('active'); // Today/End
+          }
+          
+          calGrid.appendChild(d);
+        }
+      }
+
+      // Presets logic
+      presetBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          presetBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          pVal.innerText = btn.getAttribute('data-label');
+          
+          // Close after short delay
+          setTimeout(() => {
+            periodCard.classList.remove('expanded');
+          }, 250);
+        });
+      });
+
+      renderCalendar();
+    })();
+  </script>
+</body>
+</html>

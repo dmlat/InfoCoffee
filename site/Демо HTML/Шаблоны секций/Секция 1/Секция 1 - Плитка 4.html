@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Плитка — Мощная экосистема</title>
+
+  <style>
+    :root{
+      --bg0:#070B14;
+      --bg1:#090F1D;
+      --stroke:rgba(255,255,255,.08);
+      --text:#EAF0FF;
+      --muted:rgba(234,240,255,.65);
+      --shadow:0 26px 60px rgba(0,0,0,.55);
+      --radius:28px;
+      --font:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      padding:32px 18px;
+      font-family:var(--font);
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 50% -120px, rgba(109,92,255,.22), transparent 55%),
+        radial-gradient(900px 520px at 10% 20%, rgba(75,218,255,.14), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+    }
+
+    .card{
+      width:410px;
+      padding:26px;
+      border-radius:var(--radius);
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow);
+    }
+
+    h3{
+      margin:0 0 8px;
+      font-size:20px;
+      letter-spacing:-.01em;
+    }
+
+    .desc{
+      margin:0;
+      font-size:14.5px;
+      line-height:1.5;
+      color:var(--muted);
+    }
+
+    .hub-grid{
+      margin-top:18px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:14px;
+    }
+
+    .hub-item{
+      display:flex;
+      gap:14px;
+      padding:16px;
+      border-radius:18px;
+      background:rgba(255,255,255,.035);
+      border:1px solid rgba(255,255,255,.08);
+    }
+
+    .hub-ico{
+      width:42px;
+      height:42px;
+      flex:0 0 auto;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .hub-ico svg{
+      width:20px;
+      height:20px;
+      fill:#EAF0FF;
+      opacity:.85;
+    }
+
+    .hub-text b{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:14px;
+      margin-bottom:4px;
+    }
+
+    .hub-text p{
+      margin:0;
+      font-size:13px;
+      line-height:1.35;
+      color:var(--muted);
+    }
+
+    .beta{
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(245,158,11,.35);
+      background:rgba(245,158,11,.15);
+      color:#FBBF24;
+      font-weight:700;
+    }
+  </style>
+</head>
+
+<body>
+  <article class="card">
+    <h3>Мощная экосистема</h3>
+    <p class="desc">
+      InfoCoffee — это не просто учет, а центр управления,
+      который объединяет оборудование, кассы и сотрудников
+      в единую систему.
+    </p>
+
+    <div class="hub-grid">
+
+      <div class="hub-item">
+        <div class="hub-ico">
+          <svg viewBox="0 0 24 24"><path d="M21 7.5 16.5 3 14 5.5l2 2-3.7 3.7-2-2L7 12.5 11.5 17l3.3-3.3-2-2 3.7-3.7 2 2L21 7.5z"/></svg>
+        </div>
+        <div class="hub-text">
+          <b>🛠 Умный склад (WMS)</b>
+          <p>
+            Автоматическое списание по техкартам,
+            контроль остатков и снижение потерь.
+          </p>
+        </div>
+      </div>
+
+      <div class="hub-item">
+        <div class="hub-ico">
+          <svg viewBox="0 0 24 24"><path d="M9 2h2v6h2V2h2v6h2v4a6 6 0 0 1-5 5.9V22h-2v-4.1A6 6 0 0 1 7 12V8h2V2z"/></svg>
+        </div>
+        <div class="hub-text">
+          <b>🔌 Интеграции</b>
+          <p>
+            Подключаем Vendista, 1C и ваши базы данных
+            через API.
+          </p>
+        </div>
+      </div>
+
+      <div class="hub-item">
+        <div class="hub-ico">
+          <svg viewBox="0 0 24 24"><path d="M12 2l1.2 4.2L17.4 8 13.2 9.2 12 13.4 10.8 9.2 6.6 8l4.2-1.8L12 2z"/></svg>
+        </div>
+        <div class="hub-text">
+          <b>🤖 AI Ассистент <span class="beta">Beta</span></b>
+          <p>
+            Анализирует показатели и поддерживает голосовой ввод.
+          </p>
+        </div>
+      </div>
+
+      <div class="hub-item">
+        <div class="hub-ico">
+          <svg viewBox="0 0 24 24"><path d="M4 19h16v2H2V3h2v16zm14-9-4 4-3-3-5 5 1.4 1.4 3.6-3.6 3 3 5.4-5.4L18 10z"/></svg>
+        </div>
+        <div class="hub-text">
+          <b>📉 Снижение Out-of-stock</b>
+          <p>
+            Система заранее сигнализирует о дефиците
+            и формирует задачи на пополнение.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </article>
+</body>
+</html>

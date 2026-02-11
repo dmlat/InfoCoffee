@@ -1,0 +1,199 @@
+---
+import { content } from "@/data/content";
+import iPhoneMockupFrame from "@/assets/img/imock.webp?url";
+
+const { appPreview } = content;
+---
+
+<section class="wrap container" id="analytics">
+  {appPreview.kicker && <p class="kicker">{appPreview.kicker}</p>}
+  <h2 class="section-title">{appPreview.title}</h2>
+  <p class="subhead">
+    {appPreview.subhead}
+  </p>
+
+  <div class="grid" aria-label="Секция преимуществ">
+    <div class="col">
+      <article class="card">
+        <div class="top-mobile">
+          <header class="header-row">
+            <h3 class="card-title">{appPreview.cards[0].title}</h3>
+            <span class="pill-accent"
+              ><span class="dot" aria-hidden="true"></span> {appPreview.cards[0].pill}</span
+            >
+          </header>
+
+          <p class="card-desc">
+            {appPreview.cards[0].description}
+          </p>
+        </div>
+
+        <div class="phone-area" aria-hidden="true">
+          <img
+            class="phone-mock"
+            src={iPhoneMockupFrame}
+            alt={appPreview.cards[0].phone?.alt ?? "iPhone mockup"}
+            loading="lazy"
+          />
+        </div>
+      </article>
+    </div>
+
+    <div class="col">
+      <article class="card">
+        <header class="header-row">
+          <h3 class="card-title">{appPreview.cards[1].title}</h3>
+          <span class="pill-accent"
+            ><span class="dot" aria-hidden="true"></span> {appPreview.cards[1].pill}</span
+          >
+        </header>
+        <p class="card-desc">
+          {appPreview.cards[1].description}
+        </p>
+
+        <div class="wf-nav" aria-label="Шаги P&L">
+          <div class="wf-item">
+            <div class="wf-btn" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+            </div>
+          </div>
+          <div class="wf-sign">−</div>
+          <div class="wf-item">
+            <div class="wf-btn" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/></svg>
+            </div>
+          </div>
+          <div class="wf-sign">−</div>
+          <div class="wf-item">
+            <div class="wf-btn" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><path d="M12 2 2 7v4h20V7Z"/></svg>
+            </div>
+          </div>
+          <div class="wf-sign">−</div>
+          <div class="wf-item">
+            <div class="wf-btn" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+            </div>
+          </div>
+          <div class="wf-sign">=</div>
+          <div class="wf-item is-profit">
+            <div class="wf-btn" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="wf-labels">
+          <div class="wf-label">Выручка</div>
+          <div class="wf-spacer"></div>
+          <div class="wf-label">Себесто...</div>
+          <div class="wf-spacer"></div>
+          <div class="wf-label">Налог</div>
+          <div class="wf-spacer"></div>
+          <div class="wf-label">Эквайринг</div>
+          <div class="wf-spacer"></div>
+          <div class="wf-label is-profit">Прибыль</div>
+        </div>
+
+        <div class="wf-result">
+          <div class="wf-big">{appPreview.cards[1].result?.label}</div>
+          <div class="wf-badge">{appPreview.cards[1].result?.badge}</div>
+        </div>
+
+        <div class="wf-bar" aria-label="Выручка и маржа">
+          <div class="fill" aria-hidden="true"></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <header class="header-row">
+          <h3 class="card-title">{appPreview.cards[2].title}</h3>
+          <span class="pill-accent"
+            ><span class="dot" aria-hidden="true"></span> {appPreview.cards[2].pill}</span
+          >
+        </header>
+        <p class="card-desc">
+          {appPreview.cards[2].description}
+        </p>
+
+        <div class="roles-list">
+          {appPreview.cards[2].roles?.map((role) => (
+            <div class="role-item">
+              <div class="role-left">
+                <div class="role-ico">
+                  {role.icon === "admin" && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></svg>}
+                  {role.icon === "staff" && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>}
+                </div>
+                <div class="role-text">
+                  <b>{role.title}</b>
+                  <span>{role.desc}</span>
+                </div>
+              </div>
+              <div class="role-pill">{role.pill}</div>
+            </div>
+          ))}
+        </div>
+      </article>
+    </div>
+
+    <div class="col">
+      <article class="card">
+        <header class="header-row">
+          <h3 class="card-title">{appPreview.cards[3].title}</h3>
+          <span class="pill-accent"
+            ><span class="dot" aria-hidden="true"></span> {appPreview.cards[3].pill}</span
+          >
+        </header>
+        <p class="card-desc">
+          {appPreview.cards[3].description}
+        </p>
+
+        <div class="hub-grid">
+          {appPreview.cards[3].hub?.map((item) => (
+            <div class="hub-item">
+              <div class="hub-ico">
+                {item.icon === "wms" && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 21V10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1v11"/><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 1.132-1.803l7.95-3.974a2 2 0 0 1 1.837 0l7.948 3.974A2 2 0 0 1 22 8z"/><path d="M6 13h12"/><path d="M6 17h12"/></svg>}
+                {item.icon === "integrations" && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>}
+                {item.icon === "ai" && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 1.912 5.886L20 10.8l-5.886 1.912L12 18.6l-1.912-5.886L4.2 10.8l5.886-1.912L12 3z"/><path d="M5 3 6.307 7 10.5 8.307 6.307 9.693 5 13.693 3.693 9.693 0 8.307 3.693 7 5 3z"/><path d="M19 16l1.262 2.667L23 20l-2.738 1.333L19 24l-1.262-2.667L15 20l2.738-1.333L19 16z"/></svg>}
+                {item.icon === "stock" && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="10" x="2" y="7" rx="2"/><line x1="22" x2="22" y1="11" y2="13"/><line x1="6" x2="6" y1="11" y2="13"/></svg>}
+              </div>
+              <div class="hub-text">
+                <b>{item.title} {item.beta && <span class="beta-tag">Beta</span>}</b>
+                <p>{item.text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<style lang="scss">
+  @import "@/components/AppPreview/AppPreview.scss";
+</style>
+
+<script>
+
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  const grid = document.querySelector('#preview .grid');
+  const cols = grid?.querySelectorAll('.col');
+  
+  if (cols) {
+    const leftCard = cols[0]?.querySelector('.card');
+    const rightCard = cols[2]?.querySelector('.card');
+    
+    // Синхронизация высоты: левая карточка подстраивается под правую
+    const syncHeights = () => {
+      if (leftCard && rightCard) {
+        const rightHeight = rightCard.offsetHeight;
+        leftCard.style.height = `${rightHeight}px`;
+      }
+    };
+    
+    syncHeights();
+    window.addEventListener('resize', syncHeights);
+  }
+});
+</script>

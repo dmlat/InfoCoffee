@@ -1,0 +1,372 @@
+---
+import MockupHeader from "./MockupHeader.astro";
+
+interface Props {
+  active?: boolean;
+}
+
+const { active = false } = Astro.props;
+---
+
+<div class={`tab-content ${active ? 'active' : ''}`} data-tab="stock">
+  <MockupHeader title="Склад">
+    <button slot="left-extra" class="miniRefillBtn" id="stockToggleBtn">Пополнить</button>
+  </MockupHeader>
+
+  <div class="controlCard" id="stockLocSelectorCard">
+    <div class="locationSelector" id="stockLocationSelector">
+      <button class="locNavBtn" id="stockLocPrev">‹</button>
+      <div class="locTitle" id="stockLocTitle">
+        <span class="locAddr" id="stockLocAddr">Москва, Парк Горького</span>
+      </div>
+      <button class="locNavBtn" id="stockLocNext">›</button>
+    </div>
+  </div>
+
+  <div class="stockSubtabContent active" data-content="machine">
+    <div class="controlCard">
+      <div class="stepHeader">
+        <div class="stepLabel">Шаг пополнения (мл, гр, шт)</div>
+        <input class="customInput" id="customStepInput" type="number" inputmode="decimal" placeholder="своё" />
+      </div>
+
+      <div class="stepStrip" id="stepStrip">
+        <button class="btn-plain" data-val="19000">19 000</button>
+        <button class="btn-plain" data-val="1000">1000</button>
+        <button class="btn-plain active" data-val="100">100</button>
+        <button class="btn-plain" data-val="10">10</button>
+      </div>
+      </div>
+
+      <div class="listHeader" style="margin: 12px 4px 8px; font-weight: 600; font-size: 15px; opacity: 0.8;">Кофеавтомат</div>
+      <div class="ingredientsList machineList"></div>
+  </div>
+
+  <div class="stockSubtabContent" data-content="warehouse">
+    <div class="controlCard">
+      <div class="stepHeader">
+        <div class="stepLabel">Шаг пополнения (мл, гр, шт)</div>
+        <input class="customInput" id="warehouseStepInput" type="number" inputmode="decimal" placeholder="своё" />
+      </div>
+
+      <div class="stepStrip" id="warehouseStepStrip">
+        <button class="btn-plain" data-val="19000">19 000</button>
+        <button class="btn-plain" data-val="1000">1000</button>
+        <button class="btn-plain active" data-val="100">100</button>
+        <button class="btn-plain" data-val="10">10</button>
+      </div>
+    </div>
+
+    <div class="ingredientsList warehouseList"></div>
+  </div>
+
+  <script>
+    import {
+      ALL_LOCATION_IDS,
+      LOCATIONS,
+    } from "@/lib/salesService";
+
+    // Initialize each mockup instance separately
+    const initStock = () => {
+      document.querySelectorAll('[data-iphone-mockup]').forEach((mockupContainer) => {
+        if (mockupContainer.getAttribute('data-stock-initialized') === 'true') return;
+        mockupContainer.setAttribute('data-stock-initialized', 'true');
+
+        const stockToggleBtn = mockupContainer.querySelector('#stockToggleBtn');
+        const stockLocSelectorCard = mockupContainer.querySelector('#stockLocSelectorCard') as HTMLElement;
+        const stockLocSelector = mockupContainer.querySelector('#stockLocationSelector');
+        const stockLocAddr = mockupContainer.querySelector('#stockLocAddr') as HTMLElement;
+        const stockLocPrev = mockupContainer.querySelector('#stockLocPrev');
+        const stockLocNext = mockupContainer.querySelector('#stockLocNext');
+        const pointModal = mockupContainer.querySelector('#pointModal');
+        const menuOverlay = mockupContainer.querySelector('#menuOverlay');
+        const pointOptions = mockupContainer.querySelector('#pointOptions');
+        const scrollArea = mockupContainer.querySelector('.app-scroll-area');
+
+        let currentStockLocIndex = 0;
+        let currentStep = 100;
+        let currentWarehouseStep = 100;
+        let activeStockSubtab = 'machine';
+
+        // Global warehouse data (shared across all locations)
+        const globalWarehouse = {
+          water: { name: 'Вода', value: 120.00, unit: 'л' },
+          coffee: { name: 'Кофе', value: 5.24, unit: 'кг' },
+          cream: { name: 'Сливки', value: 4.00, unit: 'кг' },
+          sugar: { name: 'Сахар', value: 10.50, unit: 'кг' },
+          cocoa: { name: 'Какао', value: 3.20, unit: 'кг' },
+          syrupCaramel: { name: 'Сироп Карамель', value: 5.00, unit: 'л' },
+          syrupVanilla: { name: 'Сироп Ваниль', value: 3.00, unit: 'л' },
+          syrupChocolate: { name: 'Сироп Шоколад', value: 6.00, unit: 'л' },
+          cups250: { name: 'Стаканы 250мл', value: 450.00, unit: 'шт' },
+          cups350: { name: 'Стаканы 350мл', value: 600.00, unit: 'шт' },
+          cups60: { name: 'Стаканы 60мл', value: 200.00, unit: 'шт' },
+          lidsM: { name: 'Крышки M', value: 1000.00, unit: 'шт' },
+          lidsS: { name: 'Крышки S', value: 500.00, unit: 'шт' },
+          stirrers: { name: 'Размешиватели', value: 2000.00, unit: 'шт' },
+          straws: { name: 'Трубочки', value: 1000.00, unit: 'шт' }
+        };
+
+        // Machine-specific stock data for each location
+        const stockData = LOCATIONS.map(loc => ({
+          locationId: loc.id,
+          ingredients: {
+            water: { name: 'Вода', current: 12000, max: 19000, unit: 'мл', limit: 15 },
+            coffee: { name: 'Кофе', current: 233, max: 2000, unit: 'гр', limit: 20 },
+            cream: { name: 'Сливки', current: 1500, max: 2000, unit: 'гр', limit: 20 },
+            sugar: { name: 'Сахар', current: 800, max: 2500, unit: 'гр', limit: 20 },
+            cocoa: { name: 'Какао', current: 450, max: 1500, unit: 'гр', limit: 20 },
+            syrupCaramel: { name: 'Сироп Карамель', current: 700, max: 1000, unit: 'мл', limit: 20 },
+            syrupVanilla: { name: 'Сироп Ваниль', current: 300, max: 1000, unit: 'мл', limit: 20 },
+            syrupChocolate: { name: 'Сироп Шоколад', current: 900, max: 1000, unit: 'мл', limit: 20 },
+            cups250: { name: 'Стаканы 250мл', current: 45, max: 50, unit: 'шт', limit: 10 },
+            cups350: { name: 'Стаканы 350мл', current: 32, max: 40, unit: 'шт', limit: 10 },
+            cups60: { name: 'Стаканы 60мл', current: 12, max: 80, unit: 'шт', limit: 10 },
+            lidsM: { name: 'Крышки M', current: 85, max: 100, unit: 'шт', limit: 10 },
+            lidsS: { name: 'Крышки S', current: 30, max: 50, unit: 'шт', limit: 10 },
+            stirrers: { name: 'Размешиватели', current: 120, max: 150, unit: 'шт', limit: 10 },
+            straws: { name: 'Трубочки', current: 80, max: 100, unit: 'шт', limit: 10 }
+          }
+        }));
+
+        // Randomize machine data for variety
+        stockData.forEach((data, idx) => {
+          if (idx === 0) return;
+          Object.keys(data.ingredients).forEach(key => {
+            const ing = data.ingredients[key];
+            const factor = 0.5 + Math.random();
+            ing.current = Math.floor(ing.max * Math.min(0.95, factor * (ing.current / ing.max)));
+          });
+        });
+
+        function updateStockLocationUI() {
+          if (stockLocAddr) {
+            stockLocAddr.innerText = LOCATIONS[currentStockLocIndex].name;
+          }
+          renderStockIngredients();
+        }
+
+        function renderStockIngredients() {
+          const data = stockData[currentStockLocIndex];
+          
+          // Render Machine List
+          const machineContainer = mockupContainer.querySelector('.machineList');
+          if (machineContainer) {
+            machineContainer.innerHTML = '';
+            Object.keys(data.ingredients).forEach(key => {
+              const ing = data.ingredients[key];
+              const warehouseIng = globalWarehouse[key];
+              const pct = (ing.current / ing.max) * 100;
+              const statusClass = pct < 20 ? 'status-critical' : pct < 40 ? 'status-warning' : 'status-ok';
+              
+              const warehouseValueFormatted = warehouseIng.unit === 'шт' ? Math.floor(warehouseIng.value).toString() : warehouseIng.value.toFixed(2);
+
+              const card = document.createElement('div');
+              card.className = `ingCard ${statusClass}`;
+              card.dataset.ing = key;
+              card.innerHTML = `
+                <div class="ingInfo">
+                  <div class="ingName">${ing.name}</div>
+                  <div class="ingStock">Склад: ${warehouseValueFormatted} ${warehouseIng.unit}</div>
+                </div>
+                <div class="ingControls">
+                  <button class="qtyBtn minus">−</button>
+                  <div class="progressWrapper">
+                    <div class="progressBar" style="width: ${pct}%; opacity: 0.3;"></div>
+                    <div class="limitLine" style="left: ${ing.limit}%;"></div>
+                    <div class="progressText">${ing.current} <span class="dim">/ ${ing.max}</span></div>
+                  </div>
+                  <button class="qtyBtn plus">+</button>
+                </div>
+              `;
+              machineContainer.appendChild(card);
+            });
+          }
+
+          // Render Warehouse List
+          const warehouseContainer = mockupContainer.querySelector('.warehouseList');
+          if (warehouseContainer) {
+            warehouseContainer.innerHTML = '';
+            Object.keys(globalWarehouse).forEach(key => {
+              const ing = globalWarehouse[key];
+              
+              const card = document.createElement('div');
+              card.className = `ingCard warehouse-card`;
+              card.dataset.ing = key;
+              
+              const formattedValue = ing.unit === 'шт' ? Math.floor(ing.value).toString() : ing.value.toFixed(2);
+              
+              card.innerHTML = `
+                <div class="ingInfo">
+                  <div class="ingName">${ing.name}</div>
+                </div>
+                <div class="ingControls">
+                  <button class="qtyBtn minus">−</button>
+                  <div class="progressWrapper">
+                    <div class="progressBar"></div>
+                    <div class="progressText">${formattedValue} ${ing.unit}</div>
+                  </div>
+                  <button class="qtyBtn plus">+</button>
+                </div>
+              `;
+              warehouseContainer.appendChild(card);
+            });
+          }
+        }
+
+        stockToggleBtn?.addEventListener('click', () => {
+          const isWarehouse = activeStockSubtab === 'warehouse';
+          if (isWarehouse) {
+            activeStockSubtab = 'machine';
+            // @ts-ignore
+            stockToggleBtn.innerText = 'Пополнить';
+            if (stockLocSelectorCard) stockLocSelectorCard.style.display = 'block';
+          } else {
+            activeStockSubtab = 'warehouse';
+            // @ts-ignore
+            stockToggleBtn.innerText = 'Кофемашина';
+            if (stockLocSelectorCard) stockLocSelectorCard.style.display = 'none';
+          }
+          
+          mockupContainer.querySelectorAll('.stockSubtabContent').forEach(content => {
+            content.classList.toggle('active', (content as HTMLElement).dataset.content === activeStockSubtab);
+          });
+          renderStockIngredients();
+        });
+
+        const stepStrip = mockupContainer.querySelector('#stepStrip');
+        const customStepInput = mockupContainer.querySelector('#customStepInput') as HTMLInputElement;
+        const warehouseStepStrip = mockupContainer.querySelector('#warehouseStepStrip');
+        const warehouseStepInput = mockupContainer.querySelector('#warehouseStepInput') as HTMLInputElement;
+
+        function handleStepClick(strip, input, isWarehouse) {
+          strip?.addEventListener('click', (e) => {
+            const btn = (e.target as HTMLElement).closest('.btn-plain');
+            if (!btn) return;
+            
+            strip.querySelectorAll('.btn-plain').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (input) {
+              input.value = '';
+              input.classList.remove('active');
+            }
+            const val = parseFloat((btn as HTMLElement).dataset.val || '1');
+            if (isWarehouse) currentWarehouseStep = val;
+            else currentStep = val;
+          });
+
+          input?.addEventListener('input', () => {
+            if (input.value) {
+              strip?.querySelectorAll('.btn-plain').forEach(b => b.classList.remove('active'));
+              input.classList.add('active');
+              const val = parseFloat(input.value);
+              if (isWarehouse) currentWarehouseStep = val;
+              else currentStep = val;
+            }
+          });
+        }
+
+        handleStepClick(stepStrip, customStepInput, false);
+        handleStepClick(warehouseStepStrip, warehouseStepInput, true);
+
+        mockupContainer.querySelector('.app-scroll-area')?.addEventListener('click', (e) => {
+          const target = e.target as HTMLElement;
+          const plusBtn = target.closest('.qtyBtn.plus');
+          const minusBtn = target.closest('.qtyBtn.minus');
+          
+          if (!plusBtn && !minusBtn) return;
+
+          const card = target.closest('.ingCard') as HTMLElement;
+          const ingKey = card?.dataset.ing;
+          if (!ingKey) return;
+
+          const isWarehouse = !!target.closest('.warehouseList');
+          const ing = isWarehouse ? globalWarehouse[ingKey] : stockData[currentStockLocIndex].ingredients[ingKey];
+
+          if (isWarehouse) {
+            let step = currentWarehouseStep;
+            if (ing.unit === 'л' || ing.unit === 'кг') {
+              step = currentWarehouseStep / 1000;
+            }
+            
+            if (plusBtn) {
+              ing.value = ing.unit === 'шт' ? Math.floor(ing.value + step) : parseFloat((ing.value + step).toFixed(2));
+            } else {
+              ing.value = ing.unit === 'шт' ? Math.max(0, Math.floor(ing.value - step)) : Math.max(0, parseFloat((ing.value - step).toFixed(2)));
+            }
+          } else {
+            const warehouseIng = globalWarehouse[ingKey];
+            let step = currentStep;
+            
+            if (plusBtn) {
+              const canAdd = Math.max(0, ing.max - ing.current);
+              const actualAdd = Math.min(step, canAdd);
+              const warehouseStep = (warehouseIng.unit === 'л' || warehouseIng.unit === 'кг') ? actualAdd / 1000 : actualAdd;
+              
+              if (warehouseIng.value >= warehouseStep) {
+                ing.current += actualAdd;
+                warehouseIng.value = parseFloat((warehouseIng.value - warehouseStep).toFixed(2));
+              } else {
+                const takeAllFromWarehouse = (warehouseIng.unit === 'л' || warehouseIng.unit === 'кг') ? warehouseIng.value * 1000 : warehouseIng.value;
+                const finalAdd = Math.min(takeAllFromWarehouse, canAdd);
+                const finalWarehouseStep = (warehouseIng.unit === 'л' || warehouseIng.unit === 'кг') ? finalAdd / 1000 : finalAdd;
+                
+                ing.current += finalAdd;
+                warehouseIng.value = parseFloat((warehouseIng.value - finalWarehouseStep).toFixed(2));
+              }
+            } else {
+              const canRemove = ing.current;
+              const actualRemove = Math.min(step, canRemove);
+              const warehouseStep = (warehouseIng.unit === 'л' || warehouseIng.unit === 'кг') ? actualRemove / 1000 : actualRemove;
+              
+              ing.current -= actualRemove;
+              warehouseIng.value = parseFloat((warehouseIng.value + warehouseStep).toFixed(2));
+            }
+          }
+          renderStockIngredients();
+        });
+
+        stockLocSelector?.addEventListener('click', (e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('#stockLocPrev')) {
+            currentStockLocIndex = (currentStockLocIndex - 1 + LOCATIONS.length) % LOCATIONS.length;
+            updateStockLocationUI();
+          } else if (target.closest('#stockLocNext')) {
+            currentStockLocIndex = (currentStockLocIndex + 1) % LOCATIONS.length;
+            updateStockLocationUI();
+          } else if (target.closest('#stockLocTitle')) {
+            pointModal?.classList.add("active");
+            menuOverlay?.classList.add("show");
+            scrollArea?.classList.add("no-scroll");
+            
+            const stockPointClickHandler = (e: MouseEvent) => {
+              const target = (e.target as HTMLElement).closest(".presetBtn") as HTMLElement;
+              if (!target) return;
+              const locId = target.dataset.loc;
+              if (locId === "all") return;
+              
+              const id = parseInt(locId!);
+              currentStockLocIndex = LOCATIONS.findIndex(l => l.id === id);
+              updateStockLocationUI();
+              
+              pointModal?.classList.remove("active");
+              menuOverlay?.classList.remove("show");
+              scrollArea?.classList.remove("no-scroll");
+              pointOptions?.removeEventListener('click', stockPointClickHandler);
+            };
+            pointOptions?.addEventListener('click', stockPointClickHandler);
+          }
+        });
+
+        updateStockLocationUI();
+      });
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initStock);
+    } else {
+      initStock();
+    }
+
+  </script>
+</div>

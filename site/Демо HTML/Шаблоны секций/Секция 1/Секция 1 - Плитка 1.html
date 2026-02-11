@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Плитка — Вся аналитика в кармане</title>
+  <style>
+    :root{
+      --bg0:#070B14;
+      --bg1:#090F1D;
+
+      --stroke:rgba(255,255,255,.08);
+      --text:#EAF0FF;
+      --muted:rgba(234,240,255,.68);
+
+      --shadow: 0 26px 60px rgba(0,0,0,.55);
+      --radius: 28px;
+
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+
+      /* единая система отступов */
+      --space-1: 10px;
+      --space-2: 14px;
+      --space-3: 18px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--font);
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 50% -120px, rgba(109,92,255,.22), transparent 55%),
+        radial-gradient(900px 520px at 10% 20%, rgba(75,218,255,.14), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      display:grid;
+      place-items:center;
+      padding:32px 18px;
+    }
+
+    /* Плитка: строго 410px */
+    .card{
+      width:410px;
+      position:relative;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;                 /* обрез мокапа снизу */
+      padding:28px;
+      backdrop-filter: blur(10px);
+    }
+    .card::before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background:
+        radial-gradient(520px 260px at 20% 15%, rgba(109,92,255,.14), transparent 60%),
+        radial-gradient(520px 260px at 80% 40%, rgba(75,218,255,.10), transparent 60%);
+      pointer-events:none;
+      opacity:.9;
+    }
+    .card > *{position:relative; z-index:1;}
+
+    .top{
+      display:block;
+      margin-bottom: var(--space-2);
+    }
+
+    /* Заголовок + бейдж в одну строку */
+    .headline{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      margin:0 0 var(--space-1);
+    }
+
+    .title{
+      margin:0;
+      font-size:20px;
+      letter-spacing:-.01em;
+      line-height:1.2;
+      flex: 1 1 auto;
+      min-width:0;
+    }
+
+    .badge{
+      flex: 0 0 auto;
+      font-size:12px;
+      line-height:1;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      color: rgba(234,240,255,.82);
+      white-space:nowrap;
+    }
+
+    .desc{
+      margin:0;
+      color:var(--muted);
+      line-height:1.55;
+      font-size:14.5px;
+      max-width:none;         /* на всю ширину плитки */
+    }
+
+    /* Мокап ниже текста, низ “уходит” за границу плитки и обрезается */
+    .phone-area{
+      margin-top: var(--space-2);  /* уменьшили отступ между описанием и скрином */
+      height: 300px;               /* чуть компактнее */
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+      pointer-events:none;
+    }
+
+    /* Упрощённый мокап */
+    .phone{
+      width: 320px;
+      aspect-ratio: 9/16;
+      border-radius: 36px;
+      border:1px solid rgba(255,255,255,.10);
+      background: linear-gradient(180deg, rgba(15,23,38,.85), rgba(9,14,26,.96));
+      box-shadow: 0 36px 80px rgba(0,0,0,.65);
+      position:relative;
+      overflow:hidden;
+
+      /* низ телефона будет “за плиткой” */
+      transform: translateY(22px); /* чуть меньше, чтобы отступы смотрелись ровнее */
+    }
+
+    .phone::before{
+      content:"";
+      position:absolute;
+      inset:12px;
+      border-radius: 28px;
+      border:1px solid rgba(255,255,255,.08);
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.015));
+      pointer-events:none;
+    }
+
+    .phone-screen{
+      position:absolute;
+      inset:22px 18px 18px;
+      border-radius: 24px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.06);
+      background:
+        radial-gradient(180px 120px at 65% 15%, rgba(75,218,255,.10), transparent 65%),
+        radial-gradient(220px 140px at 30% 35%, rgba(109,92,255,.14), transparent 65%),
+        linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      display:grid;
+      place-items:center;
+      padding:14px;
+      text-align:center;
+      color: rgba(234,240,255,.78);
+      font-size:13px;
+      line-height:1.35;
+    }
+
+    .shot{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+      border-radius: 18px;
+    }
+
+    .hint b{color: rgba(234,240,255,.92)}
+    .hint code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;
+      color: rgba(234,240,255,.88);
+      background: rgba(0,0,0,.25);
+      padding:2px 6px;
+      border-radius: 8px;
+      border:1px solid rgba(255,255,255,.10);
+      white-space:nowrap;
+    }
+
+    @media (max-width: 450px){
+      .card{width:100%; max-width:410px; padding:20px; border-radius:22px}
+      .phone{width: min(320px, 96%)}
+      .phone-area{height: 290px}
+    }
+  </style>
+</head>
+<body>
+  <article class="card">
+    <div class="top">
+      <div class="headline">
+        <h3 class="title">Вся аналитика в кармане</h3>
+        <span class="badge">TG Mini App</span>
+      </div>
+
+      <p class="desc">
+        Забудьте про долгие загрузки отчетов. Мгновенный доступ к выручке, продажам и чистой прибыли прямо в приложении.
+        Всё работает нативно и быстро.
+      </p>
+    </div>
+
+    <div class="phone-area" aria-hidden="true">
+      <div class="phone">
+        <div class="phone-screen">
+          <!-- Положите рядом файл screenshot-dashboard.jpg и замените src -->
+          <img class="shot"
+               src="screenshot-dashboard.jpg"
+               alt=""
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+          <div class="hint" style="display:none;">
+            <b>Здесь будет скрин приложения</b><br/>
+            Положите рядом файл <code>screenshot-dashboard.jpg</code><br/>
+            и замените <b>src</b> на нужное имя.
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+</body>
+</html>

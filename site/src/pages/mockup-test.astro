@@ -1,0 +1,40 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import IPhoneMockup from "@/components/IPhoneMockup/IPhoneMockup.astro";
+---
+
+<BaseLayout title="Mockup Test · All Tabs">
+  <main class="mockupPage">
+    <div class="test-container">
+      <IPhoneMockup />
+    </div>
+  </main>
+</BaseLayout>
+
+<style lang="scss">
+  .mockupPage {
+    min-height: calc(var(--page-min-height) - 1px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    background: #0a1525;
+  }
+  .test-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  .test-title {
+    color: #fff;
+    font-size: 24px;
+    margin: 0;
+  }
+  .test-desc {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 16px;
+    margin: 0;
+    text-align: center;
+  }
+</style>

@@ -1,0 +1,41 @@
+/* Общий стиль основной CTA-кнопки (как в секции Финансы) */
+.btn--primary {
+  --accent-btn: #c88b69;
+  --accent-btn-light: #e0b08f;
+
+  appearance: none;
+  border: 0;
+  padding: 14px 30px;
+  border-radius: 18px;
+  font-weight: 800;
+  font-size: 16px;
+  color: rgba(14, 10, 8, 0.92);
+
+  background:
+    radial-gradient(120px 60px at 30% 20%, rgba(255, 255, 255, 0.2), transparent 60%),
+    linear-gradient(180deg, rgba(224, 176, 143, 0.98), var(--accent-btn));
+
+  box-shadow:
+    0 18px 45px rgba(200, 139, 105, 0.22),
+    0 10px 22px rgba(0, 0, 0, 0.35);
+
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+  line-height: 1.2;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 22px 55px rgba(200, 139, 105, 0.28),
+      0 12px 28px rgba(0, 0, 0, 0.38);
+    filter: saturate(1.05);
+    color: rgba(14, 10, 8, 0.92);
+  }
+
+  &:active {
+    transform: translateY(0) scale(0.99);
+  }
+}

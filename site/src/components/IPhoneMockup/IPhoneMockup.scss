@@ -1,0 +1,336 @@
+.iphoneMockup {
+  --phone-width: 365px;
+  --screen-radius: 42px;
+  --notch-height: 47px;
+
+  --tabH: 70px;
+  --radius-card: 18px;
+
+  position: relative;
+  width: var(--phone-width);
+  flex-shrink: 0;
+
+  .phone-wrapper {
+    position: relative;
+    width: 100%;
+    height: 750px;
+    filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.6));
+  }
+
+  .phone-frame-img {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 50;
+    pointer-events: none;
+  }
+
+  .phone-screen {
+    position: absolute;
+    top: 12px;
+    left: 16px;
+    right: 16px;
+    bottom: 12px;
+    background: #141211;
+    border-radius: var(--screen-radius);
+    overflow: hidden;
+    z-index: 10;
+    background: linear-gradient(180deg, #1c1917, #141211);
+    isolation: isolate; // Create new stacking context for children
+
+    &::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 200px;
+      background: radial-gradient(
+        circle at 20% -10%,
+        rgba(217, 119, 6, 0.08),
+        transparent 70%
+      );
+      pointer-events: none;
+      z-index: 1;
+    }
+
+  }
+
+  /* ========================================= */
+  /* NEW FOCUS ENGINE (DUAL LAYER)             */
+  /* ========================================= */
+  .focus-container {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2000;
+    pointer-events: none;
+    
+    --t: 0px; 
+    --l: 0px; 
+    --w: 0px; 
+    --h: 0px; 
+    --rad: 0px;
+    
+    /* Removed padding to fit tightly */
+    --pad: 0px; 
+
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.1s ease, visibility 0.1s ease;
+    will-change: opacity;
+    
+    /* Ensure the focus container doesn't have a background that blocks the screen */
+    background: transparent;
+
+    &.is-visible {
+      opacity: 1;
+      visibility: visible;
+      
+      /* Disable transitions when first appearing to prevent jumping from 0,0 */
+      &.no-transition .focus-stroke,
+      &.no-transition .focus-backdrop {
+        transition: none !important;
+      }
+    }
+  }
+
+  /* Слой 1: Блюр (Backdrop Filter) */
+  /* Используем clip-path, чтобы вырезать "дырку" для элемента, 
+     чтобы он не блюрился. Polygon winding rule делает дырку. */
+  .focus-backdrop {
+    position: absolute;
+    inset: -1px; /* Slightly larger to prevent subpixel gaps */
+    
+    /* Только блюр, затемнение делает следующий слой через box-shadow */
+    background: transparent;
+    backdrop-filter: blur(4px); 
+    -webkit-backdrop-filter: blur(4px);
+    
+    /* Логика полигона: 
+      1. Рисуем внешний контур экрана (по часовой)
+      2. Рисуем внутренний контур "дырки" (против часовой)
+      В результате область между ними заливается (блюрится), а внутри дырки - пусто.
+    */
+    clip-path: polygon(
+      -100% -100%, 
+      -100% 200%, 
+      200% 200%, 
+      200% -100%, 
+      -100% -100%, 
+      
+      var(--l) var(--t), 
+      var(--l) calc(var(--t) + var(--h)), 
+      calc(var(--l) + var(--w)) calc(var(--t) + var(--h)), 
+      calc(var(--l) + var(--w)) var(--t), 
+      var(--l) var(--t)
+    );
+    
+    transition: clip-path 0.15s cubic-bezier(0.2, 0, 0.2, 1);
+    will-change: clip-path;
+    z-index: 1;
+    pointer-events: none;
+    transform: translateZ(0); /* Force hardware acceleration */
+  }
+
+  /* Слой 2: Затемнение и Рамка */
+  /* Используем гигантскую тень (box-shadow) для создания затемнения вокруг элемента.
+     Это позволяет сделать идеально скругленные углы у "дырки". */
+  .focus-stroke {
+    position: absolute;
+    top: var(--t);
+    left: var(--l);
+    width: var(--w);
+    height: var(--h);
+    border-radius: var(--rad);
+    z-index: 2;
+    pointer-events: none;
+    
+    /* Оранжевая рамка */
+    border: 2px solid #c2815e;
+    
+    /* 1. Внутреннее свечение и внешняя тень рамки */
+    /* 2. Четвертый параметр (4000px) создает "стены" темноты вокруг */
+    box-shadow: 
+      0 0 0 1px rgba(0,0,0,0.1), 
+      0 4px 20px rgba(194, 129, 94, 0.35),
+      0 0 0 500px rgba(0, 0, 0, 0.6); 
+    
+    transition: top 0.15s cubic-bezier(0.2, 0, 0.2, 1),
+                left 0.15s cubic-bezier(0.2, 0, 0.2, 1),
+                width 0.15s cubic-bezier(0.2, 0, 0.2, 1),
+                height 0.15s cubic-bezier(0.2, 0, 0.2, 1),
+                border-radius 0.15s cubic-bezier(0.2, 0, 0.2, 1);
+    will-change: top, left, width, height, border-radius;
+  }
+  /* ========================================= */
+
+  .statusBarBlur {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    background: linear-gradient(
+      180deg,
+      #141211 0%,
+      rgba(20, 18, 17, 0.85) 35%,
+      rgba(20, 18, 17, 0) 100%
+    );
+    pointer-events: none;
+    z-index: 60;
+  }
+
+  .menuOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    z-index: 1500; // Lower than focus-container (2000) and pointModal (2000)
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    cursor: pointer;
+    pointer-events: auto;
+
+    &.show {
+      display: block;
+      opacity: 1;
+    }
+  }
+
+  .app-scroll-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow-y: auto;
+    padding-top: var(--notch-height);
+    padding-bottom: calc(var(--tabH) + 20px);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    z-index: 5; // Ensure it's below overlays
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    &.no-scroll {
+      overflow-y: hidden;
+    }
+
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .tab-content {
+    display: none;
+    position: relative;
+
+    &.active {
+      display: block;
+      animation: fadeIn 0.3s ease-out;
+    }
+  }
+
+  .mockup-badge {
+    position: absolute;
+    top: -15px;
+    z-index: 100;
+    background:
+        radial-gradient(120px 60px at 30% 20%, rgba(255, 255, 255, .2), transparent 60%),
+        linear-gradient(180deg, rgba(224, 176, 143, .98), var(--accent));
+    color: #000000;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 44px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 10px 25px rgba(192, 128, 88, 0.4);
+    animation: badgePulse 2s infinite;
+    pointer-events: auto;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: none;
+
+    &:hover {
+      background:
+        radial-gradient(120px 60px at 70% 80%, rgba(255, 255, 255, .2), transparent 40%),
+        linear-gradient(180deg, var(--accent), rgba(224, 176, 143, .98));
+      color: var(--text);
+      transform: scale(1.1) rotate(0deg) !important;
+    }
+
+    /* Positions based on parent section */
+    #finance & {
+      left: -15px;
+      transform: rotate(-15deg);
+    }
+
+    #analytics & {
+      right: -15px;
+      transform: rotate(15deg);
+    }
+  }
+
+  @keyframes badgePulse {
+    0% {
+      box-shadow: 0 10px 25px rgba(192, 128, 88, 0.4);
+    }
+    50% {
+      box-shadow: 0 15px 35px rgba(192, 128, 88, 0.6);
+    }
+    100% {
+      box-shadow: 0 10px 25px rgba(192, 128, 88, 0.4);
+    }
+  }
+
+  [data-highlight] {
+    transition: none !important;
+    will-change: auto;
+    
+    &.highlighted {
+      z-index: auto !important; 
+      border-color: transparent !important;
+      box-shadow: none !important;
+      transform: none !important;
+    }
+  }
+
+  .pointModal {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #1c1c1e;
+    border-radius: 20px 20px 0 0;
+    padding: 20px;
+    z-index: 3000;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+    &.active {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}

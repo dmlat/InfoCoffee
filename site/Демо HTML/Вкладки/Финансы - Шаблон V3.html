@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Финансы — Хромированный минимализм</title>
+  <style>
+    /* ========================================= */
+    /* 3. НАСТРОЙКИ (Chrome Minimal Tech)        */
+    /* ========================================= */
+    :root {
+      --phone-width: 365px;
+      --screen-radius: 42px;
+      --notch-height: 47px;
+
+      /* PALETTE: CHROME & GRAPHITE */
+      --void: #030303;      /* Абсолютный черный */
+      --graphite: #0F1012;  /* Темный металл */
+      --glass: rgba(20, 20, 23, 0.7); /* Стекло */
+      
+      /* TEXT & ACCENTS */
+      --chrome-bright: #FFFFFF;
+      --chrome-dim: #888888;
+      --text-main: #E2E8F0;
+      --text-muted: #64748B;
+      
+      /* TECH GREEN (DELTA) */
+      --tech-green: #22C55E; 
+
+      /* BORDERS & SHINES */
+      --border-chrome: rgba(255, 255, 255, 0.15);
+      --highlight: rgba(255, 255, 255, 0.3); /* Блик на грани */
+      
+      --radius: 14px; /* Более строгий радиус */
+      --tabH: 70px; 
+      --block-gap: 12px; 
+    }
+
+    body {
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      overflow: hidden;
+      color: var(--text-main);
+    }
+
+    .phone-wrapper {
+      position: relative;
+      width: var(--phone-width);
+      filter: drop-shadow(0 0 0px #000); /* Убрали мягкую тень, добавили контраст */
+    }
+
+    .phone-frame-img {
+      width: 100%;
+      display: block;
+      position: relative;
+      z-index: 50;
+      pointer-events: none;
+    }
+
+    .phone-screen {
+      position: absolute;
+      top: 10px; left: 15.5px; right: 15.5px; bottom: 10px;
+      background: var(--void);
+      border-radius: var(--screen-radius);
+      overflow: hidden;
+      z-index: 10;
+      /* Техно-фон: радиальный градиент имитирующий свет монитора в темноте */
+      background: radial-gradient(circle at 50% 0%, #2A2D33 0%, #050505 60%);
+    }
+
+    .statusBarBlur {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 52px;
+      background: linear-gradient(180deg, #000 0%, rgba(0,0,0,0) 100%);
+      pointer-events: none;
+      z-index: 60;
+    }
+
+    .app-scroll-area {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow-y: auto;
+      padding-top: var(--notch-height);
+      padding-bottom: calc(var(--tabH) + 10px);
+      padding-left: 16px;
+      padding-right: 16px;
+      scrollbar-width: none;
+    }
+    .app-scroll-area::-webkit-scrollbar { display: none; }
+
+    /* ========================================= */
+    /* HEADER                                    */
+    /* ========================================= */
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 2px 20px;
+      margin-top: 10px;
+    }
+    .title { 
+      font-size: 20px; 
+      font-weight: 700; 
+      color: #fff; 
+      text-transform: uppercase; 
+      letter-spacing: 2px;
+      /* Эффект металла на заголовке */
+      background: linear-gradient(to bottom, #fff 0%, #999 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .avatarBtn {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: #111;
+      border: 1px solid var(--border-chrome);
+      box-shadow: inset 0 1px 0 var(--highlight);
+      display: grid; place-items: center;
+    }
+
+    /* ========================================= */
+    /* CHROME CARDS (COMMON STYLES)              */
+    /* ========================================= */
+    .periodCard, .hero, .detailKpi, .heroKpi, .navWrap {
+      background: var(--glass);
+      backdrop-filter: blur(20px); /* Сильный блюр */
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-chrome);
+      border-radius: var(--radius);
+      
+      /* Эффект хромированной фаски сверху */
+      box-shadow: 
+        inset 0 1px 0 rgba(255,255,255,0.15),
+        0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    /* PERIOD CARD */
+    .periodCard {
+      padding: 0; /* Reset padding for internal layout */
+      margin-bottom: var(--block-gap);
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+      z-index: 35;
+      position: relative;
+    }
+
+    .periodHeader {
+      padding: 14px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+      cursor: pointer;
+    }
+
+    .periodCard.expanded {
+      background: rgba(15, 16, 18, 0.95);
+      border-color: rgba(255,255,255,0.3);
+      box-shadow: 0 20px 50px #000;
+    }
+
+    .periodValue { 
+      font-size: 15px; 
+      font-weight: 600; 
+      color: #fff; 
+      letter-spacing: 0.5px;
+    }
+    .chev { color: var(--chrome-dim); transition: transform 0.3s; }
+    .expanded .chev { transform: rotate(180deg); }
+    
+    .periodDate { 
+      font-size: 11px; 
+      color: var(--text-muted); 
+      font-family: monospace; /* Tech feel */
+      margin-top: 2px;
+    }
+
+    /* Presets & Calendar inside Card */
+    .periodContent {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease;
+      background: rgba(0,0,0,0.2);
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    .periodCard.expanded .periodContent {
+      max-height: 400px;
+    }
+
+    .presets {
+      padding: 15px 16px;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    }
+    .presetBtn {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 4px;
+      color: var(--text-muted); 
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 600;
+      text-align: center; padding: 10px 0;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .presetBtn.active {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+      box-shadow: 0 0 10px rgba(255,255,255,0.3);
+    }
+
+    .calendarWrapper { padding: 0 16px 16px; }
+
+    /* HERO SECTION */
+    .hero {
+      padding: 20px 18px;
+      margin-bottom: var(--block-gap);
+      /* Легкий градиент внутри карточки для объема */
+      background: linear-gradient(160deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%);
+    }
+
+    .heroTop { display: flex; justify-content: space-between; align-items: start; }
+    
+    .heroLabel { 
+      font-weight: 600; 
+      text-transform: uppercase; 
+      letter-spacing: 1.5px; 
+      font-size: 10px; 
+      color: var(--text-muted); 
+    }
+
+    /* CHROME MIRROR TEXT EFFECT */
+    .heroValue { 
+      margin: 12px 0 8px; 
+      font-size: 40px; 
+      font-weight: 800; /* Wider weight */
+      letter-spacing: -1px;
+      /* Зеркальный градиент: Белый -> Серый (резкая линия) */
+      background: linear-gradient(180deg, #FFFFFF 50%, #8A9AB0 50.1%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 2px 0 rgba(0,0,0,0.5));
+    }
+
+    /* MINIMAL DELTA */
+    .heroSub { 
+      font-size: 13px; 
+      font-weight: 600; 
+      color: var(--tech-green); /* Только цвет, без фона */
+      display: inline-flex; 
+      align-items: center; 
+      gap: 6px;
+      text-shadow: 0 0 10px rgba(34, 197, 94, 0.3); /* Неоновое свечение */
+    }
+
+    /* KPI GRID */
+    .heroGrid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 24px;
+    }
+    
+    .heroKpi {
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(0,0,0,0.2);
+    }
+    .heroKpi .l { font-size: 9px; color: var(--chrome-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .heroKpi .v { font-size: 16px; font-weight: 600; color: #fff; }
+
+    /* DETAILS */
+    .detailsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .detailKpi {
+      padding: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(0,0,0,0) 100%);
+    }
+    .detailKpi .l { font-size: 10px; color: var(--text-muted); margin-bottom: 6px; }
+    .detailKpi .v { font-size: 15px; font-weight: 700; color: #D1D1D1; }
+
+    /* NAVIGATION */
+    .navWrap {
+      background: rgba(10, 10, 10, 0.9);
+      border: 1px solid var(--border-chrome);
+      padding: 8px;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px #000;
+    }
+    .navItem {
+      color: var(--text-muted);
+      transition: 0.3s;
+    }
+    .navItem.active {
+      color: #fff;
+      text-shadow: 0 0 12px rgba(255,255,255,0.5);
+    }
+    .navItem.active svg {
+      stroke-width: 2.5px;
+    }
+
+    /* Calendar Overrides */
+    .calNavBtn { background: transparent; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; }
+    .applyBtn {
+      background: #fff; 
+      color: #000;
+      text-transform: uppercase; letter-spacing: 1px; font-size: 11px;
+      border-radius: 6px;
+      box-shadow: 0 0 15px rgba(255,255,255,0.2);
+      transition: 0.2s;
+    }
+    .applyBtn:active { transform: scale(0.98); opacity: 0.9; }
+
+  </style>
+</head>
+<body>
+
+  <div class="phone-wrapper">
+    <img src="imock.png" alt="" class="phone-frame-img" onerror="this.style.display='none'">
+
+    <div class="phone-screen" id="phoneScreen">
+      
+      <div class="statusBarBlur"></div>
+      
+      <div class="app-scroll-area">
+        
+        <div class="topbar">
+          <div class="title">Statistics</div>
+          <div class="avatarBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+        </div>
+
+        <div class="periodCard" id="periodCard">
+          <div class="periodHeader">
+            <div class="periodLeft">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="periodValue" id="pVal">За месяц</span>
+                <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </div>
+              <div class="periodDate" id="pDate">01.01.26 — 31.01.26</div>
+            </div>
+            <svg style="color: #fff; opacity: 0.8" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+            </svg>
+          </div>
+
+          <div class="periodContent">
+            <div class="presets">
+              <div class="presetBtn" data-range="today">День</div>
+              <div class="presetBtn" data-range="yesterday">Вчера</div>
+              <div class="presetBtn" data-range="7">Неделя</div>
+              <div class="presetBtn active" data-range="30">Месяц</div>
+            </div>
+            
+            <div class="calendarWrapper">
+              <div class="calHeader" style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <button class="calNavBtn" id="prevMonth" style="padding: 4px 12px;">‹</button>
+                <div id="monthYearDisplay" style="color: #fff; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;">Январь 2026</div>
+                <button class="calNavBtn" id="nextMonth" style="padding: 4px 12px;">›</button>
+              </div>
+              <div class="calGrid" id="daysContainer" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center;">
+                </div>
+              <button class="applyBtn" id="applyCustom" style="width: 100%; margin-top: 15px; border: 0; padding: 12px; cursor: pointer; font-weight: 700;">Применить</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="hero">
+          <div class="heroTop">
+            <span class="heroLabel">Чистая прибыль</span>
+            <div style="display: flex; gap: 3px;">
+                <div style="width:3px; height:3px; background:#fff; border-radius:50%; opacity:0.5;"></div>
+                <div style="width:3px; height:3px; background:#fff; border-radius:50%; opacity:0.2;"></div>
+            </div>
+          </div>
+          
+          <div class="heroValue">151 280,00 ₽</div>
+          
+          <div class="heroSub">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+            <span>+11 190 ₽ (+8%)</span>
+          </div>
+          
+          <div class="heroGrid">
+            <div class="heroKpi"><div class="l">Выручка</div><div class="v">151к ₽</div></div>
+            <div class="heroKpi"><div class="l">Маржа</div><div class="v">100%</div></div>
+            <div class="heroKpi"><div class="l">Продажи</div><div class="v">971</div></div>
+            <div class="heroKpi"><div class="l">Ср. чек</div><div class="v">155 ₽</div></div>
+          </div>
+        </div>
+
+        <div class="detailsGrid">
+          <div class="detailKpi">
+            <div class="l">Эквайринг</div>
+            <div class="v">0,00 ₽</div>
+          </div>
+          <div class="detailKpi">
+            <div class="l">Налоги (УСН)</div>
+            <div class="v">0,00 ₽</div>
+          </div>
+        </div>
+        
+        <div style="height: 60px;"></div>
+      </div> 
+      
+      <nav class="bottomNav" style="position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; z-index: 100;">
+        <div class="navWrap" style="display: grid; grid-template-columns: repeat(5, 1fr); width: 90%; gap: 5px;">
+          <div class="navItem active" style="display: flex; flex-direction: column; align-items: center; padding: 8px 0; border-radius: 12px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18V8"/><path d="M10 18V6"/><path d="M16 18v-4"/><path d="M22 18V10"/></svg>
+            <span style="font-size: 9px; margin-top: 4px;">Фин</span>
+          </div>
+          <div class="navItem" style="display: flex; flex-direction: column; align-items: center; padding: 8px 0; opacity: 0.4;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19h16"/><path d="M7 15l3-4 4 3 4-6"/></svg>
+            <span style="font-size: 9px; margin-top: 4px;">Отчет</span>
+          </div>
+          <div class="navItem" style="display: flex; flex-direction: column; align-items: center; padding: 8px 0; opacity: 0.4;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M3 12h3"/><path d="M18 12h3"/></svg>
+            <span style="font-size: 9px; margin-top: 4px;">Точки</span>
+          </div>
+          <div class="navItem" style="display: flex; flex-direction: column; align-items: center; padding: 8px 0; opacity: 0.4;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-4-9 4 9 4 9-4z"/><path d="M3 8v8l9 4 9-4V8"/></svg>
+            <span style="font-size: 9px; margin-top: 4px;">Склад</span>
+          </div>
+          <div class="navItem" style="display: flex; flex-direction: column; align-items: center; padding: 8px 0; opacity: 0.4;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span style="font-size: 9px; margin-top: 4px;">Задачи</span>
+          </div>
+        </div>
+      </nav>
+
+    </div> 
+  </div>
+
+  <script>
+    (function(){
+      const periodCard = document.getElementById('periodCard');
+      const pVal = document.getElementById('pVal');
+      const daysContainer = document.getElementById('daysContainer');
+      const presetBtns = document.querySelectorAll('.presetBtn');
+
+      periodCard.addEventListener('click', (e) => {
+        if (e.target.closest('.periodHeader') || e.target === periodCard) {
+          periodCard.classList.toggle('expanded');
+        }
+      });
+
+      function renderStaticDays() {
+        daysContainer.innerHTML = '';
+        for(let i=1; i<=31; i++) {
+          const d = document.createElement('div');
+          d.style.color = '#555'; // Tech dark grey
+          d.style.fontSize = '12px';
+          d.style.padding = '8px 0';
+          d.innerText = i;
+          
+          // Selection range style override for Chrome theme
+          if(i >= 10 && i <= 20) {
+            d.style.background = 'rgba(255, 255, 255, 0.1)';
+            d.style.color = '#fff';
+            if(i===10) d.style.borderRadius = '4px 0 0 4px';
+            if(i===20) d.style.borderRadius = '0 4px 4px 0';
+          }
+          daysContainer.appendChild(d);
+        }
+      }
+
+      presetBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          presetBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          pVal.innerText = 'За ' + btn.innerText.toLowerCase();
+          setTimeout(() => periodCard.classList.remove('expanded'), 300);
+        });
+      });
+
+      renderStaticDays();
+    })();
+  </script>
+</body>
+</html>

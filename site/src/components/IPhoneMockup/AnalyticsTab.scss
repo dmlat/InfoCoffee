@@ -1,0 +1,502 @@
+.iphoneMockup {
+  .pointSelector {
+    border-radius: var(--radius-card);
+    background: linear-gradient(
+      180deg,
+      rgba(192, 128, 88, 0.12),
+      rgba(192, 128, 88, 0.04)
+    );
+    border: 1px solid rgba(192, 128, 88, 0.25);
+    padding: 14px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+    z-index: 30;
+    .pointLabel {
+      display: block;
+      font-size: 12px;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .pointValue {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pointIcon {
+      color: var(--accent);
+      width: 18px;
+      height: 18px;
+    }
+    .pointAction {
+      color: var(--accent);
+      transition: transform 0.3s;
+    }
+  }
+
+  #pointModal {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    top: 50%;
+    bottom: auto;
+    height: auto;
+    transform: translateY(-50%);
+    z-index: 3000;
+    display: none;
+    background: #1a1a1a !important;
+    border: 1px solid var(--stroke) !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+    border-radius: var(--radius) !important;
+    padding: 0;
+    overflow: hidden;
+
+    &.active {
+      display: block;
+      animation: fadeInModal 0.2s ease-out;
+    }
+
+    .pointModalHeader {
+      padding: 20px 20px 16px;
+    }
+
+    .pointModalLeft {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .pointModalTitle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pointModalValue {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .pointModalDesc {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .pointModalContent {
+      padding: 0 20px 20px;
+    }
+
+    .pointOptions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 20px;
+
+      .presetBtn {
+        background: transparent;
+        border: 1px solid var(--stroke);
+        border-radius: 12px;
+        padding: 12px 16px;
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 500;
+        text-align: left;
+        transition: all 0.2s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        &::after {
+          content: "";
+          width: 18px;
+          height: 18px;
+          border: 2px solid var(--stroke2);
+          border-radius: 50%;
+          transition: all 0.2s;
+        }
+
+        &.active {
+          background: var(--accent-dim);
+          border-color: var(--accent);
+          color: #fff;
+
+          &::after {
+            background: var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 0 10px var(--accent-glow);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+            background-size: 12px;
+            background-position: center;
+            background-repeat: no-repeat;
+          }
+        }
+
+        &:hover:not(.active) {
+          background: var(--stroke);
+          border-color: var(--stroke2);
+        }
+      }
+    }
+
+    .applyPointBtn {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+
+      &:hover {
+        opacity: 0.9;
+      }
+    }
+  }
+
+  @keyframes fadeInModal {
+    from {
+      opacity: 0;
+      transform: translateY(-50%) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(-50%) scale(1);
+    }
+  }
+
+  .analyticsBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    .sectionHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 4px;
+      white-space: nowrap;
+      gap: 10px;
+    }
+    .secTitle {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .displayModeToggle {
+      background: var(--stroke);
+      border: 1px solid var(--stroke2);
+      border-radius: 6px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all 0.2s;
+      padding: 0;
+      &:hover {
+        background: var(--stroke2);
+        color: #fff;
+      }
+      .modeIcon {
+        width: 16px;
+        height: 16px;
+      }
+    }
+    .secTotal {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-dim);
+      padding: 4px 8px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+  }
+
+  .drinkList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .drinkCard {
+    background: transparent;
+    border: 1px solid var(--stroke);
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    /* Переопределяем [data-highlight] { transition: none !important } из IPhoneMockup */
+    transition: background 0.3s ease-out !important;
+
+    &.expanded {
+      background:
+        radial-gradient(360px 220px at 20% 10%, rgba(200,139,102,.08), rgba(0,0,0,0) 60%),
+        linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.15)) !important;
+      transition: none !important; /* при раскрытии фон сразу и не пропадает */
+    }
+
+    &.clickable {
+      cursor: pointer;
+    }
+
+    .cardMain {
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      z-index: 2;
+      border-bottom:1px solid rgba(255,255,255,.06);
+    }
+
+    .cardInfo {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .cardRow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .nameWrapper {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      overflow: hidden;
+    }
+    .cardName {
+      font-size: 13px;
+      font-weight: 400;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cardRevenue {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .cardMetaLeft {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .cardMetaRight {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .cardPctText {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .cardCountText {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .cardExpandIcon {
+      width: 14px;
+      height: 14px;
+      margin-top: 2px;
+      color: var(--muted);
+      transition: transform 0.3s;
+    }
+    &.expanded .cardExpandIcon {
+      transform: rotate(180deg);
+    }
+
+    .progressLine {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      opacity: 0.15;
+      z-index: 1;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .cardBreakdown {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .breakdownList {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .breakdownRow {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      .bdName {
+        color: var(--muted);
+      }
+      .bdValues {
+        display: flex;
+        gap: 8px;
+      }
+      .bdPct {
+        color: var(--muted2);
+      }
+      .bdCount {
+        color: var(--muted);
+      }
+    }
+
+    /* Analytics Category Colors - Unified */
+    .progressLine {
+      background: var(--accent);
+    }
+  }
+
+  // Compact Mode Styles (Ported from demo)
+  .compactList {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg1);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--stroke);
+    padding: 4px 0px;
+
+    .compactItem {
+      cursor: pointer;
+      transition: background 0.2s;
+      border-bottom: 1px solid var(--stroke);
+      &:last-child {
+        border-bottom: none;
+      }
+      &:nth-child(even) {
+        background-color: rgba(255, 255, 255, 0.02);
+      }
+      &.active {
+        background-color: var(--accent-dim) !important;
+        .compactDetails {
+          display: block;
+        }
+      }
+    }
+
+    .compactItemRow {
+      padding: 5px 12px 7px;
+    }
+
+    .compactTopLayer {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 13px;
+      margin-bottom: 4px;
+      line-height: 1.2;
+    }
+
+    .compactNameGroup {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      overflow: hidden;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .compactProductName {
+      font-weight: 450;
+      color: rgba(255, 255, 255, 0.95);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 160px;
+      font-size: 12px;
+    }
+
+    .compactProductVol {
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .compactProductRevenue {
+      font-size: 12px;
+      font-weight: 500;
+      font-feature-settings: "tnum";
+      color: #fff;
+    }
+
+    .compactBarTrack {
+      position: relative;
+      width: 100%;
+      height: 18px;
+      background: var(--stroke);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .compactBarFill {
+      height: 100%;
+      background-color: var(--accent);
+      opacity: 0.15;
+      border-radius: 3px;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .compactBarText {
+      font-size: 10px;
+      font-weight: 350;
+      color: #fff;
+      white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+      letter-spacing: 0.5px;
+    }
+
+    .compactDetails {
+      display: none;
+      padding: 0 12px 8px 12px;
+      border-top: 1px solid var(--stroke);
+      margin-top: 2px;
+    }
+
+    .compactDetailsRow {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 6px;
+      padding-left: 10px;
+      position: relative;
+      &::before {
+        content: "•";
+        position: absolute;
+        left: 0;
+        top: 0;
+        color: var(--accent);
+        opacity: 0.6;
+      }
+    }
+  }
+}

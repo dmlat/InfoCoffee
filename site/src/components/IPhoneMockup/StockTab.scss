@@ -1,0 +1,256 @@
+.iphoneMockup {
+  .controlCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--stroke);
+    border-radius: var(--radius-card);
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  .locationSelector {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 32px;
+    .locNavBtn {
+      width: 32px;
+      height: 32px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      border: 0;
+      color: var(--muted);
+      font-size: 18px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+    .locTitle {
+      flex: 1;
+      text-align: center;
+      padding: 0 8px;
+      cursor: pointer;
+    }
+    .locAddr {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+  }
+
+  .stockSubtabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    .subtabBtn {
+      flex: 1;
+      height: 32px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      &.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+    }
+  }
+
+  .stockSubtabContent {
+    display: none;
+    &.active {
+      display: block;
+    }
+  }
+
+  .stepHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    .stepLabel {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+    .customInput {
+      height: 24px;
+      width: 60px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: #fff;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      outline: none;
+
+      &::-webkit-outer-spin-button,
+      &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      appearance: textfield;
+
+      &.active {
+        border-color: var(--accent);
+        background: rgba(109, 92, 255, 0.1);
+      }
+    }
+  }
+
+  .stepStrip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 24px;
+    padding: 2px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: linear-gradient(
+      180deg,
+      rgba(35, 35, 38, 0.55),
+      rgba(26, 26, 30, 0.55)
+    );
+    .btn-plain {
+      flex: 1;
+      height: 100%;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      &.active {
+        background: var(--accent);
+        color: #fff;
+      }
+    }
+  }
+
+  .sectionTitle {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  .ingCard {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.02)
+    );
+    border: 1px solid var(--stroke);
+    border-radius: var(--radius-card);
+    padding: 9px 12px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2px;
+    overflow: hidden;
+
+    .ingInfo {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ingName {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+    .ingStock {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .ingControls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 165px;
+      flex-shrink: 0;
+      justify-content: flex-end;
+    }
+    .qtyBtn {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+    }
+    .progressWrapper {
+      flex-grow: 1;
+      position: relative;
+      height: 28px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .progressBar {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      opacity: 0.3;
+      transition: width 0.3s;
+    }
+    .limitLine {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: #ff453a;
+      z-index: 2;
+    }
+    .progressText {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      z-index: 3;
+      .dim {
+        opacity: 0.5;
+        font-size: 10px;
+        margin-left: 3px;
+      }
+    }
+
+    &.status-ok .progressBar {
+      background: var(--good);
+      opacity: 0.3;
+    }
+    &.status-warning .progressBar {
+      background: var(--warn);
+      opacity: 0.3;
+    }
+    &.status-critical {
+      border-color: rgba(239, 68, 68, 0.4);
+      .progressBar {
+        background: #ef4444; /* Hardcode red to be sure, or use a known var like --critical if defined */
+        opacity: 0.4;
+      }
+    }
+
+  }
+}

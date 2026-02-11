@@ -1,0 +1,379 @@
+.finance-preview {
+  --text-main: #f3f3f4;
+  --text-muted: rgba(243, 243, 244, .68);
+
+  /* Акцентный цвет (Coffee/Copper) */
+  --accent: #c88b69;
+  --accent-2: #e0b08f;
+  
+  /* Тени */
+  --shadow-hover: 0 18px 50px rgba(0, 0, 0, .55);
+  --shadow-base: 0 10px 30px rgba(0, 0, 0, .35);
+
+  padding: var(--section-padding) 0;
+  color: #fff;
+  overflow: hidden;
+  position: relative;
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: stretch;
+  }
+
+  &__header {
+    margin-bottom: 48px;
+    text-align: left;
+  }
+
+  &__title {
+    text-align: left;
+    margin: 0 0 16px;
+    font-size: clamp(34px, 4.2vw, 56px);
+    line-height: 1.06;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    color: var(--text);
+  }
+
+  &__description {
+    text-align: left;
+    max-width: 880px;
+    margin: 0;
+    color: rgba(234, 240, 255, 0.68);
+    font-size: 16px;
+    line-height: 1.55;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 24px;
+    margin-top: 48px;
+
+    .link-more {
+      color: #a1a1aa;
+      text-decoration: none;
+      font-size: 18px;
+      border-bottom: 1px solid rgba(161, 161, 170, 0.3);
+      transition:
+        color 0.2s,
+        border-color 0.2s;
+
+      &:hover {
+        color: #fff;
+        border-color: #fff;
+      }
+    }
+  }
+
+  &__menu {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+}
+
+.finance-card {
+  /* Базовые стили */
+  border-radius: var(--radius);
+  border: var(--card-surface-border);
+  box-shadow: var(--shadow-base);
+
+  /* Позиционирование */
+  position: relative;
+  overflow: hidden;
+  padding: 18px 18px 14px;
+  isolation: isolate;
+
+  /* Фон вынесен в отдельный слой — прозрачность регулируется одним opacity */
+  &__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: var(--card-surface-bg-opacity);
+    background: var(--card-surface-bg);
+  }
+  
+  /* Анимация */
+  transform: translateZ(0);
+  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+  min-height: 152px;
+  cursor: pointer;
+
+  /* Эффект свечения (требует JS для обновления переменных --mx, --my) */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background:
+      radial-gradient(120px 120px at var(--mx, 20%) var(--my, 15%), rgba(200, 139, 105, .45), transparent 60%),
+      linear-gradient(135deg, rgba(255, 255, 255, .14), rgba(255, 255, 255, .04), rgba(200, 139, 105, .12));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: .55;
+    pointer-events: none;
+    transition: opacity .22s ease;
+    z-index: 0;
+  }
+
+  /* Нижний декоративный градиент */
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -40% -30% auto -30%;
+    height: 140%;
+    background: radial-gradient(closest-side, rgba(255, 255, 255, .08), transparent 60%);
+    transform: rotate(18deg);
+    opacity: .7;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Hover-состояния карточки */
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    border-color: rgba(200,139,102,.32);
+  }
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+  }
+
+  &__title {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-main);
+  }
+
+  &__badges {
+    display: flex;
+    gap: 8px;
+
+    .badge {
+      font-size: 11px;
+      line-height: 1;
+      padding: 6px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, .08);
+      background: rgba(255, 255, 255, .04);
+      color: rgba(243, 243, 244, .75);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, .22) inset;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      user-select: none;
+      white-space: nowrap;
+    }
+  }
+
+  &__text {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    position: relative;
+    z-index: 1;
+
+    strong {
+      color: #fff;
+    }
+  }
+
+  &__chart-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 12px 16px;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
+
+    &.negative {
+      background: rgba(239, 68, 68, 0.05);
+      
+      .finance-card__profit {
+        color: #ef4444;
+      }
+    }
+  }
+
+  &__profit {
+    color: #10b981;
+    font-weight: 700;
+    font-size: 16px;
+
+    span {
+      transition: color 0.3s ease;
+    }
+  }
+
+  &__mini-chart {
+    width: 100px;
+    height: 30px;
+    color: #10b981;
+  }
+
+  &__list {
+    margin-top: 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, .08);
+    background: rgba(0, 0, 0, .16);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, .24) inset;
+    padding: 12px 12px 8px;
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: -20px;
+      background:
+        radial-gradient(240px 160px at 20% 0%, rgba(200, 139, 105, .14), transparent 60%),
+        radial-gradient(200px 140px at 95% 35%, rgba(255, 255, 255, .06), transparent 55%);
+      pointer-events: none;
+      opacity: .9;
+    }
+  }
+
+  &__list-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: var(--text-muted);
+    position: relative;
+    z-index: 1;
+
+    span:last-child {
+      color: #fff;
+      font-weight: 600;
+    }
+  }
+
+  &__efficiency-box {
+    margin-top: 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, .08);
+    background: rgba(0, 0, 0, .16);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, .24) inset;
+    padding: 12px 12px 12px;
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: -20px;
+      background:
+        radial-gradient(240px 160px at 22% 0%, rgba(200, 139, 105, .16), transparent 60%),
+        radial-gradient(240px 160px at 95% 35%, rgba(255, 255, 255, .06), transparent 55%);
+      pointer-events: none;
+      opacity: .9;
+    }
+  }
+
+  &__efficiency-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: var(--text-muted);
+    position: relative;
+    z-index: 1;
+
+    span:last-child {
+      color: #fff;
+      font-weight: 600;
+    }
+  }
+
+  &__progress-bar {
+    margin-top: 10px;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .07);
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+
+    /* Заполненная часть бара */
+    & > span, .finance-card__progress-fill {
+      display: block;
+      height: 100%;
+      width: 0; /* Ширину задавать через inline-style в HTML, например style="width:51%" */
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(200, 139, 105, .55), rgba(224, 176, 143, .95));
+      box-shadow: 0 10px 20px rgba(200, 139, 105, .25);
+      position: relative;
+
+      &::after {
+        content: "";
+        position: absolute;
+        inset: -8px;
+        background: radial-gradient(80px 24px at 80% 50%, rgba(255, 255, 255, .22), transparent 60%);
+        opacity: .7;
+        pointer-events: none;
+      }
+    }
+  }
+
+  &__date-grid {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    pointer-events: auto;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 1;
+  }
+
+  &__date-btn {
+    flex: 1;
+    min-width: fit-content;
+    white-space: nowrap;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 10px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    pointer-events: auto;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    &.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(200, 139, 105, 0.3);
+    }
+  }
+}

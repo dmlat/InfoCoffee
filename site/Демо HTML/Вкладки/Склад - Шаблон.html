@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Склад V5 - Refined UI</title>
+  <style>
+    /* ========================================= */
+    /* 1. БАЗА                                   */
+    /* ========================================= */
+    :root {
+      --phone-width: 365px;
+      --screen-radius: 42px;
+      --notch-height: 47px;
+
+      --bg0: #070A12;
+      --bg1: #0B1020;
+      --stroke: rgba(255,255,255,.08);
+      --text: #EAF0FF;
+      --muted: rgba(234,240,255,.55);
+      --accent: #3B82F6; 
+      --good: #22C55E;
+      --warning: #EAB308;
+      --critical: #EF4444;
+      
+      --tabH: 70px; 
+      --radius-card: 18px;
+    }
+
+    body {
+      background: #0a1525;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+
+    .phone-wrapper {
+      position: relative;
+      width: var(--phone-width);
+      height: 750px; 
+      filter: drop-shadow(0 30px 60px rgba(0,0,0,0.6));
+      flex-shrink: 0;
+    }
+
+    .phone-frame-img {
+      width: 100%; height: 100%; position: absolute;
+      top: 0; left: 0; z-index: 50; pointer-events: none;
+    }
+
+    .phone-screen {
+      position: absolute;
+      top: 12px; left: 16px; right: 16px; bottom: 12px;
+      background: var(--bg0);
+      border-radius: var(--screen-radius);
+      overflow: hidden;
+      z-index: 10;
+      background: linear-gradient(180deg, var(--bg1), var(--bg0));
+    }
+
+    .app-scroll-area {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow-y: auto;
+      padding-top: var(--notch-height);
+      padding-bottom: calc(var(--tabH) + 30px);
+      padding-left: 14px;
+      padding-right: 14px;
+      scrollbar-width: none; 
+      -ms-overflow-style: none;
+    }
+    .app-scroll-area::-webkit-scrollbar { display: none; }
+
+    /* ========================================= */
+    /* 2. ШАПКА (ВЫРОВНЕНА)                      */
+    /* ========================================= */
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 2px 14px; margin-top: 10px;
+    }
+    
+    .headerLeft { 
+      display: flex; 
+      align-items: center; /* Центрируем кнопку и текст по вертикали */
+      gap: 12px; 
+    }
+
+    .title { 
+      font-size: 26px; 
+      font-weight: 700; 
+      color: var(--text); 
+      margin: 0; 
+      line-height: 1; /* Убираем лишний отступ шрифта */
+      padding-top: 2px; /* Микро-коррекция для визуального центра */
+    }
+    
+    .miniRefillBtn {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: #60A5FA;
+      font-size: 13px; font-weight: 600;
+      padding: 0 12px; /* Убрал верт. паддинг, задал высоту */
+      border-radius: 10px;
+      cursor: pointer;
+      height: 32px; /* Фикс высота */
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .miniRefillBtn:active { background: rgba(59, 130, 246, 0.25); }
+
+    .avatarBtn {
+      width: 40px; height: 40px; border-radius: 999px;
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.06);
+      display: grid; place-items: center;
+    }
+
+    /* ========================================= */
+    /* 3. УПРАВЛЕНИЕ (УМЕНЬШЕННЫЙ PADDING)       */
+    /* ========================================= */
+    .controlCard {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius-card);
+      padding: 12px; /* Уменьшено до 12px */
+      margin-bottom: 12px;
+    }
+
+    /* --- Локация (Сжатая) --- */
+    .locationSelector {
+      display: flex; justify-content: space-between; align-items: center;
+      min-height: 32px; /* Минимальная высота для кнопок */
+    }
+    .locNavBtn {
+      width: 32px; height: 32px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px; border: 0;
+      color: var(--muted);
+      font-size: 18px;
+      display: grid; place-items: center; cursor: pointer;
+      flex-shrink: 0;
+    }
+    .locTitle { 
+      text-align: center; 
+      flex-grow: 1;
+      padding: 0 10px;
+    }
+    /* Только адрес, перенос по словам */
+    .locAddr { 
+      display: block; 
+      font-size: 15px; 
+      font-weight: 600; 
+      color: var(--text); /* Белый цвет */
+      line-height: 1.3;
+      white-space: normal;       /* Разрешаем перенос */
+      overflow-wrap: break-word; /* Перенос по словам */
+    }
+
+
+    /* --- Шаг (Сжатый по высоте) --- */
+    .stepHeader {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .stepLabel { 
+      font-size: 12px; color: var(--muted); font-weight: 500; 
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    /* Input "Своё" - Height 32px */
+    .customInput {
+      height: 24px; /* Уменьшено */
+      width: 60px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: #fff;
+      text-align: center;
+      font-size: 13px; font-weight: 700;
+      outline: none;
+      padding: 0 4px;
+      transition: all 0.2s;
+    }
+    .customInput:focus, .customInput.active {
+      border-color: var(--accent);
+      background: rgba(59, 130, 246, 0.1);
+    }
+    .customInput::placeholder { color: rgba(255,255,255,0.3); font-weight: 400; }
+    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    /* Button Strip (Height 32px) */
+    .stepStrip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 24px; /* Уменьшено */
+      padding: 2px; /* Небольшой паддинг внутри */
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.06);
+      background: linear-gradient(180deg, rgba(35,35,38,.55), rgba(26,26,30,.55));
+      overflow: hidden;
+    }
+
+    .btn-plain {
+      flex: 1; 
+      height: 100%;
+      border: 0;
+      border-radius: 8px; /* Скругление для активного состояния */
+      background: transparent;
+      color: rgba(255,255,255,.6);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      margin: 0 1px; /* Разделение кнопок */
+    }
+    
+    .btn-plain:active { opacity: 0.7; }
+    
+    /* Активное состояние - заливка */
+    .btn-plain.active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    /* Убираем линию */
+    .btn-plain.active::after { display: none; }
+
+    /* ========================================= */
+    /* 4. КАРТОЧКИ ИНГРЕДИЕНТОВ                  */
+    /* ========================================= */
+    .sectionTitle {
+      font-size: 18px; font-weight: 700; color: var(--text);
+      margin: 16px 0 10px 4px;
+    }
+
+    .ingCard {
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius-card);
+      padding: 12px;
+      margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+    }
+    
+    .ingInfo {
+      display: flex; flex-direction: column; gap: 4px; min-width: 80px; 
+    }
+    .ingName { font-size: 16px; font-weight: 700; color: var(--text); line-height: 1.1; }
+    .ingStock { font-size: 11px; color: var(--muted); font-weight: 500; }
+
+    .ingControls { 
+      display: flex; align-items: center; gap: 8px; 
+      flex-grow: 1; max-width: 65%; justify-content: flex-end;
+    }
+    
+    .qtyBtn {
+      width: 28px; height: 28px; flex-shrink: 0;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      font-size: 18px; line-height: 1;
+      display: grid; place-items: center; cursor: pointer;
+    }
+    
+    .progressWrapper {
+      flex-grow: 1; position: relative; height: 28px;
+      background: rgba(0,0,0,0.4); border-radius: 8px; overflow: hidden;
+    }
+    
+    .progressBar {
+      position: absolute; top: 0; bottom: 0; left: 0;
+      opacity: 0.3; z-index: 1; transition: width 0.3s;
+    }
+    
+    .limitLine {
+      position: absolute; top: 0; bottom: 0; width: 1px;
+      background: #FF453A; z-index: 2; box-shadow: 0 0 4px rgba(255, 69, 58, 0.6);
+    }
+
+    .progressText {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff; z-index: 3;
+    }
+    .progressText span.dim { opacity: 0.5; font-size: 10px; margin-left: 3px; font-weight: 500;}
+
+    .status-ok .progressBar { background: var(--good); }
+    .status-warning .progressBar { background: var(--warning); }
+    .status-critical .progressBar { background: var(--critical); opacity: 0.4; }
+    .ingCard.status-critical { border-color: rgba(239, 68, 68, 0.4); }
+
+
+    /* ========================================= */
+    /* 5. НИЖНЕЕ МЕНЮ                            */
+    /* ========================================= */
+    .bottomNav {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      background: transparent; border: 0; padding: 0 0 20px; z-index: 30;
+      display: flex; justify-content: center; pointer-events: none;
+    }
+    .navWrap {
+      pointer-events: auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+      background: rgba(18, 25, 43, 0.95); 
+      border: 1px solid rgba(255,255,255,.12); border-radius: 24px; padding: 5px;
+      width: 90%;
+    }
+    .navItem {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; padding: 6px 0; border-radius: 18px; color: rgba(234,240,255,.6); cursor: pointer;
+    }
+    .navItem svg { width: 20px; height: 20px; }
+    .navItem .t { font-size: 9px; font-weight: 500; }
+    .navItem.active { color: #fff; background: rgba(255,255,255,.08); }
+
+  </style>
+</head>
+<body>
+
+  <div class="phone-wrapper">
+    <img src="imock.png" alt="" class="phone-frame-img" onerror="this.style.display='none'">
+
+    <div class="phone-screen">
+      <div class="app-scroll-area">
+        
+        <div class="topbar">
+          <div class="headerLeft">
+            <h1 class="title">Склад</h1>
+            <button class="miniRefillBtn">Пополнить</button>
+          </div>
+          <div class="avatarBtn">
+             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+        </div>
+
+        <div style="height: 10px;"></div>
+
+        <div class="controlCard">
+          <div class="locationSelector">
+            <button class="locNavBtn">‹</button>
+            <div class="locTitle">
+              <span class="locAddr">Богородск, Солоницина 4</span>
+            </div>
+            <button class="locNavBtn">›</button>
+          </div>
+        </div>
+
+        <div class="controlCard">
+          <div class="stepHeader">
+            <div class="stepLabel">Шаг пополнения (л, кг, шт)</div>
+            <input class="customInput" id="customStepInput" type="number" inputmode="decimal" placeholder="своё" />
+          </div>
+
+          <div class="stepStrip" id="stepStrip">
+            <button class="btn-plain" data-val="0.1">0.1</button>
+            <button class="btn-plain" data-val="0.5">0.5</button>
+            <button class="btn-plain active" data-val="1">1</button>
+            <button class="btn-plain" data-val="5">5</button>
+            <button class="btn-plain" data-val="10">10</button>
+            <button class="btn-plain" data-val="19">19</button>
+            <button class="btn-plain" data-val="50">50</button>
+          </div>
+        </div>
+
+        <h2 class="sectionTitle">Кофемашина</h2>
+
+        <div class="ingredientsList">
+
+          <div class="ingCard status-warning">
+            <div class="ingInfo">
+              <div class="ingName">Кофе</div>
+              <div class="ingStock">Склад: 5.2 кг</div>
+            </div>
+            <div class="ingControls">
+              <button class="qtyBtn">−</button>
+              <div class="progressWrapper">
+                <div class="limitLine" style="left: 20%;"></div>
+                <div class="progressBar" style="width: 25%;"></div>
+                <div class="progressText">233 <span class="dim">/ 1500</span></div>
+              </div>
+              <button class="qtyBtn">+</button>
+            </div>
+          </div>
+
+          <div class="ingCard status-critical">
+            <div class="ingInfo">
+              <div class="ingName">Вода</div>
+              <div class="ingStock">Склад: 120 л</div>
+            </div>
+            <div class="ingControls">
+              <button class="qtyBtn">−</button>
+              <div class="progressWrapper">
+                <div class="limitLine" style="left: 15%;"></div>
+                <div class="progressBar" style="width: 5%;"></div>
+                <div class="progressText">0.5 <span class="dim">/ 19</span></div>
+              </div>
+              <button class="qtyBtn">+</button>
+            </div>
+          </div>
+
+          <div class="ingCard status-ok">
+            <div class="ingInfo">
+              <div class="ingName">Сливки</div>
+              <div class="ingStock">Склад: 4.0 кг</div>
+            </div>
+            <div class="ingControls">
+              <button class="qtyBtn">−</button>
+              <div class="progressWrapper">
+                <div class="limitLine" style="left: 20%;"></div>
+                <div class="progressBar" style="width: 75%;"></div>
+                <div class="progressText">1500 <span class="dim">/ 2000</span></div>
+              </div>
+              <button class="qtyBtn">+</button>
+            </div>
+          </div>
+          
+          <div class="ingCard status-critical">
+            <div class="ingInfo">
+              <div class="ingName">Стаканы</div>
+              <div class="ingStock">Склад: 500 шт</div>
+            </div>
+            <div class="ingControls">
+              <button class="qtyBtn">−</button>
+              <div class="progressWrapper">
+                 <div class="limitLine" style="left: 10%;"></div>
+                <div class="progressBar" style="width: 12%;"></div>
+                <div class="progressText">12 <span class="dim">/ 100</span></div>
+              </div>
+              <button class="qtyBtn">+</button>
+            </div>
+          </div>
+          
+          <div style="height: 100px;"></div>
+
+        </div>
+
+      </div> 
+      
+      <nav class="bottomNav">
+        <div class="navWrap">
+          <div class="navItem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18V8"/><path d="M10 18V6"/><path d="M16 18v-4"/><path d="M22 18V10"/></svg><div class="t">Фин</div></div>
+          <div class="navItem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l3-4 4 3 4-6"/></svg><div class="t">Отчет</div></div>
+          <div class="navItem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 4h10"/><path d="M9 4v16"/><path d="M15 4v16"/><path d="M6 20h12"/></svg><div class="t">Стойки</div></div>
+          <div class="navItem active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l9-4 9 4v12l-9 4-9-4V8Z"/><path d="M3 8l9 4 9-4"/><path d="M12 12v12"/></svg><div class="t">Склад</div></div>
+          <div class="navItem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><div class="t">Задачи</div></div>
+        </div>
+      </nav>
+
+    </div> 
+  </div>
+
+  <script>
+    // Logic for Step Strip
+    const stepStrip = document.getElementById('stepStrip');
+    const customInput = document.getElementById('customStepInput');
+    const btns = stepStrip.querySelectorAll('.btn-plain');
+
+    // 1. Click on button
+    btns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Reset active states
+        btns.forEach(b => b.classList.remove('active'));
+        customInput.classList.remove('active');
+        
+        // Set new active
+        btn.classList.add('active');
+        customInput.value = ''; // clear custom
+      });
+    });
+
+    // 2. Typing in input
+    customInput.addEventListener('input', () => {
+      if(customInput.value.length > 0) {
+        btns.forEach(b => b.classList.remove('active'));
+        customInput.classList.add('active');
+      }
+    });
+    
+    // Focus effect
+    customInput.addEventListener('focus', () => {
+      btns.forEach(b => b.classList.remove('active'));
+      customInput.classList.add('active');
+    });
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,567 @@
+.analytics-preview {
+  --card-bg: #121213;
+  --card-bg-2: #141416;
+  --stroke: rgba(255, 255, 255, .08);
+  --shadow-hover: 0 18px 50px rgba(0, 0, 0, .55);
+  --shadow-base: 0 10px 30px rgba(0, 0, 0, .35);
+
+  padding: var(--section-padding) 0;
+  color: #fff;
+  overflow: hidden;
+  position: relative;
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+
+  &__grid {
+    display: grid;
+    gap: 60px;
+    align-items: stretch;
+    // Мокап слева, текст справа: колонка с мокапом не шире самого телефона
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+
+  &__header {
+    margin-bottom: 48px;
+    text-align: left;
+  }
+
+  &__title {
+    text-align: left;
+    margin: 0 0 16px;
+    font-size: clamp(34px, 4.2vw, 56px);
+    line-height: 1.06;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  &__description {
+    text-align: left;
+    max-width: 880px;
+    margin: 0;
+    color: rgba(234, 240, 255, 0.68);
+    font-size: 16px;
+    line-height: 1.55;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 24px;
+    margin-top: 48px;
+
+  }
+
+  &__menu {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    align-items: start;
+
+    .analytics-card {
+      &[data-section*="drinkCard"] {
+        grid-column: 1;
+      }
+    }
+  }
+
+  &__row {
+    display: flex;
+    gap: 20px;
+    align-items: flex-end; // Все карточки прижаты к нижней линии
+    height: 72px;
+
+    .analytics-card {
+      flex: 1;
+      padding: 12px;
+      height: 72px;
+      transition:
+        flex 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: flex-start;
+      position: relative;
+      z-index: 1;
+      overflow: hidden; // Гарантирует, что текст не вылезает за границы при сворачивании
+
+      &__content {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        padding-top: 2px;
+      }
+
+      &__title {
+        font-size: 18px;
+        white-space: nowrap;
+        flex-shrink: 0; // Заголовок не сжимается
+      }
+
+      &__text {
+        font-size: 14px;
+        line-height: 1.4;
+        color: rgba(234, 240, 255, 0.5);
+        margin: 0;
+        position: relative;
+        width: 100%;
+        display: grid; // Используем грид для наложения элементов друг на друга
+        grid-template-areas: "stack";
+
+        .analytics-card__short {
+          grid-area: stack;
+          opacity: 1;
+          visibility: visible;
+          transition: opacity 0.2s ease;
+        }
+
+        .analytics-card__full {
+          grid-area: stack;
+          opacity: 0;
+          visibility: hidden;
+          max-height: 0;
+          overflow: hidden;
+          transition: opacity 0.4s ease, max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+      }
+
+      &:hover {
+        flex: 1.8;
+        height: auto;
+        max-height: 400px;
+        z-index: 10;
+        box-shadow: var(--shadow-hover);
+        overflow: visible;
+
+        .analytics-card__short {
+          opacity: 0;
+          visibility: hidden;
+        }
+
+        .analytics-card__full {
+          opacity: 1;
+          visibility: visible;
+          max-height: 220px;
+          transition-delay: 0.1s; // Даем время плитке начать расширяться
+        }
+      }
+    }
+  }
+}
+
+.analytics-card {
+  position: relative;
+  z-index: 1;
+  border-radius: var(--radius);
+  border: var(--card-surface-border);
+  box-shadow: var(--shadow-base);
+  padding: 16px 16px 14px;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+
+  &__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: var(--card-surface-bg-opacity);
+    background: var(--card-surface-bg);
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgba(255, 255, 255, 0.04);
+    opacity: 0;
+    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    border-color: rgba(200,139,102,.32);
+    z-index: 2;
+
+    .analytics-card__icon {
+      border-color: rgba(200,139,102,.32);
+      transform: scale(1.1);
+    }
+  }
+
+  &__icon {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(18px 18px at 30% 30%, rgba(255,255,255,.12), rgba(255,255,255,0) 70%),
+        linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.1));
+    border-radius: 12px;
+    border: solid 1px var(--stroke);
+    color: rgba(255, 255, 255, 0.8  );
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
+
+    svg {
+      width: 24px;
+      height: 24px;
+    }
+  }
+
+  &__content {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+  }
+
+  &__title {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    color: #fff;
+  }
+
+  &__text {
+    font-size: 15px;
+    line-height: 1.5;
+    color: rgba(234, 240, 255, 0.6);
+    margin: 0;
+  }
+
+  &__presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+
+    .preset-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.8);
+      cursor: pointer;
+      font-size: 13px;
+      padding: 6px 12px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+      }
+
+      &.active {
+        background: #c2815e;
+        border-color: #c2815e;
+        color: white;
+      }
+    }
+  }
+
+  &__mock-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none;
+    width: 305px;
+    flex-shrink: 0;
+
+    /* Фон плиток задаётся только в AnalyticsTab.scss (.drinkCard); здесь только доп. стили для превью */
+    :global(.drinkCard) {
+      background: transparent;
+      border: 1px solid var(--stroke);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      transition: background 0.3s ease-out !important;
+
+      &.expanded {
+        background:
+          radial-gradient(360px 220px at 20% 10%, rgba(200, 139, 102, .08), rgba(0, 0, 0, 0) 60%),
+          linear-gradient(180deg, rgba(0, 0, 0, .05), rgba(0, 0, 0, .15)) !important;
+        transition: none !important; /* при раскрытии фон сразу и не пропадает */
+      }
+
+      &.clickable {
+        cursor: pointer;
+      }
+
+      &.highlight-name :global(.cardInfo) {
+        position: relative;
+      }
+
+      &.highlight-name :global(.cardInfo)::after {
+        content: '';
+        position: absolute;
+        left: -4px;
+        top: -2px;
+        width: calc(var(--name-highlight-width, 0px) + 8px);
+        height: calc(100% + 4px);
+        box-shadow: inset 0 0 0 2px rgba(194, 129, 94, 0.6);
+        border-radius: 6px;
+        pointer-events: none;
+      }
+
+      &.highlight-revenue :global(.cardRevenue) {
+        box-shadow: inset 0 0 0 2px rgba(194, 129, 94, 0.6);
+        border-radius: 4px;
+        padding: 2px 6px;
+        margin: -2px -6px;
+      }
+
+      &.highlight-share :global(.cardMetaRight) {
+        box-shadow: inset 0 0 0 2px rgba(194, 129, 94, 0.6);
+        border-radius: 4px;
+        padding: 2px 6px;
+        margin: -2px -6px;
+      }
+
+      &.highlight-breakdown :global(.cardBreakdown) {
+        box-shadow: inset 0 0 0 2px rgba(194, 129, 94, 0.6);
+      }
+
+      &.highlight-histogram :global(.cardMain) {
+        box-shadow: inset 0 0 0 2px rgba(194, 129, 94, 0.6);
+        border-radius: 12px 12px 0 0;
+      }
+
+      &.highlight-histogram :global(.progressLine) {
+        opacity: 0.4;
+      }
+
+      :global(.cardMain) {
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        position: relative;
+        z-index: 2;
+      }
+
+      :global(.cardInfo) {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      :global(.cardRow) {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      :global(.nameWrapper) {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      :global(.cardName) {
+        font-size: 14px;
+        font-weight: 500;
+        color: #fff;
+      }
+
+      :global(.cardRevenue) {
+        font-size: 14px;
+        font-weight: 600;
+        color: #fff;
+      }
+
+      :global(.cardMetaLeft) {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.4);
+      }
+
+      :global(.cardMetaRight) {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      :global(.cardPctText) {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      :global(.cardCountText) {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.5);
+        font-weight: 600;
+      }
+
+      :global(.cardExpandIcon) {
+        width: 14px;
+        height: 14px;
+        color: rgba(255, 255, 255, 0.4);
+        transition: transform 0.3s;
+      }
+
+      :global(.progressLine) {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        background: var(--accent);
+        opacity: 0.12;
+        z-index: 1;
+      }
+
+      :global(.cardBreakdown) {
+        background: rgba(0, 0, 0, 0.2);
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        max-height: none !important;
+        display: block !important;
+      }
+
+      :global(.breakdownList) {
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      :global(.breakdownRow) {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+
+        :global(.bdName) {
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        :global(.bdValues) {
+          display: flex;
+          gap: 8px;
+        }
+
+        :global(.bdPct) {
+          color: rgba(255, 255, 255, 0.3);
+        }
+
+        :global(.bdCount) {
+          color: rgba(255, 255, 255, 0.5);
+        }
+      }
+
+      &.expanded :global(.cardExpandIcon) {
+        transform: rotate(180deg);
+      }
+    }
+  }
+
+  &__deep-content {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    margin-top: 16px;
+  }
+
+  &__mini-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    width: 100%;
+  }
+
+  .mini-tile {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    gap: 10px;
+
+    &--full {
+      grid-column: span 2;
+      gap: 12px;
+    }
+
+    &:hover {
+      background: rgba(194, 129, 94, 0.08);
+      border-color: rgba(200,139,102,.32);
+      transform: translateY(-2px);
+
+      .mini-tile__icon {
+        color: #c2815e;
+      }
+    }
+
+    &__content {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      width: 100%;
+    }
+
+    &__top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    &__icon {
+      flex-shrink: 0;
+      color: rgba(255, 255, 255, 0.4);
+      transition: color 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+    }
+
+    &__label {
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    &__description {
+      font-size: 14px;
+      color: var(--muted);
+      margin: 0;
+      font-weight: 400;
+    }
+  }
+}
+
+.analytics-placeholder {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  padding: 60px 40px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+}

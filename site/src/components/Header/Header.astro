@@ -1,0 +1,43 @@
+---
+import { Image } from "astro:assets";
+import { content } from "@/data/content";
+import logoImg from "@/assets/img/logo.webp";
+
+const { header } = content;
+const baseUrl = import.meta.env.BASE_URL;
+const mockupHref = `${baseUrl}mockup-test`;
+---
+
+<header class="header">
+  <div class="header__inner">
+      <div class="header__brand">
+        <a href="/" class="header__logo-link">
+          <div class="header__logo-icon">
+            <Image src={logoImg} alt="InfoCoffee Logo" class="header__logo-img" />
+          </div>
+          <span class="header__logo-text">{header.logo}</span>
+        </a>
+      </div>
+      <nav class="header__nav" aria-label="Основная навигация">
+        {
+          header.nav.map((item) => (
+            <a class="header__link" href={item.href}>
+              {item.label}
+            </a>
+          ))
+        }
+      </nav>
+      <div class="header__actions">
+        <a class="header__button header__button--mockup" href={mockupHref}>
+          {header.actions.mockup}
+        </a>
+        <button class="btn btn--primary" type="button">
+          {header.actions.start}
+        </button>
+      </div>
+    </div>
+</header>
+
+<style lang="scss">
+  @use "@/components/Header/Header.scss";
+</style>

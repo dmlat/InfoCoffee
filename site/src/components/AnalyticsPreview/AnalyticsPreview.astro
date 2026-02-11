@@ -1,0 +1,313 @@
+---
+import IPhoneMockup from "@/components/IPhoneMockup/IPhoneMockup.astro";
+---
+
+<section class="analytics-preview" id="analytics">
+  <div class="analytics-preview__grid">
+    <div class="analytics-preview__left">
+      <IPhoneMockup hideBottomNav={true} activeTab="analytics" />
+    </div>
+
+    <div class="analytics-preview__right">
+      <div class="analytics-preview__content">
+        <div class="analytics-preview__header">
+          <h2 class="analytics-preview__title">Статистика продаж</h2>
+          <p class="analytics-preview__description">
+            Понимайте свои продажи, отслеживайте популярные товары на основе реальных данных, а не предположений
+          </p>
+        </div>
+
+        <div class="analytics-preview__menu">
+          <div class="analytics-preview__row">
+            <div class="analytics-card" data-section="periodHeader">
+              <span class="analytics-card__bg" aria-hidden="true"></span>
+              <div class="analytics-card__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+              </div>
+              <div class="analytics-card__content">
+                <h3 class="analytics-card__title">Выбор периода</h3>
+                <p class="analytics-card__text">
+                  <span class="analytics-card__short">Задает диапазон</span>
+                  <span class="analytics-card__full">Отслеживайте динамику выручки в нужные для вас промежутки времени</span>
+                </p>
+              </div>
+            </div>
+
+            <div class="analytics-card" data-section="pointSelector">
+              <span class="analytics-card__bg" aria-hidden="true"></span>
+              <div class="analytics-card__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+              </div>
+              <div class="analytics-card__content">
+                <h3 class="analytics-card__title">Выбор точек</h3>
+                <p class="analytics-card__text">
+                  <span class="analytics-card__short">Фильтрует данные</span>
+                  <span class="analytics-card__full">Анализируйте работу всей сети сразу или выбирайте конкретную точку</span>
+                </p>
+              </div>
+            </div>
+
+            <div class="analytics-card" data-section="drinkList">
+              <span class="analytics-card__bg" aria-hidden="true"></span>
+              <div class="analytics-card__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+                  <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+                  <line x1="6" y1="1" x2="6" y2="4"></line>
+                  <line x1="10" y1="1" x2="10" y2="4"></line>
+                  <line x1="14" y1="1" x2="14" y2="4"></line>
+                </svg>
+              </div>
+              <div class="analytics-card__content">
+                <h3 class="analytics-card__title">Продажи товаров</h3>
+                <p class="analytics-card__text">
+                  <span class="analytics-card__short">В реальном времени</span>
+                  <span class="analytics-card__full">Выручка и объем продаж с детализацией по позициям. Сразу видна доля каждого товара в общей прибыли</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="analytics-card" data-section="drinkCard clickable expanded" data-action="expand-mockup-card">
+            <span class="analytics-card__bg" aria-hidden="true"></span>
+            <div class="analytics-card__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+              </svg>
+            </div>
+            <div class="analytics-card__content">
+              <h3 class="analytics-card__title">Карточка товара</h3>
+              <p class="analytics-card__text">
+                Разрез продаж товара по точкам сети с указанием выручки и визуальным рейтингом популярности локаций
+              </p>
+              <div class="analytics-card__deep-content">
+                <div class="analytics-card__mock-list" id="deepAnalyticsMockList">
+                  <!-- Will be populated by JS -->
+                </div>
+                <div class="analytics-card__mini-grid">
+                  <div class="mini-tile" data-highlight-target="name">
+                    <div class="mini-tile__icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                      </svg>
+                    </div>
+                    <span class="mini-tile__label">Название и объем</span>
+                  </div>
+                  <div class="mini-tile" data-highlight-target="revenue">
+                    <div class="mini-tile__icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                      </svg>
+                    </div>
+                    <span class="mini-tile__label">Общая выручка</span>
+                  </div>
+                  <div class="mini-tile" data-highlight-target="share">
+                    <div class="mini-tile__icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="5" x2="5" y2="19"></line>
+                        <circle cx="6.5" cy="6.5" r="2.5"></circle>
+                        <circle cx="17.5" cy="17.5" r="2.5"></circle>
+                      </svg>
+                    </div>
+                    <span class="mini-tile__label">Доля от выручки</span>
+                  </div>
+                  <div class="mini-tile" data-highlight-target="breakdown">
+                    <div class="mini-tile__icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                      </svg>
+                    </div>
+                    <span class="mini-tile__label">Доля по точкам</span>
+                  </div>
+                  <div class="mini-tile mini-tile--full" data-highlight-target="histogram">
+                    <div class="mini-tile__content">
+                      <div class="mini-tile__top">
+                        <div class="mini-tile__icon">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                          </svg>
+                        </div>
+                        <span class="mini-tile__label">Гистограмма</span>
+                      </div>
+                      <p class="mini-tile__description">
+                        Визуализация популярности товара относительно лидера. Полная шкала равна максимальному значению в списке
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="analytics-preview__actions">
+          <button class="btn btn--primary">Узнать больше</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const cards = document.querySelectorAll('.analytics-card');
+  const mockup = document.querySelector('[data-iphone-mockup]');
+  const menu = document.querySelector('.analytics-preview__menu');
+
+  let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
+  let currentSection: string | null = null;
+
+  function updateHighlight(section: string | null, action: string | null = null) {
+    if (section === currentSection && !action) return;
+    currentSection = section;
+    
+    // Ensure we are targeting the CORRECT mockup instance (the one in this section)
+    const localMockup = document.querySelector('#analytics [data-iphone-mockup]');
+    
+    localMockup?.dispatchEvent(new CustomEvent('mockup:highlight', { 
+      detail: { section, action } 
+    }));
+  }
+
+  // Listen for state changes from the mockup to sync the deep analytics card
+  const localMockup = document.querySelector('#analytics [data-iphone-mockup]');
+  const deepAnalyticsMockList = document.getElementById('deepAnalyticsMockList');
+
+  function syncDeepAnalyticsCard() {
+    const drinkList = localMockup?.querySelector('#drinkList');
+    if (drinkList && deepAnalyticsMockList) {
+      // Find the second card (index 1) which has data-highlight="drinkCard clickable expanded"
+      const secondCard = drinkList.querySelector('[data-highlight="drinkCard clickable expanded"]');
+      if (secondCard) {
+        // Clone it and ensure it's expanded and not clickable for the preview
+        const clone = secondCard.cloneNode(true) as HTMLElement;
+        clone.classList.add('expanded');
+        clone.style.borderRadius = '12px';
+        clone.style.width = '100%';
+        clone.removeAttribute('data-highlight');
+        
+        // Ensure breakdown is visible
+        const breakdown = clone.querySelector('.cardBreakdown') as HTMLElement;
+        if (breakdown) {
+          breakdown.style.maxHeight = 'none';
+          breakdown.style.display = 'block';
+        }
+        
+        deepAnalyticsMockList.innerHTML = '';
+        deepAnalyticsMockList.appendChild(clone);
+      } else {
+        // Fallback if second card is not found (e.g. only one product)
+        const firstCard = drinkList.querySelector('.drinkCard');
+        if (firstCard) {
+          const clone = firstCard.cloneNode(true) as HTMLElement;
+          clone.classList.add('expanded');
+          clone.style.borderRadius = '12px';
+          clone.style.width = '100%';
+          clone.removeAttribute('data-highlight');
+
+          const breakdown = clone.querySelector('.cardBreakdown') as HTMLElement;
+          if (breakdown) {
+            breakdown.style.maxHeight = 'none';
+            breakdown.style.display = 'block';
+          }
+
+          deepAnalyticsMockList.innerHTML = '';
+          deepAnalyticsMockList.appendChild(clone);
+        }
+      }
+    }
+  }
+
+  // Mini tiles highlight logic
+  const miniTiles = document.querySelectorAll('.mini-tile');
+  miniTiles.forEach(tile => {
+    tile.addEventListener('mouseenter', () => {
+      const target = tile.getAttribute('data-highlight-target');
+      const card = deepAnalyticsMockList?.querySelector('.drinkCard');
+      if (card && target) {
+        if (target === 'name') {
+          const cardInfo = card.querySelector('.cardInfo') as HTMLElement | null;
+          const cardName = card.querySelector('.cardName') as HTMLElement | null;
+          if (cardInfo && cardName) {
+            const nameWidth = Math.ceil(cardName.getBoundingClientRect().width);
+            cardInfo.style.setProperty('--name-highlight-width', `${nameWidth}px`);
+          }
+        }
+        card.classList.add(`highlight-${target}`);
+      }
+    });
+
+    tile.addEventListener('mouseleave', () => {
+      const target = tile.getAttribute('data-highlight-target');
+      const card = deepAnalyticsMockList?.querySelector('.drinkCard');
+      if (card && target) {
+        card.classList.remove(`highlight-${target}`);
+        if (target === 'name') {
+          const cardInfo = card.querySelector('.cardInfo') as HTMLElement | null;
+          cardInfo?.style.removeProperty('--name-highlight-width');
+        }
+      }
+    });
+  });
+
+  localMockup?.addEventListener('mockup:statechange', (e: any) => {
+    const state = e.detail;
+    // The mockup updates its drinkList asynchronously.
+    setTimeout(syncDeepAnalyticsCard, 150);
+  });
+
+  // Initial sync
+  if (document.readyState === 'complete') {
+    setTimeout(syncDeepAnalyticsCard, 500);
+  } else {
+    window.addEventListener('load', () => setTimeout(syncDeepAnalyticsCard, 500));
+  }
+
+  cards.forEach(card => {
+    card.addEventListener('pointerenter', (e) => {
+      if ((e as PointerEvent).pointerType !== 'mouse') return;
+      if (highlightTimeout) {
+        clearTimeout(highlightTimeout);
+        highlightTimeout = null;
+      }
+      // Only one analytics-card expanded at a time
+      menu?.querySelectorAll('.analytics-card.is-active').forEach((c) => c.classList.remove('is-active'));
+      card.classList.add('is-active');
+      const section = card.getAttribute('data-section');
+      const action = card.getAttribute('data-action');
+      updateHighlight(section, action);
+    });
+
+    card.addEventListener('pointerleave', (e) => {
+      if ((e as PointerEvent).pointerType !== 'mouse') return;
+      
+      if (highlightTimeout) clearTimeout(highlightTimeout);
+      highlightTimeout = setTimeout(() => {
+        updateHighlight(null);
+      }, 100);
+    });
+  });
+
+  menu?.addEventListener('pointerleave', (e) => {
+    if ((e as PointerEvent).pointerType !== 'mouse') return;
+    if (highlightTimeout) clearTimeout(highlightTimeout);
+    menu?.querySelectorAll('.analytics-card.is-active').forEach((c) => c.classList.remove('is-active'));
+    updateHighlight(null);
+  });
+</script>
+
+<style lang="scss">
+  @use "@/components/AnalyticsPreview/AnalyticsPreview.scss";
+</style>

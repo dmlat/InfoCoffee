@@ -1,0 +1,109 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import Header from "@/components/Header/Header.astro";
+import Hero from "@/components/Hero/Hero.astro";
+import AppPreview from "@/components/AppPreview/AppPreview.astro";
+import FinancePreview from "@/components/FinancePreview/FinancePreview.astro";
+import AnalyticsPreview from "@/components/AnalyticsPreview/AnalyticsPreview.astro";
+import StockPreview from "@/components/StockPreview/StockPreview.astro";
+import Footer from "@/components/Footer/Footer.astro";
+import InteractiveOverlay from "@/components/InteractiveOverlay/InteractiveOverlay.astro";
+---
+
+<BaseLayout title="InfoCoffe — финансы под контролем">
+  <Header />
+  <main>
+    <Hero />
+    <FinancePreview />
+    <AnalyticsPreview />
+    <StockPreview />
+    <section id="faq" class="faq-section">
+      <div class="container">
+        <h2 class="section-title">Вопросы и ответы</h2>
+        <div class="faq-grid">
+          <div class="faq-item finance-card">
+            <span class="finance-card__bg" aria-hidden="true"></span>
+            <h3 class="faq-question">Как данные попадают в систему?</h3>
+            <p class="faq-answer">Мы интегрируемся напрямую с вашей кассовой системой (iiko, Poster, Quick Resto и др.), поэтому все продажи и списания отображаются в реальном времени.</p>
+          </div>
+          <div class="faq-item finance-card">
+            <span class="finance-card__bg" aria-hidden="true"></span>
+            <h3 class="faq-question">Нужно ли устанавливать приложение сотрудникам?</h3>
+            <p class="faq-answer">Нет, система работает в облаке. Вы и ваши менеджеры можете заходить через браузер или мобильное приложение, а линейному персоналу доступ не требуется.</p>
+          </div>
+          <div class="faq-item finance-card">
+            <span class="finance-card__bg" aria-hidden="true"></span>
+            <h3 class="faq-question">Безопасно ли хранить данные у вас?</h3>
+            <p class="faq-answer">Мы используем шифрование банковского уровня и размещаем данные на защищенных серверах. Доступ к вашей аналитике есть только у вас.</p>
+          </div>
+          <div class="faq-item finance-card">
+            <span class="finance-card__bg" aria-hidden="true"></span>
+            <h3 class="faq-question">Можно ли подключить несколько точек?</h3>
+            <p class="faq-answer">Да, система спроектирована для управления сетями. Вы сможете видеть как общую аналитику по всей сети, так и детальные отчеты по каждой отдельной кофейне.</p>
+          </div>
+          <div class="faq-item finance-card">
+            <span class="finance-card__bg" aria-hidden="true"></span>
+            <h3 class="faq-question">Как работает уведомление о критических остатках?</h3>
+            <p class="faq-answer">Вы настраиваете минимальный порог для каждого ингредиента. Как только остаток опускается ниже, система отправляет уведомление в Telegram или пуш-уведомление.</p>
+          </div>
+          <div class="faq-item finance-card">
+            <span class="finance-card__bg" aria-hidden="true"></span>
+            <h3 class="faq-question">Есть ли тестовый период?</h3>
+            <p class="faq-answer">Да, мы предоставляем 14 дней полного доступа ко всем функциям системы, чтобы вы могли оценить пользу для вашего бизнеса перед оплатой.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <Footer />
+  <InteractiveOverlay />
+</BaseLayout>
+
+<style lang="scss">
+  @use "@/components/FinancePreview/FinancePreview.scss";
+
+  .faq-section {
+    padding: 100px 0;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .section-title {
+    text-align: center;
+    font-size: 42px;
+    margin-bottom: 60px;
+    color: var(--text);
+  }
+  .faq-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 40px;
+  }
+  .faq-item {
+    &.finance-card {
+      padding: 30px;
+      min-height: auto;
+      cursor: default;
+
+      &::before {
+        display: none; // Отключаем JS-зависимое свечение, если не планируем его тут оживлять
+      }
+
+      &:hover {
+        transform: none;
+      }
+    }
+  }
+  .faq-question {
+    font-size: 20px;
+    margin-bottom: 16px;
+    color: #fff;
+    position: relative;
+    z-index: 1;
+  }
+  .faq-answer {
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.6;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+  }
+</style>

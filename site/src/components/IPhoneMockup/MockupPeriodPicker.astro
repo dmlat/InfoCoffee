@@ -1,0 +1,414 @@
+---
+interface Props {
+  id?: string;
+}
+
+const { id = "periodCard" } = Astro.props;
+---
+
+<div class="periodCard" id={id} data-highlight={id === "periodCard" ? "date" : "periodHeader"}>
+  <div class="periodHeader">
+    <div class="periodLeft">
+      <div class="periodBtn">
+        <span class="periodValue" id={id === "periodCard" ? "pVal" : "pValAnalytics"}>...</span>
+        <svg
+          class="chev"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 9l6 6 6-6"></path>
+        </svg>
+      </div>
+      <div class="periodDate" id={id === "periodCard" ? "pDate" : "pDateAnalytics"}>...</div>
+    </div>
+    <svg
+      class="calendarIcon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="16" y1="2" x2="16" y2="6"></line>
+      <line x1="8" y1="2" x2="8" y2="6"></line>
+      <line x1="3" y1="10" x2="21" y2="10"></line>
+    </svg>
+  </div>
+
+  <div class="periodContent">
+    <div class="presets">
+      <div class="presetBtn" data-range="today">Сегодня</div>
+      <div class="presetBtn" data-range="yesterday">Вчера</div>
+      <div class="presetBtn" data-range="7">Неделя</div>
+      <div class="presetBtn active" data-range="30">Месяц</div>
+    </div>
+
+    <div class="calendarWrapper">
+      <div class="calHeader">
+        <button class="calNavBtn" id={id === "periodCard" ? "prevMonth" : "prevMonthAnalytics"}>‹</button>
+        <div class="calPickers">
+          <div class="customSelect" data-select="month">
+            <button
+              class="customSelectTrigger"
+              type="button"
+              aria-expanded="false"
+            >
+              <span class="customSelectValue" id={id === "periodCard" ? "monthValue" : "monthValueAnalytics"}></span>
+              <svg
+                class="customSelectChevron"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M6 9l6 6 6-6"></path>
+              </svg>
+            </button>
+            <ul class="customSelectMenu monthGrid" id={id === "periodCard" ? "monthMenu" : "monthMenuAnalytics"}></ul>
+          </div>
+          <div class="customSelect" data-select="year">
+            <button
+              class="customSelectTrigger"
+              type="button"
+              aria-expanded="false"
+            >
+              <span class="customSelectValue" id={id === "periodCard" ? "yearValue" : "yearValueAnalytics"}></span>
+              <svg
+                class="customSelectChevron"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M6 9l6 6 6-6"></path>
+              </svg>
+            </button>
+            <ul class="customSelectMenu yearGrid" id={id === "periodCard" ? "yearMenu" : "yearMenuAnalytics"}></ul>
+          </div>
+        </div>
+        <button class="calNavBtn" id={id === "periodCard" ? "nextMonth" : "nextMonthAnalytics"}>›</button>
+      </div>
+      <div class="calGrid">
+        <div class="weekday">Пн</div><div class="weekday">Вт</div><div
+          class="weekday"
+        >
+          Ср
+        </div><div class="weekday">Чт</div><div class="weekday">Пт</div><div
+          class="weekday"
+        >
+          Сб
+        </div><div class="weekday">Вс</div>
+        <div id={id === "periodCard" ? "daysContainer" : "daysContainerAnalytics"} style="display:contents"></div>
+      </div>
+      <button class="applyBtn" id={id === "periodCard" ? "applyCustom" : "applyCustomAnalytics"}>Применить</button>
+    </div>
+  </div>
+
+  <script>
+    const months = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+    const years = [2025, 2026];
+
+    document.querySelectorAll('[data-iphone-mockup]').forEach((mockupContainer) => {
+      const menuOverlay = mockupContainer.querySelector('#menuOverlay') as HTMLElement;
+      
+      function initPeriodPicker(id, pValId, pDateId, applyBtnId, presetSelector, daysContainerId, monthMenuId, yearMenuId) {
+        const periodCard = mockupContainer.querySelector(`#${id}`) as HTMLElement;
+        if (!periodCard) return;
+
+        // Get state from mockup container (it's attached to the DOM element in IPhoneMockup.astro)
+        // Since we can't easily access the 'state' variable from here, we'll use events
+        let state: any = {};
+        
+        const pVal = mockupContainer.querySelector(`#${pValId}`) as HTMLElement;
+        const pDate = mockupContainer.querySelector(`#${pDateId}`) as HTMLElement;
+        const applyBtn = mockupContainer.querySelector(`#${applyBtnId}`) as HTMLElement;
+        const presetBtns = mockupContainer.querySelectorAll(presetSelector);
+        const daysContainer = mockupContainer.querySelector(`#${daysContainerId}`) as HTMLElement;
+        const monthSelect = periodCard.querySelector('.customSelect[data-select="month"]') as HTMLElement;
+        const yearSelect = periodCard.querySelector('.customSelect[data-select="year"]') as HTMLElement;
+        const monthMenu = mockupContainer.querySelector(`#${monthMenuId}`) as HTMLElement;
+        const yearMenu = mockupContainer.querySelector(`#${yearMenuId}`) as HTMLElement;
+
+        function closeAllSelects() {
+          mockupContainer.querySelectorAll(".customSelect.open").forEach((sel) => {
+            sel.classList.remove("open");
+          });
+          mockupContainer.querySelectorAll(".customSelectMenu.open").forEach((m) => {
+            m.classList.remove("open");
+          });
+          if (monthMenu) monthMenu.classList.remove("open");
+          if (yearMenu) yearMenu.classList.remove("open");
+        }
+
+        function closeAll() {
+          closeAllSelects();
+          if (menuOverlay) menuOverlay.classList.remove("show");
+        }
+
+        function setCustomSelectValue(selectEl, value, label) {
+          if (!selectEl) return;
+          selectEl.dataset.value = String(value);
+          const valueEl = selectEl.querySelector(".customSelectValue");
+          if (valueEl) valueEl.innerText = label;
+
+          let menu = selectEl.querySelector(".customSelectMenu");
+          if (!menu) {
+            const menuId = selectEl.querySelector("ul")?.id || selectEl.dataset.select + "Menu";
+            menu = mockupContainer.querySelector(`#${menuId}`);
+          }
+
+          if (menu) {
+            menu.querySelectorAll(".customSelectOption").forEach((opt) => {
+              opt.classList.toggle("active", opt.dataset.value === String(value));
+            });
+          }
+        }
+
+        function updateSelects() {
+          if (!state.viewDate) return;
+          setCustomSelectValue(monthSelect, state.viewDate.getMonth(), months[state.viewDate.getMonth()]);
+          setCustomSelectValue(yearSelect, state.viewDate.getFullYear(), String(state.viewDate.getFullYear()));
+        }
+
+        function buildSelectOptions() {
+          if (!monthMenu || !yearMenu) return;
+          monthMenu.innerHTML = "";
+          monthMenu.classList.add("monthGrid");
+
+          months.forEach((m, i) => {
+            const opt = document.createElement("li");
+            opt.className = "customSelectOption";
+            opt.dataset.value = String(i);
+            opt.innerText = m;
+            opt.addEventListener("click", (e) => {
+              e.stopPropagation();
+              state.viewDate.setMonth(i);
+              renderCalendar();
+              closeAll();
+            });
+            monthMenu.appendChild(opt);
+          });
+
+          yearMenu.innerHTML = "";
+          years.forEach((y) => {
+            const opt = document.createElement("li");
+            opt.className = "customSelectOption";
+            opt.dataset.value = String(y);
+            opt.innerText = y;
+            opt.addEventListener("click", (e) => {
+              e.stopPropagation();
+              state.viewDate.setFullYear(y);
+              renderCalendar();
+              closeAll();
+            });
+            yearMenu.appendChild(opt);
+          });
+        }
+
+        function renderCalendar() {
+          if (!daysContainer || !state.viewDate) return;
+          daysContainer.innerHTML = "";
+          const year = state.viewDate.getFullYear();
+          const month = state.viewDate.getMonth();
+          updateSelects();
+          let firstDayIndex = new Date(year, month, 1).getDay();
+          firstDayIndex = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+          for (let i = 0; i < firstDayIndex; i++) daysContainer.appendChild(document.createElement("div"));
+
+          for (let d = 1; d <= daysInMonth; d++) {
+            const dayEl = document.createElement("div");
+            dayEl.className = "day";
+            dayEl.innerText = d;
+            const currentTs = new Date(year, month, d).setHours(0, 0, 0, 0);
+            const startTs = state.startDate ? new Date(state.startDate).setHours(0, 0, 0, 0) : 0;
+            const endTs = state.endDate ? new Date(state.endDate).setHours(0, 0, 0, 0) : 0;
+            const todayTs = new Date().setHours(0, 0, 0, 0);
+
+            if (currentTs > todayTs) {
+              dayEl.classList.add("disabled");
+            } else {
+              if (state.startDate && !state.endDate && currentTs === startTs) {
+                dayEl.classList.add("single-selected");
+              } else if (state.startDate && state.endDate) {
+                const min = Math.min(startTs, endTs);
+                const max = Math.max(startTs, endTs);
+                if (currentTs === min) dayEl.classList.add("range-start");
+                else if (currentTs === max) dayEl.classList.add("range-end");
+                else if (currentTs > min && currentTs < max) dayEl.classList.add("in-range");
+              }
+
+              dayEl.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const clickedDate = new Date(year, month, d);
+                if (!state.startDate || (state.startDate && state.endDate)) {
+                  state.startDate = clickedDate;
+                  state.endDate = null;
+                } else {
+                  state.endDate = clickedDate;
+                }
+                presetBtns.forEach((b) => b.classList.remove("active"));
+                renderCalendar();
+              });
+            }
+            daysContainer.appendChild(dayEl);
+          }
+        }
+
+        function updateHeaderText() {
+          if (!pDate || !pVal) return;
+          pVal.innerText = state.periodLabel || "...";
+          
+          const currentYear = new Date().getFullYear();
+          function formatD(date) {
+            if (!date) return "";
+            const mName = months[date.getMonth()].toLowerCase();
+            const d = date.getDate();
+            const y = date.getFullYear();
+            let showY = y !== currentYear;
+            if (state.startDate && state.endDate && state.startDate.getFullYear() !== state.endDate.getFullYear()) showY = true;
+            const mFormatted = mName.endsWith("ь") ? mName.slice(0, -1) + "я" : mName.endsWith("й") ? mName.slice(0, -1) + "я" : mName + "а";
+            return `${d} ${mFormatted}${showY ? " " + y : ""}`;
+          }
+          if (state.startDate && !state.endDate) {
+            pDate.innerText = formatD(state.startDate);
+          } else if (state.startDate && state.endDate) {
+            const d1 = state.startDate < state.endDate ? state.startDate : state.endDate;
+            const d2 = state.startDate < state.endDate ? state.endDate : state.startDate;
+            pDate.innerText = formatD(d1) + " — " + formatD(d2);
+          } else {
+            pDate.innerText = "...";
+          }
+        }
+
+        periodCard.addEventListener("click", (e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest(".periodContent")) {
+            if (!target.classList.contains("presetBtn") && !target.closest(".calNavBtn") && !target.closest(".customSelectTrigger") && !target.closest(".applyBtn")) {
+              return;
+            }
+          }
+          if (target.closest(".periodHeader") || target === periodCard) {
+            periodCard.classList.toggle("expanded");
+          }
+        });
+
+        presetBtns.forEach((btn) => {
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const range = (btn as HTMLElement).dataset.range;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (range === "today") {
+              state.startDate = new Date(today);
+              state.endDate = null;
+              state.periodLabel = "За сегодня";
+            } else if (range === "yesterday") {
+              const y = new Date(today);
+              y.setDate(y.getDate() - 1);
+              state.startDate = y;
+              state.endDate = null;
+              state.periodLabel = "За вчера";
+            } else if (range === "7") {
+              state.endDate = new Date(today);
+              state.startDate = new Date(today);
+              state.startDate.setDate(today.getDate() - 6);
+              state.periodLabel = "За неделю";
+            } else if (range === "30") {
+              state.endDate = new Date(today);
+              state.startDate = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+              state.periodLabel = "За месяц";
+            } else if (range === "custom") {
+              state.periodLabel = "За свой период";
+            }
+
+            state.viewDate = new Date(state.startDate || today);
+            
+            // Dispatch event to update global state
+            mockupContainer.dispatchEvent(new CustomEvent('mockup:update-state', { detail: state }));
+            
+            setTimeout(() => {
+              periodCard.classList.remove("expanded");
+            }, 300);
+          });
+        });
+
+        monthSelect.querySelector(".customSelectTrigger")?.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const isOpen = monthMenu.classList.contains("open");
+          if (isOpen) {
+            closeAll();
+          } else {
+            closeAllSelects();
+            monthMenu.classList.add("open");
+            monthSelect.classList.add("open");
+          }
+        });
+
+        yearSelect.querySelector(".customSelectTrigger")?.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const isOpen = yearSelect.classList.contains("open");
+          if (isOpen) {
+            closeAll();
+          } else {
+            closeAllSelects();
+            yearSelect.classList.add("open");
+            yearMenu.classList.add("open");
+          }
+        });
+
+        const prevBtn = periodCard.querySelector('.calNavBtn:first-child');
+        const nextBtn = periodCard.querySelector('.calNavBtn:last-child');
+        if (prevBtn) prevBtn.addEventListener("click", () => { state.viewDate.setMonth(state.viewDate.getMonth() - 1); renderCalendar(); });
+        if (nextBtn) nextBtn.addEventListener("click", () => { state.viewDate.setMonth(state.viewDate.getMonth() + 1); renderCalendar(); });
+
+        applyBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (state.startDate) {
+            state.periodLabel = state.endDate ? "За свой период" : "Один день";
+            mockupContainer.dispatchEvent(new CustomEvent('mockup:update-state', { detail: state }));
+          }
+          closeAll();
+          periodCard.classList.remove("expanded");
+        });
+
+        mockupContainer.addEventListener('mockup:statechange', (e: any) => {
+          state = { ...e.detail };
+          renderCalendar();
+          updateHeaderText();
+          presetBtns.forEach(btn => {
+            const range = (btn as HTMLElement).dataset.range;
+            let isActive = false;
+            if (range === "today" && state.periodLabel === "За сегодня") isActive = true;
+            else if (range === "yesterday" && state.periodLabel === "За вчера") isActive = true;
+            else if (range === "7" && state.periodLabel === "За неделю") isActive = true;
+            else if (range === "30" && state.periodLabel === "За месяц") isActive = true;
+            btn.classList.toggle('active', isActive);
+          });
+        });
+
+        buildSelectOptions();
+      }
+
+      // Initialize pickers if they exist
+      if (mockupContainer.querySelector('#periodCard')) {
+        initPeriodPicker("periodCard", "pVal", "pDate", "applyCustom", "#periodCard .presetBtn", "daysContainer", "monthMenu", "yearMenu");
+      }
+      if (mockupContainer.querySelector('#periodCardAnalytics')) {
+        initPeriodPicker("periodCardAnalytics", "pValAnalytics", "pDateAnalytics", "applyCustomAnalytics", "#periodCardAnalytics .presetBtn", "daysContainerAnalytics", "monthMenuAnalytics", "yearMenuAnalytics");
+      }
+    });
+  </script>
+</div>

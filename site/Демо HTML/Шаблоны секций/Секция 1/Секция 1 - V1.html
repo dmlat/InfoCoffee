@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Секция 1 — объединённые плитки</title>
+
+  <style>
+    :root{
+      --bg0:#070B14;
+      --bg1:#090F1D;
+
+      --stroke:rgba(255,255,255,.08);
+      --stroke2:rgba(255,255,255,.12);
+
+      --text:#EAF0FF;
+      --muted:rgba(234,240,255,.68);
+      --muted2:rgba(234,240,255,.65);
+
+      --accent:#6D5CFF;
+      --accent2:#4BDAFF;
+
+      --shadow: 0 26px 60px rgba(0,0,0,.55);
+      --radius: 28px;
+
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+
+      /* единая система отступов */
+      --space-1: 10px;
+      --space-2: 14px;
+      --space-3: 18px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--font);
+      color:var(--text);
+      background-image:
+        radial-gradient(1200px 700px at 50% -120px, rgba(109,92,255,.22), transparent 55%),
+        radial-gradient(900px 520px at 10% 20%, rgba(75,218,255,.14), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      background-repeat:no-repeat;
+      background-size:cover;
+      background-position:center top;
+      overflow-x:hidden;
+    }
+
+    .wrap{
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 72px 20px 84px;
+    }
+
+    .kicker{
+      text-align:center;
+      font-weight:650;
+      letter-spacing:.2px;
+      color: rgba(109,92,255,.95);
+      margin:0 0 10px;
+      font-size:14px;
+    }
+
+    h1{
+      text-align:center;
+      margin:0 auto 10px;
+      font-size: clamp(34px, 4.2vw, 56px);
+      line-height:1.06;
+      letter-spacing:-.02em;
+      max-width: 980px;
+    }
+
+    .subhead{
+      text-align:center;
+      max-width: 900px;
+      margin: 0 auto 44px;
+      color: rgba(234,240,255,.68);
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    /* Layout */
+    .grid{
+      display:grid;
+      grid-template-columns: 410px 420px 410px;
+      gap: 22px;
+      justify-content:center;
+      align-items:start;
+    }
+
+    .col{
+      display:flex;
+      flex-direction:column;
+      gap:22px;
+      min-width:0;
+    }
+
+    /* Base Card */
+    .card{
+      position:relative;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      padding:26px;
+      backdrop-filter: blur(10px);
+      min-width:0;
+    }
+
+    /* ==== TILE 1: Вся аналитика в кармане ==== */
+    .t1{ width:410px; padding:28px; overflow:hidden; }
+    .t1::before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background:
+        radial-gradient(520px 260px at 20% 15%, rgba(109,92,255,.14), transparent 60%),
+        radial-gradient(520px 260px at 80% 40%, rgba(75,218,255,.10), transparent 60%);
+      pointer-events:none;
+      opacity:.9;
+    }
+    .t1 > *{position:relative; z-index:1;}
+
+    .t1 .top{display:block;margin-bottom:var(--space-2);}
+    .t1 .headline{
+      display:flex;align-items:center;justify-content:space-between;
+      gap:12px;margin:0 0 var(--space-1);
+    }
+    .t1 .title{
+      margin:0;font-size:20px;letter-spacing:-.01em;line-height:1.2;
+      flex:1 1 auto;min-width:0;
+    }
+    .t1 .badge{
+      flex:0 0 auto;font-size:12px;line-height:1;
+      padding:8px 10px;border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.22);
+      color: rgba(234,240,255,.82);
+      white-space:nowrap;
+    }
+    .t1 .desc{
+      margin:0;color:var(--muted);line-height:1.55;font-size:14.5px;
+      max-width:none;
+    }
+    .t1 .phone-area{
+      margin-top:var(--space-2);
+      height:300px;
+      display:flex;justify-content:center;align-items:flex-start;
+      pointer-events:none;
+    }
+    .t1 .phone{
+      width:320px;
+      aspect-ratio: 9/16;
+      border-radius: 36px;
+      border:1px solid rgba(255,255,255,.10);
+      background: linear-gradient(180deg, rgba(15,23,38,.85), rgba(9,14,26,.96));
+      box-shadow: 0 36px 80px rgba(0,0,0,.65);
+      position:relative;
+      overflow:hidden;
+      transform: translateY(22px);
+    }
+    .t1 .phone::before{
+      content:"";
+      position:absolute;
+      inset:12px;
+      border-radius: 28px;
+      border:1px solid rgba(255,255,255,.08);
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.015));
+      pointer-events:none;
+    }
+    .t1 .phone-screen{
+      position:absolute;
+      inset:22px 18px 18px;
+      border-radius: 24px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.06);
+      background:
+        radial-gradient(180px 120px at 65% 15%, rgba(75,218,255,.10), transparent 65%),
+        radial-gradient(220px 140px at 30% 35%, rgba(109,92,255,.14), transparent 65%),
+        linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      display:grid;
+      place-items:center;
+      padding:14px;
+      text-align:center;
+      color: rgba(234,240,255,.78);
+      font-size:13px;
+      line-height:1.35;
+    }
+    .t1 .shot{width:100%;height:100%;object-fit:cover;display:block;border-radius:18px;}
+    .t1 .hint b{color: rgba(234,240,255,.92)}
+    .t1 .hint code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;
+      color: rgba(234,240,255,.88);
+      background: rgba(0,0,0,.25);
+      padding:2px 6px;
+      border-radius: 8px;
+      border:1px solid rgba(255,255,255,.10);
+      white-space:nowrap;
+    }
+
+    /* ==== TILE 2: Честный P&L ==== */
+    .t2{ width:420px; padding:26px; }
+    .t2::before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background:
+        radial-gradient(520px 260px at 20% 15%, rgba(109,92,255,.14), transparent 60%),
+        radial-gradient(520px 260px at 80% 40%, rgba(75,218,255,.10), transparent 60%);
+      pointer-events:none;
+      opacity:.9;
+    }
+    .t2 > *{position:relative; z-index:1;}
+    .t2 .top{margin-top:2px;}
+    .t2 .title-row{
+      display:flex;align-items:center;justify-content:space-between;
+      gap:12px;margin-bottom:8px;
+    }
+    .t2 .title{margin:0;font-size:20px;letter-spacing:-.01em;}
+    .t2 .desc{margin:0;color:var(--muted);line-height:1.55;font-size:14.5px;}
+    .t2 .pill{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:7px 12px;border-radius:999px;border:1px solid var(--stroke2);
+      background: rgba(10,15,28,.35);
+      color: rgba(234,240,255,.82);
+      font-size:12.5px;font-weight:700;letter-spacing:.15px;white-space:nowrap;
+      flex:0 0 auto;
+    }
+    .t2 .pill .dot{
+      width:8px;height:8px;border-radius:99px;
+      background: linear-gradient(180deg, var(--accent), rgba(109,92,255,.55));
+      box-shadow: 0 0 0 4px rgba(109,92,255,.14);
+    }
+    .t2 .wf-nav{
+      margin-top:18px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:nowrap;
+      overflow:hidden;
+    }
+    .t2 .wf-item{
+      position:relative;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+      min-width:0;
+      flex:1 1 0;
+    }
+    .t2 .wf-item:not(:last-child)::after{
+      content:"";
+      position:absolute;
+      top:18px;
+      right:-7px;
+      width:14px;
+      height:2px;
+      border-radius:99px;
+      background: rgba(234,240,255,.10);
+    }
+    .t2 .wf-btn{
+      width:44px;height:44px;border-radius:999px;
+      display:grid;place-items:center;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04);
+      box-shadow: 0 10px 24px rgba(0,0,0,.35);
+    }
+    .t2 .wf-btn svg{width:20px;height:20px; fill: rgba(234,240,255,.70)}
+    .t2 .wf-label{
+      font-size:12px;
+      font-weight:800;
+      color: rgba(234,240,255,.60);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width:100%;
+    }
+    .t2 .wf-item.is-active .wf-btn{
+      border-color: rgba(75,218,255,.35);
+      background: rgba(75,218,255,.10);
+      box-shadow: 0 0 0 6px rgba(75,218,255,.10), 0 10px 24px rgba(0,0,0,.35);
+    }
+    .t2 .wf-item.is-active .wf-btn svg{ fill: rgba(75,218,255,.95); }
+    .t2 .wf-item.is-active .wf-label{ color: rgba(75,218,255,.90); }
+    .t2 .wf-item.is-red .wf-btn{
+      border-color: rgba(255,90,90,.22);
+      background: rgba(255,90,90,.08);
+    }
+    .t2 .wf-item.is-red .wf-btn svg{ fill: rgba(255,105,105,.92); }
+    .t2 .wf-item.is-red .wf-label{ color: rgba(255,170,170,.75); }
+    .t2 .wf-item.is-profit .wf-btn{
+      border-color: rgba(90,180,255,.30);
+      background: rgba(90,180,255,.10);
+    }
+    .t2 .wf-item.is-profit .wf-btn svg{ fill: rgba(90,180,255,.95); }
+    .t2 .wf-item.is-profit .wf-label{ color: rgba(180,225,255,.85); }
+    .t2 .wf-result{
+      margin-top:14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .t2 .wf-big{
+      font-size:26px;
+      font-weight:950;
+      letter-spacing:-.03em;
+      color: rgba(75,218,255,.92);
+    }
+    .t2 .wf-badge{
+      padding:7px 12px;border-radius:999px;
+      border:1px solid rgba(75,218,255,.28);
+      background: rgba(75,218,255,.10);
+      color: rgba(190,245,255,.92);
+      font-weight:900;font-size:12px;white-space:nowrap;
+    }
+    .t2 .wf-bar{
+      margin-top: 12px;
+      height:14px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      overflow:hidden;
+      position:relative;
+    }
+    .t2 .wf-bar > .fill{
+      height:100%;
+      width:34%;
+      border-radius:999px;
+      background: linear-gradient(90deg, rgba(109,92,255,.95), rgba(75,218,255,.65));
+    }
+
+    /* ==== TILE 3: Контроль и роли ==== */
+    .t3{ width:420px; padding:26px; }
+    .t3 .title{margin:0 0 8px;font-size:20px;}
+    .t3 .desc{margin:0 0 14px;color:var(--muted);font-size:14.5px;line-height:1.5;}
+    .t3 .roles{display:grid;gap:10px;}
+    .t3 .role{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+      min-width:0;
+      overflow:hidden;
+    }
+    .t3 .role-left{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex:1 1 auto;
+      min-width:0;
+    }
+    .t3 .ico{
+      width:36px;height:36px;border-radius:14px;
+      display:grid;place-items:center;
+      background: rgba(255,255,255,.06);
+      flex:0 0 auto;
+    }
+    .t3 .role-text{min-width:0;}
+    .t3 .role-text b{
+      display:block;
+      font-size:13px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .t3 .role-text span{
+      display:block;
+      font-size:11.5px;
+      color:rgba(234,240,255,.6);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .t3 .pill{
+      padding:7px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+      white-space:nowrap;
+      border:1px solid rgba(109,92,255,.3);
+      background: rgba(109,92,255,.12);
+      color:#CFCBFF;
+      flex:0 0 auto;
+      flex-shrink:0;
+    }
+    .t3 .service .pill{
+      border-color: rgba(255,255,255,.2);
+      background: rgba(255,255,255,.06);
+      color: rgba(234,240,255,.75);
+    }
+
+    /* ==== TILE 4: Мощная экосистема ==== */
+    .t4{ width:410px; padding:26px; }
+    .t4 h3{margin:0 0 8px;font-size:20px;letter-spacing:-.01em;}
+    .t4 .desc{margin:0;font-size:14.5px;line-height:1.5;color:var(--muted2);}
+    .t4 .hub-grid{
+      margin-top:18px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:14px;
+    }
+    .t4 .hub-item{
+      display:flex;
+      gap:14px;
+      padding:16px;
+      border-radius:18px;
+      background:rgba(255,255,255,.035);
+      border:1px solid rgba(255,255,255,.08);
+      min-width:0;
+    }
+    .t4 .hub-ico{
+      width:42px;height:42px;flex:0 0 auto;
+      border-radius:14px;
+      display:grid;place-items:center;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.12);
+    }
+    .t4 .hub-ico svg{width:20px;height:20px;fill:#EAF0FF;opacity:.85;}
+    .t4 .hub-text{min-width:0;}
+    .t4 .hub-text b{
+      display:flex;align-items:center;gap:8px;
+      font-size:14px;margin-bottom:4px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    .t4 .hub-text p{
+      margin:0;
+      font-size:13px;
+      line-height:1.35;
+      color:var(--muted2);
+    }
+    .t4 .beta{
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(245,158,11,.35);
+      background:rgba(245,158,11,.15);
+      color:#FBBF24;
+      font-weight:700;
+      white-space:nowrap;
+    }
+
+    /* Responsive */
+    @media (max-width: 1280px){
+      .grid{
+        grid-template-columns: 410px 410px;
+        grid-auto-rows: auto;
+      }
+      .col.right{grid-column: 1 / -1;}
+      .col.right .t4{margin:0 auto;}
+    }
+
+    @media (max-width: 920px){
+      .grid{grid-template-columns: 1fr;}
+      .col{align-items:center;}
+      .t1,.t2,.t3,.t4{width: min(420px, 100%);}
+      .t1{max-width:410px;}
+      .t4{max-width:410px;}
+    }
+  </style>
+</head>
+
+<body>
+  <main class="wrap">
+    <p class="kicker">InfoCoffee</p>
+    <h1>Полный контроль над бизнесом в одном окне</h1>
+    <p class="subhead">Финансы, склад и управление персоналом прямо в Telegram. Без сложных внедрений и Excel.</p>
+
+    <section class="grid" aria-label="Секция 1">
+      <!-- LEFT -->
+      <div class="col left">
+        <article class="card t1">
+          <div class="top">
+            <div class="headline">
+              <h3 class="title">Вся аналитика в кармане</h3>
+              <span class="badge">TG Mini App</span>
+            </div>
+
+            <p class="desc">
+              Забудьте про долгие загрузки отчетов. Мгновенный доступ к выручке, продажам и чистой прибыли прямо в приложении.
+              Всё работает нативно и быстро.
+            </p>
+          </div>
+
+          <div class="phone-area" aria-hidden="true">
+            <div class="phone">
+              <div class="phone-screen">
+                <img class="shot"
+                     src="screenshot-dashboard.jpg"
+                     alt=""
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                <div class="hint" style="display:none;">
+                  <b>Здесь будет скрин приложения</b><br/>
+                  Положите рядом файл <code>screenshot-dashboard.jpg</code><br/>
+                  и замените <b>src</b> на нужное имя.
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- MIDDLE -->
+      <div class="col middle">
+        <article class="card t2">
+          <header class="top">
+            <div class="title-row">
+              <h3 class="title">Честный P&amp;L</h3>
+              <span class="pill"><span class="dot" aria-hidden="true"></span> Авто-вычеты</span>
+            </div>
+            <p class="desc">
+              Система не просто считает оборот, а показывает реальные деньги. Автоматический вычет эквайринга, комиссий и налогов.
+            </p>
+          </header>
+
+          <div class="wf-nav" aria-label="Шаги P&L">
+            <div class="wf-item is-active">
+              <div class="wf-btn" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 3c4.97 0 9 4.03 9 9s-4.03 9-9 9-9-4.03-9-9 4.03-9 9-9zm1 5h-2v2H9v2h2v1H9v2h2v2h2v-2h2v-2h-2v-1h2V10h-2V8z"/></svg>
+              </div>
+              <div class="wf-label">Выручка</div>
+            </div>
+
+            <div class="wf-item is-red">
+              <div class="wf-btn" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M7 7h10v2H7V7zm0 4h10v2H7v-2zm0 4h7v2H7v-2zM5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/></svg>
+              </div>
+              <div class="wf-label">Себест.</div>
+            </div>
+
+            <div class="wf-item is-red">
+              <div class="wf-btn" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M19 5.6 5.6 19 4 17.4 17.4 4 19 5.6zM7.5 8.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zm9 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
+              </div>
+              <div class="wf-label">Налог</div>
+            </div>
+
+            <div class="wf-item is-red">
+              <div class="wf-btn" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v2H3V6zm0 5h21v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-7zm4 5h6v2H7v-2z"/></svg>
+              </div>
+              <div class="wf-label">Эквайринг</div>
+            </div>
+
+            <div class="wf-item is-profit">
+              <div class="wf-btn" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M7 3h10l4 6-9 12L3 9l4-6zm1.4 2L6 8h4L8.4 5zm7.2 0L14 8h4l-2.4-3zM10 10l2 9 2-9h-4z"/></svg>
+              </div>
+              <div class="wf-label">Прибыль</div>
+            </div>
+          </div>
+
+          <div class="wf-result">
+            <div class="wf-big">Маржа: 34%</div>
+            <div class="wf-badge">Видно сразу</div>
+          </div>
+
+          <div class="wf-bar" aria-label="Выручка и маржа">
+            <div class="fill" aria-hidden="true"></div>
+          </div>
+        </article>
+
+        <article class="card t3">
+          <h3 class="title">Контроль и роли</h3>
+          <p class="desc">
+            Гибкая система доступов для сотрудников. Постановка задач через бота и контроль исполнения защищают от хаоса и ошибок.
+          </p>
+
+          <div class="roles">
+            <div class="role admin">
+              <div class="role-left">
+                <div class="ico">👑</div>
+                <div class="role-text">
+                  <b>Админ</b>
+                  <span>Полный доступ ко всем данным</span>
+                </div>
+              </div>
+              <div class="pill">Полный доступ</div>
+            </div>
+
+            <div class="role service">
+              <div class="role-left">
+                <div class="ico">🛠</div>
+                <div class="role-text">
+                  <b>Сервис</b>
+                  <span>Без выручки и редактирования рецептов</span>
+                </div>
+              </div>
+              <div class="pill">Ограниченный</div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="col right">
+        <article class="card t4">
+          <h3>Мощная экосистема</h3>
+          <p class="desc">
+            InfoCoffee — это не просто учет, а центр управления,
+            который объединяет оборудование, кассы и сотрудников
+            в единую систему.
+          </p>
+
+          <div class="hub-grid">
+            <div class="hub-item">
+              <div class="hub-ico">
+                <svg viewBox="0 0 24 24"><path d="M21 7.5 16.5 3 14 5.5l2 2-3.7 3.7-2-2L7 12.5 11.5 17l3.3-3.3-2-2 3.7-3.7 2 2L21 7.5z"/></svg>
+              </div>
+              <div class="hub-text">
+                <b>🛠 Умный склад (WMS)</b>
+                <p>Автоматическое списание по техкартам, контроль остатков и снижение потерь.</p>
+              </div>
+            </div>
+
+            <div class="hub-item">
+              <div class="hub-ico">
+                <svg viewBox="0 0 24 24"><path d="M9 2h2v6h2V2h2v6h2v4a6 6 0 0 1-5 5.9V22h-2v-4.1A6 6 0 0 1 7 12V8h2V2z"/></svg>
+              </div>
+              <div class="hub-text">
+                <b>🔌 Интеграции</b>
+                <p>Подключаем Vendista, 1C и ваши базы данных через API.</p>
+              </div>
+            </div>
+
+            <div class="hub-item">
+              <div class="hub-ico">
+                <svg viewBox="0 0 24 24"><path d="M12 2l1.2 4.2L17.4 8 13.2 9.2 12 13.4 10.8 9.2 6.6 8l4.2-1.8L12 2z"/></svg>
+              </div>
+              <div class="hub-text">
+                <b>🤖 AI Ассистент <span class="beta">Beta</span></b>
+                <p>Анализирует показатели и поддерживает голосовой ввод.</p>
+              </div>
+            </div>
+
+            <div class="hub-item">
+              <div class="hub-ico">
+                <svg viewBox="0 0 24 24"><path d="M4 19h16v2H2V3h2v16zm14-9-4 4-3-3-5 5 1.4 1.4 3.6-3.6 3 3 5.4-5.4L18 10z"/></svg>
+              </div>
+              <div class="hub-text">
+                <b>📉 Снижение Out-of-stock</b>
+                <p>Система заранее сигнализирует о дефиците и формирует задачи на пополнение.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

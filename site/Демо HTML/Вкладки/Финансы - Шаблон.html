@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Финансы — Coffee & Steel Mix</title>
+  <style>
+    /* ========================================= */
+    /* 1. НАСТРОЙКИ (Основа V7 - Coffee)         */
+    /* ========================================= */
+    :root {
+      --phone-width: 365px;
+      --screen-radius: 42px;
+      --notch-height: 47px;
+
+      /* ЦВЕТА V7 (Coffee/Graphite) */
+      --bg0: #141211;
+      --bg1: #1C1917;
+      
+      /* Акцент V7 (Янтарь) */
+      --accent: #C08058; 
+      --accent-dim: rgba(217, 119, 6, 0.15);
+      --accent-glow: rgba(217, 119, 6, 0.3);
+
+      /* Обводки */
+      --stroke: rgba(231, 229, 228, 0.12);
+      --stroke-active: rgba(217, 119, 6, 0.5);
+      
+      --text: #FAFAF9;
+      --muted: #A8A29E;
+      --muted2: rgba(168, 162, 158, 0.5);
+      
+      /* Дельта (Green) */
+      --good: #10B981;
+      --good-bg: rgba(16, 185, 129, 0.1);
+      --good-border: rgba(16, 185, 129, 0.2);
+
+      /* Градиент карточек V7 */
+      --card-gradient: linear-gradient(135deg, rgba(255, 247, 237, 0.06) 0%, rgba(255, 247, 237, 0.01) 100%);
+
+      --radius: 20px; /* Радиус взят из V7 */
+      --tabH: 70px; 
+      --block-gap: 14px; 
+      
+      /* Календарь (Янтарь) */
+      --range-edge: #D97706; 
+      --range-mid: rgba(217, 119, 6, 0.15);
+    }
+
+    body {
+      background: #0C0A09;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+    }
+
+    .phone-wrapper {
+      position: relative;
+      width: var(--phone-width);
+      filter: drop-shadow(0 30px 60px rgba(0,0,0,0.8));
+    }
+
+    .phone-frame-img {
+      width: 100%;
+      display: block;
+      position: relative;
+      z-index: 50;
+      pointer-events: none;
+    }
+
+    .phone-screen {
+      position: absolute;
+      top: 10px; left: 15.5px; right: 15.5px; bottom: 10px;
+      background: var(--bg0);
+      border-radius: var(--screen-radius);
+      overflow: hidden;
+      z-index: 10;
+      /* Фон V7 */
+      background:
+        radial-gradient(1000px 600px at 20% -10%, rgba(217, 119, 6, 0.08), transparent 50%),
+        linear-gradient(180deg, var(--bg1) 0%, var(--bg0) 100%);
+    }
+
+    /* Градиентная маска */
+    .statusBarBlur {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 52px;
+      background: linear-gradient(180deg, var(--bg0) 0%, rgba(20, 18, 17, 0) 100%);
+      pointer-events: none;
+      z-index: 60;
+    }
+
+    .app-scroll-area {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow-y: auto;
+      padding-top: var(--notch-height);
+      padding-bottom: calc(var(--tabH) + 10px);
+      padding-left: 16px;
+      padding-right: 16px;
+      scrollbar-width: none;
+    }
+    .app-scroll-area::-webkit-scrollbar { display: none; }
+
+    /* Header */
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 2px 14px;
+      margin-top: 10px;
+    }
+    .title { 
+      font-size: 24px; font-weight: 800; color: #E7E5E4; 
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    
+    .avatarBtn {
+      width: 38px; height: 38px; border-radius: 10px;
+      border: 1px solid var(--stroke);
+      background: var(--card-gradient);
+      display: grid; place-items: center; cursor: pointer;
+    }
+
+    /* ========================================= */
+    /* ПЛИТКИ (Стиль V7, Анимация V5)            */
+    /* ========================================= */
+    .periodCard {
+      background: var(--card-gradient);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      margin-bottom: var(--block-gap);
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    .periodCard.expanded {
+      background: var(--bg1); /* Исправлено: цвет фона темы, вместо синего */
+      box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+    }
+
+    .periodHeader {
+      padding: 14px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .periodLeft { display: flex; flex-direction: column; gap: 2px; }
+    .periodBtn { display: flex; align-items: center; gap: 6px; }
+    .periodValue { font-size: 15px; font-weight: 600; color: #fff; }
+    
+    .chev { color: var(--accent); transition: transform 0.3s; }
+    .periodCard.expanded .chev { transform: rotate(180deg); }
+    
+    .periodDate { font-size: 11px; color: var(--muted); font-family: monospace; letter-spacing: -0.5px; }
+    .calendarIcon { color: var(--accent); opacity: 0.8; width: 20px; height: 20px; }
+
+    /* Accordion Logic 1:1 from V5 */
+    .periodContent {
+      max-height: 0; opacity: 0;
+      transition: all 0.3s ease;
+      border-top: 1px solid transparent;
+    }
+    .periodCard.expanded .periodContent {
+      max-height: 400px; opacity: 1;
+      border-top: 1px solid var(--stroke);
+      padding: 16px;
+    }
+
+    /* Presets */
+    .presets {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;
+    }
+    .presetBtn {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--stroke);
+      border-radius: 8px;
+      color: var(--muted); font-size: 11px; font-weight: 500;
+      padding: 8px 0; text-align: center; cursor: pointer;
+      transition: 0.2s;
+    }
+    .presetBtn.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Calendar */
+    .calHeader { display:flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .calNavBtn { 
+      background: transparent; border: 1px solid var(--stroke); 
+      color: var(--muted); width: 28px; height: 28px; border-radius: 6px; 
+      display:grid; place-items:center; cursor: pointer;
+    }
+    .calPickers { font-size: 13px; font-weight: 600; color: #fff; }
+    
+    .calGrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+    .weekday { font-size: 10px; color: var(--muted2); margin-bottom: 4px; }
+    .day { 
+      font-size: 12px; color: var(--muted); padding: 6px 0; border-radius: 4px; 
+      cursor: pointer;
+    }
+    .day.single-selected, .day.range-start, .day.range-end { 
+      background: var(--accent); color: #fff; font-weight: 700; 
+    }
+    .day.in-range { background: var(--accent-dim); color: #fff; }
+
+    .applyBtn {
+      background: var(--accent); 
+      border: none; width: 100%; border-radius: 8px;
+      padding: 10px; margin-top: 14px;
+      color: #fff; font-weight: 700; font-size: 13px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      cursor: pointer;
+    }
+
+    /* HERO SECTION */
+    .hero {
+      /* Фон V7 */
+      background: linear-gradient(145deg, rgba(41, 37, 36, 0.6) 0%, rgba(28, 25, 23, 0.2) 100%);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius); /* Обновлено скругление */
+      padding: 18px 16px;
+      position: relative; overflow: hidden;
+      margin-bottom: var(--block-gap);
+    }
+    
+    .heroTop { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+    .heroLabel { 
+      font-size: 11px; font-weight: 700; text-transform: uppercase; 
+      letter-spacing: 1px; color: var(--muted); 
+    }
+    
+    /* ЦИФРА ПРИБЫЛИ (Стиль V7) */
+    .heroValue { 
+      font-size: 38px; 
+      font-weight: 800; 
+      letter-spacing: -1px;
+      margin: 4px 0 10px;
+      
+      /* Серебряный градиент */
+      background: linear-gradient(180deg, #FFFFFF 30%, #D6D3D1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      
+      /* Теплое свечение (Spark) */
+      filter: drop-shadow(0 4px 15px rgba(217, 119, 6, 0.25));
+    }
+
+    /* ДЕЛЬТА (Стиль V5) */
+    .heroDelta {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 13px; font-weight: 600; color: var(--good);
+      background: var(--good-bg);
+      border: 1px solid var(--good-border);
+      padding: 4px 8px; border-radius: 6px;
+    }
+
+    .heroGrid, .detailsGrid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    .heroGrid { margin-top: 20px; }
+    
+    .heroKpi, .detailKpi { 
+      border-radius: 10px; 
+      padding: 12px; 
+    }
+    
+    .heroKpi {
+      background: rgba(255,255,255,.02);
+      border: 1px solid rgba(255,255,255,.04);
+    }
+    .heroKpi .l { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+    .heroKpi .v { font-size: 16px; font-weight: 700; color: #E7E5E4; }
+    
+    .detailKpi {
+      background: var(--card-gradient);
+      border: 1px solid var(--stroke);
+      position: relative;
+    }
+    .detailKpi .l { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+    .detailKpi .v { font-size: 15px; font-weight: 700; color: #E7E5E4; }
+
+    /* Navigation (Стиль V7) */
+    .bottomNav {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      background: transparent; border: 0; padding: 0 0 20px; z-index: 30;
+      display: flex; justify-content: center; pointer-events: none;
+    }
+    .navWrap {
+      pointer-events: auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+      /* Фон V7: Темный кофейный */
+      background: rgba(20, 18, 17, 0.95); 
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 6px;
+      box-shadow: 0 15px 40px rgba(0,0,0,.5); width: 90%;
+    }
+    .navItem {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px; padding: 8px 0; border-radius: 12px; color: var(--muted); cursor: pointer;
+      transition: all 0.2s;
+    }
+    .navItem svg { width: 18px; height: 18px; stroke: currentColor; }
+    .navItem .t { font-size: 9px; font-weight: 500; margin-top: 2px; }
+    
+    /* Активный пункт V7 (Янтарь) */
+    .navItem.active { 
+      background: rgba(217, 119, 6, 0.15); 
+      color: var(--accent); 
+      border: 1px solid var(--accent);
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="phone-wrapper">
+    <img src="imock.png" alt="iPhone Frame" class="phone-frame-img" onerror="this.style.display='none'">
+
+    <div class="phone-screen" id="phoneScreen">
+      
+      <div class="statusBarBlur"></div>
+
+      <div class="app-scroll-area">
+        
+        <div class="topbar">
+          <h1 class="title">Финансы</h1>
+          <div class="avatarBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E7E5E4" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+        </div>
+
+        <div class="periodCard" id="periodCard">
+          <div class="periodHeader">
+            <div class="periodLeft">
+              <div class="periodBtn">
+                <span class="periodValue" id="pVal">За месяц</span>
+                <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </div>
+              <div class="periodDate" id="pDate">31 дек 2025 — 29 янв 2026</div>
+            </div>
+            <svg class="calendarIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+            </svg>
+          </div>
+
+          <div class="periodContent">
+            <div class="presets">
+              <div class="presetBtn" data-range="today">День</div>
+              <div class="presetBtn" data-range="yesterday">Вчера</div>
+              <div class="presetBtn" data-range="7">Неделя</div>
+              <div class="presetBtn active" data-range="30">Месяц</div>
+            </div>
+            
+            <div class="calendarWrapper">
+              <div class="calHeader">
+                <button class="calNavBtn" id="prevMonth">‹</button>
+                <div class="calPickers">Январь 2026</div>
+                <button class="calNavBtn" id="nextMonth">›</button>
+              </div>
+              <div class="calGrid">
+                <div class="weekday">Пн</div><div class="weekday">Вт</div><div class="weekday">Ср</div><div class="weekday">Чт</div><div class="weekday">Пт</div><div class="weekday">Сб</div><div class="weekday">Вс</div>
+                <div id="daysContainer" style="display:contents"></div>
+              </div>
+              <button class="applyBtn" id="applyCustom">Применить</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="hero">
+          <div class="heroTop">
+            <span class="heroLabel">Чистая прибыль</span>
+          </div>
+          
+          <div class="heroValue">151 280,00 ₽</div>
+          
+          <div class="heroDelta">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+            +11 190 ₽ (8%)
+          </div>
+
+          <div class="heroGrid">
+            <div class="heroKpi"><div class="l">Выручка</div><div class="v">151к ₽</div></div>
+            <div class="heroKpi"><div class="l">Маржа</div><div class="v">100%</div></div>
+            <div class="heroKpi"><div class="l">Продажи</div><div class="v">971</div></div>
+            <div class="heroKpi"><div class="l">Ср. чек</div><div class="v">155 ₽</div></div>
+          </div>
+        </div>
+
+        <div class="detailsGrid">
+          <div class="detailKpi"><div class="l">Эквайринг</div><div class="v">0,00 ₽</div></div>
+          <div class="detailKpi"><div class="l">Налоги (УСН)</div><div class="v">0,00 ₽</div></div>
+        </div>
+        
+        <div style="height: 30px;"></div>
+      </div> 
+      
+      <nav class="bottomNav">
+        <div class="navWrap">
+          <div class="navItem active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18V8"/><path d="M10 18V6"/><path d="M16 18v-4"/><path d="M22 18V10"/></svg><div class="t">Фин</div></div>
+          <div class="navItem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l3-4 4 3 4-6"/></svg><div class="t">Отчет</div></div>
+          <div class="navItem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 4h10"/><path d="M9 4v16"/><path d="M15 4v16"/><path d="M6 20h12"/></svg><div class="t">Стойки</div></div>
+          <div class="navItem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l9-4 9 4v12l-9 4-9-4V8Z"/><path d="M3 8l9 4 9-4"/><path d="M12 12v12"/></svg><div class="t">Склад</div></div>
+          <div class="navItem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><div class="t">Задачи</div></div>
+        </div>
+      </nav>
+
+    </div> </div>
+
+  <script>
+    (function(){
+      // Elements
+      const periodCard = document.getElementById('periodCard');
+      const pVal = document.getElementById('pVal');
+      const pDate = document.getElementById('pDate');
+      const presetBtns = document.querySelectorAll('.presetBtn');
+      const daysContainer = document.getElementById('daysContainer');
+      const applyBtn = document.getElementById('applyCustom');
+
+      let startDate = new Date(2025, 11, 31); 
+      let endDate = new Date(2026, 0, 29);
+      let viewDate = new Date(2026, 0, 1);
+
+      // АНИМАЦИЯ: Toggle только при клике на хедер
+      periodCard.addEventListener('click', (e) => {
+        // Проверяем, что клик был именно по шапке, а не по кнопкам внутри
+        if (e.target.closest('.periodHeader')) {
+          periodCard.classList.toggle('expanded');
+        }
+      });
+
+      // Presets
+      presetBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation(); 
+          presetBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          
+          const range = btn.dataset.range;
+          const today = new Date(2026, 0, 29); 
+          
+          if (range === 'today') { startDate = new Date(today); endDate = null; pVal.innerText = "За сегодня"; } 
+          else if (range === 'yesterday') { 
+            const y = new Date(today); y.setDate(y.getDate() - 1);
+            startDate = y; endDate = null; pVal.innerText = "За вчера";
+          } 
+          else if (range === '7') { 
+            endDate = new Date(today);
+            startDate = new Date(today); startDate.setDate(today.getDate() - 6);
+            pVal.innerText = "За неделю";
+          } 
+          else if (range === '30') {
+             endDate = new Date(today);
+             startDate = new Date(today); startDate.setDate(today.getDate() - 29);
+             pVal.innerText = "За месяц";
+          }
+          
+          viewDate = new Date(startDate || today);
+          renderCalendar();
+          updateDateText();
+          
+          // Закрываем с задержкой 250мс (по запросу)
+          setTimeout(() => {
+            periodCard.classList.remove('expanded');
+          }, 250);
+        });
+      });
+      
+      function updateDateText() {
+         const months = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
+         const fmt = (d) => `${d.getDate()} ${months[d.getMonth()]}`;
+         
+         if (startDate && !endDate) pDate.innerText = fmt(startDate);
+         else if (startDate && endDate) {
+             const d1 = startDate < endDate ? startDate : endDate;
+             const d2 = startDate < endDate ? endDate : startDate;
+             pDate.innerText = `${fmt(d1)} — ${fmt(d2)}`;
+         }
+      }
+
+      function renderCalendar() {
+        daysContainer.innerHTML = '';
+        const year = viewDate.getFullYear();
+        const month = viewDate.getMonth();
+        
+        // Correct 1st day (Mon=0)
+        let firstDayIndex = new Date(year, month, 1).getDay(); 
+        firstDayIndex = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        for (let i = 0; i < firstDayIndex; i++) daysContainer.appendChild(document.createElement('div'));
+
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dayEl = document.createElement('div');
+          dayEl.className = 'day';
+          dayEl.innerText = d;
+          
+          const currentTs = new Date(year, month, d).setHours(0,0,0,0);
+          const startTs = startDate ? new Date(startDate).setHours(0,0,0,0) : 0;
+          const endTs = endDate ? new Date(endDate).setHours(0,0,0,0) : 0;
+
+          if (startDate && !endDate && currentTs === startTs) dayEl.classList.add('single-selected');
+          else if (startDate && endDate) {
+             const min = Math.min(startTs, endTs);
+             const max = Math.max(startTs, endTs);
+             if (currentTs === min) dayEl.classList.add('range-start');
+             else if (currentTs === max) dayEl.classList.add('range-end');
+             else if (currentTs > min && currentTs < max) dayEl.classList.add('in-range');
+          }
+
+          dayEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const clickedDate = new Date(year, month, d);
+            if (!startDate || (startDate && endDate)) { startDate = clickedDate; endDate = null; } 
+            else { endDate = clickedDate; }
+            presetBtns.forEach(b => b.classList.remove('active'));
+            renderCalendar();
+          });
+          daysContainer.appendChild(dayEl);
+        }
+      }
+
+      document.getElementById('prevMonth').addEventListener('click', (e) => { e.stopPropagation(); viewDate.setMonth(viewDate.getMonth() - 1); renderCalendar(); });
+      document.getElementById('nextMonth').addEventListener('click', (e) => { e.stopPropagation(); viewDate.setMonth(viewDate.getMonth() + 1); renderCalendar(); });
+      
+      applyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pVal.innerText = endDate ? "За период" : "За день";
+        updateDateText();
+        periodCard.classList.remove('expanded');
+      });
+
+      renderCalendar();
+      updateDateText();
+
+    })();
+  </script>
+</body>
+</html>

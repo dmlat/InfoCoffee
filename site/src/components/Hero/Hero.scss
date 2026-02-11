@@ -1,0 +1,258 @@
+.hero {
+  padding: var(--section-padding) 0;
+  margin-top: 60px;
+  position: relative;
+  overflow: visible;
+
+  // --- ПОНЯТНЫЕ НАСТРОЙКИ ---
+  --hero-img-width: clamp(700px, 62vw, 850px); // Размер фото
+  --hero-img-x: clamp(-100px, 1vw, -100px);       // Сдвиг фото
+  // scale() принимает только число без единиц измерения.
+  // Формула ниже дает безразмерное адаптивное значение от ширины вьюпорта.
+  --hero-badge-scale: clamp(0.72, calc((100vw - 320px) / 900px), 1.08);
+
+  // Положение бейджей (адаптивное)
+  // 1. Чистая прибыль
+  --badge-1-top: clamp(12%, 12%, 12%);
+  --badge-1-left: clamp(17%, 17%, 17%);
+  
+  // 2. Умный склад
+  --badge-2-top: clamp(30%, 30%, 30%);
+  --badge-2-left: clamp(62%, 62%, 62%);
+
+  // 3. Учет остатков
+  --badge-3-top: clamp(79%, 79%, 79%);
+  --badge-3-left: clamp(13%, 13%, 13%);
+
+  // 4. Внутри Telegram
+  --badge-4-top: clamp(67%, 67%, 67%);
+  --badge-4-left: clamp(60%, 60%, 60%);
+
+  // 5. Прозрачный отчет
+  --badge-5-top: clamp(46%, 46%, 46%);
+  --badge-5-left: clamp(2%, 2%, 2%);
+  // --------------------------
+}
+
+.hero__content {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: clamp(32px, 6vw, 96px);
+  position: relative;
+  z-index: 2;
+
+  @media (max-width: 1284px) {
+    grid-template-columns: auto 1fr;
+  }
+}
+
+.hero__text {
+  flex-shrink: 0;
+  max-width: 100%; // Ограничиваем текст, чтобы он не заходил под изображение
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-l);
+  position: relative;
+
+  @media (max-width: 1024px) {
+    max-width: 100%;
+  }
+}
+
+.hero__badge {
+  align-self: flex-start;
+  background: var(--color-badge-bg);
+  border: var(--border-width) solid var(--color-badge-border);
+  color: var(--color-accent);
+  padding: var(--badge-padding-y) var(--badge-padding-x);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-badge);
+  font-weight: var(--font-weight-semibold);
+}
+
+.hero__title {
+  margin: 0;
+  font-size: clamp(70px, 6vw, 84px); // Увеличили размер
+  line-height: 1.0; // Плотнее межстрочное для трех строк
+  letter-spacing: -0.03em;
+  font-weight: 850;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.hero__description {
+  max-width: 500px;
+  margin: 0;
+  color: var(--muted); // Используем --muted вместо --color-muted
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-m);
+}
+
+.hero__image-wrapper {
+  position: relative;
+  justify-self: end;
+  width: var(--hero-img-width);
+  z-index: 1;
+  transform: translateX(var(--hero-img-x)); // ОДИН параметр для движения
+  transform-origin: center right;
+
+  @media (max-width: 1024px) {
+    width: 100%;
+    max-width: 800px;
+    margin-top: 40px;
+    transform: translateX(0); // Сброс на мобилках
+    display: flex;
+    justify-content: center;
+    justify-self: center;
+  }
+}
+
+.hero__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.hero__floating-badges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+
+  @media (max-width: 1024px) {
+    display: none; // Скрываем на мобилках или перестроим позже
+  }
+}
+
+.hero__floating-badge {
+  position: absolute;
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.5);
+  border: var(--card-surface-border);
+  padding: 12px 14px 12px 12px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  animation: hero-float 6s ease-in-out infinite;
+  z-index: 2;
+  white-space: nowrap;
+  transition: border-color 0.4s ease, transform 0.4s ease;
+  width: fit-content;
+  transform: scale(var(--hero-badge-scale, 1));
+  transform-origin: center;
+  isolation: isolate;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: var(--card-surface-bg-opacity);
+    background: var(--card-surface-bg);
+  }
+
+  &:hover {
+    border-color: rgba(200, 139, 102, .32);
+  }
+
+  &-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(18px 18px at 30% 30%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 70%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.1));
+    border-radius: 12px;
+    border: solid 1px var(--stroke);
+    color: rgba(255, 255, 255, 0.8);
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  &:hover .hero__floating-badge-icon {
+    border-color: rgba(200, 139, 102, 0.32);
+  }
+
+  &-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  &-title {
+    color: var(--text);
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.2;
+    margin-top: -1px;
+  }
+
+  &-desc {
+    color: #a1a1aa;
+    font-size: 15px;
+    line-height: 1.2;
+    margin-bottom: -1px;
+  }
+
+  &--1 { top: var(--badge-1-top); left: var(--badge-1-left); animation-delay: 0s; }
+  &--2 { top: var(--badge-2-top); left: var(--badge-2-left); animation-delay: 1s; }
+  &--3 { top: var(--badge-3-top); left: var(--badge-3-left); animation-delay: 2s; }
+  &--4 { top: var(--badge-4-top); left: var(--badge-4-left); animation-delay: 0.5s; }
+  &--5 { top: var(--badge-5-top); left: var(--badge-5-left); animation-delay: 1.5s; }
+}
+
+@keyframes hero-float {
+  0%, 100% { transform: translateY(0) scale(var(--hero-badge-scale, 1)); }
+  50% { transform: translateY(-15px) scale(var(--hero-badge-scale, 1)); }
+}
+
+@media (max-width: 1024px) {
+  .hero {
+    padding-top: 60px;
+    overflow: hidden;
+  }
+
+  .hero__content {
+    text-align: center;
+    grid-template-columns: 1fr;
+  }
+
+  .hero__text {
+    align-items: center;
+  }
+
+  .hero__description {
+    max-width: 100%;
+  }
+
+  .hero__actions {
+    justify-content: center;
+  }
+}

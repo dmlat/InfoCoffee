@@ -1,0 +1,266 @@
+---
+import iPhoneMockupFrame from "@/assets/img/imock.webp?url";
+import FinanceTab from "./FinanceTab.astro";
+import AnalyticsTab from "./AnalyticsTab.astro";
+import StockTab from "./StockTab.astro";
+import MockupBottomNav from "./MockupBottomNav.astro";
+import MockupPointSelector from "./MockupPointSelector.astro";
+import MockupFocusManager from "./MockupFocusManager.astro";
+
+interface Props {
+  hideBottomNav?: boolean;
+  activeTab?: string;
+}
+
+const { hideBottomNav = false, activeTab = "finance" } = Astro.props;
+---
+
+<div class="iphoneMockup" data-iphone-mockup data-hide-nav={hideBottomNav}>
+  <div class="mockup-badge" data-mockup-badge>
+    <span>?</span>
+  </div>
+  <div class="phone-wrapper">
+    <img
+      class="phone-frame-img"
+      src={iPhoneMockupFrame}
+      alt="iPhone mockup frame"
+      loading="lazy"
+    />
+
+    <div class="phone-screen" id="phoneScreen">
+      <div class="statusBarBlur"></div>
+      <div class="menuOverlay" id="menuOverlay"></div>
+      <MockupPointSelector />
+      <MockupFocusManager />
+      
+      <div class="app-scroll-area">
+        <FinanceTab active={activeTab === "finance"} />
+        <AnalyticsTab active={activeTab === "analytics"} />
+        <StockTab active={activeTab === "stock"} />
+      </div>
+
+      {!hideBottomNav && <MockupBottomNav />}
+    </div>
+  </div>
+</div>
+
+<style is:global lang="scss">
+  @use "@/components/IPhoneMockup/IPhoneMockup.scss";
+  @use "@/components/IPhoneMockup/MockupHeader.scss";
+  @use "@/components/IPhoneMockup/MockupPeriodPicker.scss";
+  @use "@/components/IPhoneMockup/FinanceTab.scss";
+  @use "@/components/IPhoneMockup/AnalyticsTab.scss";
+  @use "@/components/IPhoneMockup/StockTab.scss";
+  @use "@/components/IPhoneMockup/MockupBottomNav.scss";
+</style>
+
+<script>
+  import {
+    ALL_LOCATION_IDS,
+    LOCATIONS,
+  } from "@/lib/salesService";
+
+  // Initialize each mockup instance separately
+  const initMockup = () => {
+    document.querySelectorAll('[data-iphone-mockup]').forEach((mockupContainer) => {
+      // Check if already initialized to avoid double initialization
+      if (mockupContainer.getAttribute('data-initialized') === 'true') return;
+      mockupContainer.setAttribute('data-initialized', 'true');
+
+      // State unique to this instance
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const state = {
+        startDate: new Date(today.getFullYear(), today.getMonth() - 1, today.getDate()),
+        endDate: new Date(today),
+        selectedLocationIds: [...ALL_LOCATION_IDS],
+        periodLabel: "За месяц",
+        viewDate: new Date(today.getFullYear(), today.getMonth() - 1, today.getDate()),
+      };
+
+      const phoneScreen = mockupContainer.querySelector('.phone-screen') as HTMLElement;
+      const focusContainer = mockupContainer.querySelector('#focusContainer') as HTMLElement;
+      const scrollArea = mockupContainer.querySelector('.app-scroll-area') as HTMLElement;
+      const menuOverlay = mockupContainer.querySelector('#menuOverlay') as HTMLElement;
+
+      // Helper to notify state changes within this instance
+      function notifyStateChange() {
+        mockupContainer.dispatchEvent(new CustomEvent('mockup:statechange', { detail: state }));
+        
+        // Global synchronization across all mockup instances
+        document.dispatchEvent(new CustomEvent('mockup:globalstatechange', { 
+          detail: {
+            startDate: state.startDate,
+            endDate: state.endDate,
+            periodLabel: state.periodLabel
+          }
+        }));
+      }
+
+      // Listen for requests to resend state (e.g. from components initializing late)
+      mockupContainer.addEventListener('mockup:request-state', () => {
+        notifyStateChange();
+      });
+
+      // Listen for updates from components (like period picker)
+      mockupContainer.addEventListener('mockup:update-state', (e: any) => {
+        Object.assign(state, e.detail);
+        notifyStateChange();
+      });
+
+      // Listen for global state changes to sync dates between mockups
+      document.addEventListener('mockup:globalstatechange', (e: any) => {
+        const globalState = e.detail;
+        if (state.startDate?.getTime() !== globalState.startDate?.getTime() || 
+            state.endDate?.getTime() !== globalState.endDate?.getTime() ||
+            state.periodLabel !== globalState.periodLabel) {
+          
+          state.startDate = globalState.startDate ? new Date(globalState.startDate) : null;
+          state.endDate = globalState.endDate ? new Date(globalState.endDate) : null;
+          state.periodLabel = globalState.periodLabel;
+          state.viewDate = new Date(state.startDate || today);
+          
+          // Update UI without triggering another global event to avoid loops
+          mockupContainer.dispatchEvent(new CustomEvent('mockup:statechange', { detail: state }));
+        }
+      });
+
+      // ============================================
+      // HIGHLIGHT LOGIC
+      // ============================================
+      // Logic moved to MockupFocusManager.astro
+
+      // ============================================
+      // OVERLAY TRIGGER LOGIC
+      // ============================================
+      const badge = mockupContainer.querySelector('[data-mockup-badge]');
+      badge?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.dispatchEvent(new CustomEvent('overlay:open'));
+      });
+
+      if (menuOverlay) {
+        menuOverlay.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // #region agent log
+          fetch('http://127.0.0.1:7246/ingest/88e9c59f-ee9b-4ba5-ae42-e75a10c70066',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'IPhoneMockup.astro:overlayClick',message:'Overlay clicked',timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+          // #endregion
+          // This should be accessible from the scope where closeAllSelects is defined
+          // But since we have multiple pickers, let's just trigger a click on a safe place or call a global close
+          const activeMockup = (e.target as HTMLElement).closest('[data-iphone-mockup]');
+          if (activeMockup) {
+            activeMockup.querySelectorAll(".customSelect.open").forEach((sel) => {
+              sel.classList.remove("open");
+            });
+            activeMockup.querySelectorAll(".customSelectMenu.open").forEach((menu) => {
+              menu.classList.remove("open");
+            });
+            activeMockup.querySelectorAll(".customSelectMenu").forEach((menu) => {
+              menu.classList.remove("open");
+            });
+            
+            // Also close pointModal if it's open
+            const pModal = activeMockup.querySelector('#pointModal');
+            if (pModal?.classList.contains('active')) {
+              pModal.classList.remove('active');
+              scrollArea?.classList.remove("no-scroll");
+            }
+
+            menuOverlay.classList.remove("show");
+          }
+        });
+      }
+
+      // ============================================
+      // TAB SWITCHING LOGIC
+      // ============================================
+      const navItems = mockupContainer.querySelectorAll('.navItem[data-tab-target]');
+      const tabContents = mockupContainer.querySelectorAll('.tab-content');
+      
+      navItems.forEach(item => {
+        item.addEventListener('click', () => {
+          const target = item.getAttribute('data-tab-target');
+          navItems.forEach(nav => nav.classList.remove('active'));
+          item.classList.add('active');
+
+          tabContents.forEach(content => {
+            if (content.getAttribute('data-tab') === target) {
+              content.classList.add('active');
+            } else {
+              content.classList.remove('active');
+            }
+          });
+
+          // Notify state change to trigger updates in the newly active tab
+          notifyStateChange();
+          
+          // Rebuild point options to show/hide "All" based on tab
+          // @ts-ignore
+          if (typeof buildPointOptions === 'function') buildPointOptions();
+        });
+      });
+
+      // ============================================
+      // PERIOD PICKER LOGIC
+      // ============================================
+      // Logic moved to MockupPeriodPicker.astro
+
+      // ============================================
+      // UPDATE FUNCTIONS
+      // ============================================
+      // Logic moved to individual tab components (FinanceTab.astro, AnalyticsTab.astro, StockTab.astro)
+
+      // ============================================
+      // ANALYTICS SPECIFIC
+      // ============================================
+      const pointSelectorBtn = mockupContainer.querySelector('#pointSelectorBtn') as HTMLElement;
+      const pointModal = mockupContainer.querySelector('#pointModal') as HTMLElement;
+
+      pointSelectorBtn?.addEventListener("click", (e) => {
+        e.stopPropagation(); // Prevent immediate closing if click bubbles to phoneScreen
+        pointModal?.classList.add("active");
+        scrollArea?.classList.add("no-scroll");
+        menuOverlay?.classList.add("show");
+        
+        // Ensure modal is visible and clickable by forcing z-index if needed
+        if (pointModal) {
+          pointModal.style.zIndex = "3000";
+        }
+      });
+
+      // ============================================
+      // INITIALIZATION
+      // ============================================
+      // if (mockupContainer.getAttribute('data-hide-nav') === 'true' && scrollArea) {
+      //   scrollArea.classList.add('no-scroll');
+      // }
+
+      // Set initial point display text
+      const pointDisplayValue = mockupContainer.querySelector('#pointDisplayValue');
+      // @ts-ignore
+      if (pointDisplayValue && typeof getPointLabel === 'function') {
+        const textNode = Array.from(pointDisplayValue.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+        // @ts-ignore
+        if (textNode) textNode.textContent = ` ${getPointLabel()}`;
+        // @ts-ignore
+        else pointDisplayValue.append(` ${getPointLabel()}`);
+      }
+
+      mockupContainer.addEventListener('mockup:statechange', () => {
+        // Logic moved to tabs
+      });
+
+      // Initial notification to populate all tabs
+      notifyStateChange();
+    });
+  };
+
+  // Initialize on DOMContentLoaded and also immediately if already loaded
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMockup);
+  } else {
+    initMockup();
+  }
+
+</script>

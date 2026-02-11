@@ -1,0 +1,350 @@
+---
+import IPhoneMockup from "@/components/IPhoneMockup/IPhoneMockup.astro";
+---
+
+<section class="finance-preview" id="finance">
+  <div class="container">
+    <div class="finance-preview__grid">
+      <div class="finance-preview__left">
+        <div class="finance-preview__header">
+          <h2 class="finance-preview__title">Экономика в реальном времени</h2>
+          <p class="finance-preview__description">
+            Чистая прибыль, выручка, расходы и налоги — без Excel и ручного учёта, всё считается автоматически
+          </p>
+        </div>
+
+        <div class="finance-preview__menu">
+          <div class="finance-card" data-section="pnl">
+            <span class="finance-card__bg" aria-hidden="true"></span>
+            <div class="finance-card__header">
+              <h3 class="finance-card__title">Честный P&L</h3>
+              <div class="finance-card__badges">
+                <span class="badge">P&L</span>
+                <span class="badge">Live</span>
+              </div>
+            </div>
+            <p class="finance-card__text">
+              Быстрый доступ к <strong>чистой прибыли,</strong> ее динамике за выбранный период и другим данным
+            </p>
+            <div class="finance-card__chart-box">
+              <div class="finance-card__profit">Чистая прибыль <span id="preview-hero-delta">+8%</span></div>
+              <div class="finance-card__mini-chart">
+                <svg viewBox="0 0 100 30" preserveAspectRatio="none">
+                  <path d="M0 25 L20 20 L40 25 L60 15 L80 10 L100 5" fill="none" stroke="currentColor" stroke-width="2" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="finance-card" data-section="deductions">
+            <span class="finance-card__bg" aria-hidden="true"></span>
+            <div class="finance-card__header">
+              <h3 class="finance-card__title">Авто-вычеты</h3>
+              <div class="finance-card__badges">
+                <span class="badge">Расходы</span>
+                <span class="badge">Налоги</span>
+              </div>
+            </div>
+            <p class="finance-card__text">
+              Авто-подсчёт <strong>себестоимости, налогов, эквайринга</strong>
+            </p>
+            <div class="finance-card__list">
+              <div class="finance-card__list-item">
+                <span>Расходы/Себестоимость</span>
+                <span id="preview-expenses">0 ₽</span>
+              </div>
+              <div class="finance-card__list-item">
+                <span>Налоги</span>
+                <span id="preview-taxes">0 ₽</span>
+              </div>
+              <div class="finance-card__list-item">
+                <span>Эквайринг</span>
+                <span id="preview-acquiring">0 ₽</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="finance-card" data-section="efficiency">
+            <span class="finance-card__bg" aria-hidden="true"></span>
+            <div class="finance-card__header">
+              <h3 class="finance-card__title">Эффективность</h3>
+              <div class="finance-card__badges">
+                <span class="badge">Рентабельность</span>
+                <span class="badge">Чек</span>
+              </div>
+            </div>
+            <p class="finance-card__text">
+              Следите за <strong>средним чеком</strong>, количеством продаж и рентабельностью в одном экране
+            </p>
+            <div class="finance-card__efficiency-box">
+              <div class="finance-card__efficiency-label">
+                <span>Рентабельность</span>
+                <span id="preview-profitability">0%</span>
+              </div>
+              <div class="finance-card__progress-bar">
+                <span id="preview-profitability-fill" style="width: 0%"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="finance-card" data-section="date">
+            <span class="finance-card__bg" aria-hidden="true"></span>
+            <div class="finance-card__header">
+              <h3 class="finance-card__title">Выбор периода</h3>
+              <div class="finance-card__badges">
+                <span class="badge">Период</span>
+                <span class="badge">Календарь</span>
+              </div>
+            </div>
+            <p class="finance-card__text">
+              Выбирайте любой <strong>временной интервал</strong> для анализа динамики вашего бизнеса
+            </p>
+            <div class="finance-card__date-grid">
+              <button class="finance-card__date-btn" data-range="today">Сегодня</button>
+              <button class="finance-card__date-btn" data-range="yesterday">Вчера</button>
+              <button class="finance-card__date-btn" data-range="7">Неделя</button>
+              <button class="finance-card__date-btn active" data-range="30">Месяц</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="finance-preview__actions">
+          <button class="btn btn--primary">Попробовать</button>
+        </div>
+      </div>
+
+      <div class="finance-preview__right">
+        <IPhoneMockup hideBottomNav={true} activeTab="finance" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<style lang="scss">
+  @use "@/components/FinancePreview/FinancePreview.scss";
+</style>
+
+<script>
+  const cards = document.querySelectorAll('.finance-card');
+  const mockup = document.querySelector('[data-iphone-mockup]');
+  const menu = document.querySelector('.finance-preview__menu');
+  const previewHeroDelta = document.getElementById('preview-hero-delta');
+  const previewExpenses = document.getElementById('preview-expenses');
+  const previewTaxes = document.getElementById('preview-taxes');
+  const previewAcquiring = document.getElementById('preview-acquiring');
+  const previewProfitability = document.getElementById('preview-profitability');
+  const previewProfitabilityFill = document.getElementById('preview-profitability-fill');
+  const dateBtns = document.querySelectorAll('.finance-card__date-btn');
+
+  let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
+  let currentSection: string | null = null;
+
+  function formatCurrency(value: number) {
+    return value.toLocaleString('ru-RU', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }) + ' ₽';
+  }
+
+  const financeSection = document.getElementById('finance');
+  const localMockup = financeSection?.querySelector('[data-iphone-mockup]') as HTMLElement | null;
+  const periodValueEl = localMockup?.querySelector('#pVal') as HTMLElement | null;
+
+  const periodLabelToRange: Record<string, string> = {
+    "За сегодня": "today",
+    "За вчера": "yesterday",
+    "За неделю": "7",
+    "За месяц": "30",
+  };
+
+  function normalizeLabel(value: string | null | undefined) {
+    return (value || '').trim().toLowerCase();
+  }
+
+  function getRangeByLabel(periodLabel: string | null | undefined) {
+    if (!periodLabel) return null;
+    const mapped = periodLabelToRange[periodLabel];
+    if (mapped) return mapped;
+
+    const normalized = normalizeLabel(periodLabel);
+    const byText = Array.from(dateBtns).find((btn) => normalizeLabel(btn.textContent) === normalized);
+    return byText?.getAttribute('data-range') || null;
+  }
+
+  function syncDateGridActiveState(periodLabel: string | null | undefined) {
+    const activeRange = getRangeByLabel(periodLabel);
+    dateBtns.forEach((btn) => {
+      btn.classList.toggle('active', !!activeRange && btn.getAttribute('data-range') === activeRange);
+    });
+
+    if (previewHeroDelta) {
+      previewHeroDelta.style.display = activeRange ? 'inline' : 'none';
+    }
+  }
+
+  function syncDateGridFromHeader() {
+    const label = periodValueEl?.textContent?.trim();
+    if (!label || label === '...') return;
+    syncDateGridActiveState(label);
+  }
+
+  dateBtns.forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!localMockup) return;
+
+      const range = btn.getAttribute('data-range');
+      if (!range) return;
+
+      let mockupPresetBtn = localMockup.querySelector(`.presetBtn[data-range="${range}"]`) as HTMLElement | null;
+      if (!mockupPresetBtn) {
+        const btnLabel = normalizeLabel(btn.textContent);
+        mockupPresetBtn = Array.from(localMockup.querySelectorAll('.presetBtn')).find((presetBtn) => {
+          return normalizeLabel((presetBtn as HTMLElement).textContent) === btnLabel;
+        }) as HTMLElement | null;
+      }
+
+      if (mockupPresetBtn) {
+        mockupPresetBtn.click();
+      }
+    });
+  });
+
+  localMockup?.addEventListener('mockup:statechange', (e: any) => {
+    const state = e.detail;
+    syncDateGridActiveState(state?.periodLabel);
+  });
+
+  syncDateGridFromHeader();
+  setTimeout(syncDateGridFromHeader, 0);
+
+  // Helper to sync values from mockup to preview
+  function syncValuesFromMockup() {
+    const financeProfitDelta = document.querySelector('#financeProfitDelta .deltaValue');
+    const financeExpenses = document.getElementById('financeExpenses');
+    const financeTaxesValue = document.getElementById('financeTaxesValue');
+    const financeAcquiringValue = document.getElementById('financeAcquiringValue');
+    const financeProfitability = document.getElementById('financeProfitability');
+    const financeProfitDeltaContainer = document.getElementById('financeProfitDelta');
+
+    if (previewHeroDelta && financeProfitDelta) {
+      const text = financeProfitDelta.textContent || '';
+      // Support both (+) and (-) formats
+      const match = text.match(/\(([^)]+)\)/);
+      if (match) {
+        previewHeroDelta.textContent = match[1];
+      } else if (text.includes('%')) {
+        previewHeroDelta.textContent = text.trim();
+      }
+
+      // Sync color/style for delta and chart
+      const chartBox = document.querySelector('.finance-card[data-section="pnl"] .finance-card__chart-box');
+      const miniChart = document.querySelector('.finance-card[data-section="pnl"] .finance-card__mini-chart');
+      const chartPath = miniChart?.querySelector('path');
+      
+      if (financeProfitDeltaContainer) {
+        const isNegative = financeProfitDeltaContainer.classList.contains('negative') || text.includes('-');
+        previewHeroDelta.style.color = isNegative ? '#ef4444' : '#10b981';
+        
+        if (chartBox) {
+          chartBox.classList.toggle('negative', isNegative);
+        }
+        if (miniChart) {
+          (miniChart as HTMLElement).style.color = isNegative ? '#ef4444' : '#10b981';
+        }
+        if (chartPath) {
+          if (isNegative) {
+            chartPath.setAttribute('d', 'M0 5 L20 10 L40 5 L60 15 L80 20 L100 25');
+          } else {
+            chartPath.setAttribute('d', 'M0 25 L20 20 L40 25 L60 15 L80 10 L100 5');
+          }
+        }
+      }
+    }
+    if (previewExpenses && financeExpenses) previewExpenses.textContent = financeExpenses.textContent;
+    if (previewTaxes && financeTaxesValue) previewTaxes.textContent = financeTaxesValue.textContent;
+    if (previewAcquiring && financeAcquiringValue) previewAcquiring.textContent = financeAcquiringValue.textContent;
+    if (previewProfitability && financeProfitability) {
+      const val = financeProfitability.textContent || '0%';
+      previewProfitability.textContent = val;
+      if (previewProfitabilityFill) previewProfitabilityFill.style.width = val;
+    }
+  }
+
+  // Set up an observer to watch for changes in the mockup values
+  const observer = new MutationObserver(() => {
+    syncValuesFromMockup();
+  });
+
+  // Start observing when the mockup elements are available
+  const startObserving = () => {
+    const target = document.getElementById('financeProfit'); // One of the updated elements
+    if (target) {
+      observer.observe(target.parentElement || target, { 
+        childList: true, 
+        subtree: true, 
+        characterData: true 
+      });
+      syncValuesFromMockup();
+    } else {
+      setTimeout(startObserving, 500);
+    }
+  };
+  startObserving();
+
+  function updateHighlight(section: string | null) {
+    // #region agent log
+    fetch('http://127.0.0.1:7246/ingest/88e9c59f-ee9b-4ba5-ae42-e75a10c70066',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FinancePreview.astro:135',message:'updateHighlight called',data:{section, currentSection},timestamp:Date.now(),hypothesisId:'1'})}).catch(()=>{});
+    // #endregion
+
+    if (section === currentSection) return;
+
+    currentSection = section;
+    mockup?.dispatchEvent(new CustomEvent('mockup:highlight', { detail: { section } }));
+  }
+
+  cards.forEach(card => {
+    card.addEventListener('pointermove', (e) => {
+      if ((e as PointerEvent).pointerType !== 'mouse') return;
+      const rect = (card as HTMLElement).getBoundingClientRect();
+      const x = ((e as PointerEvent).clientX - rect.left) / rect.width * 100;
+      const y = ((e as PointerEvent).clientY - rect.top) / rect.height * 100;
+      (card as HTMLElement).style.setProperty('--mx', `${x}%`);
+      (card as HTMLElement).style.setProperty('--my', `${y}%`);
+    });
+
+    card.addEventListener('pointerenter', (e) => {
+      if ((e as PointerEvent).pointerType !== 'mouse') return;
+      if (highlightTimeout) {
+        clearTimeout(highlightTimeout);
+        highlightTimeout = null;
+      }
+      const section = card.getAttribute('data-section');
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/88e9c59f-ee9b-4ba5-ae42-e75a10c70066',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FinancePreview.astro:158',message:'pointerenter',data:{section},timestamp:Date.now(),hypothesisId:'2'})}).catch(()=>{});
+      // #endregion
+      updateHighlight(section);
+    });
+
+    card.addEventListener('pointerleave', (e) => {
+      if ((e as PointerEvent).pointerType !== 'mouse') return;
+      // #region agent log
+      fetch('http://127.0.0.1:7246/ingest/88e9c59f-ee9b-4ba5-ae42-e75a10c70066',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FinancePreview.astro:165',message:'pointerleave',data:{section: card.getAttribute('data-section')},timestamp:Date.now(),hypothesisId:'2'})}).catch(()=>{});
+      // #endregion
+      
+      // If we are leaving a card, we add a small delay to catch the next card
+      // or to see if we left the menu entirely
+      if (highlightTimeout) clearTimeout(highlightTimeout);
+      highlightTimeout = setTimeout(() => {
+        updateHighlight(null);
+      }, 100);
+    });
+  });
+
+  // If we leave the entire menu area, clear highlight immediately
+  menu?.addEventListener('pointerleave', (e) => {
+    if ((e as PointerEvent).pointerType !== 'mouse') return;
+    if (highlightTimeout) clearTimeout(highlightTimeout);
+    updateHighlight(null);
+  });
+</script>
