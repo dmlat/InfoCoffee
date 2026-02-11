@@ -47,11 +47,19 @@ if [ -f package.json ]; then
     npm run build
     rsync -a --delete build/ /var/www/site/
 else
-    echo -e "${YELLOW}   -> site package.json not found, skipping build, using placeholder.${NC}"
+    echo -e "${YELLOW}   -> site package.json not found, copying public/ files directly.${NC}"
+    mkdir -p /var/www/site
+    cp -r public/* /var/www/site/
 fi
 
-# 6. Restart PM2
-echo -e "${YELLOW}6. Restarting PM2 processes...${NC}"
+# 6. Update Nginx Configs
+echo -e "${YELLOW}6. Updating Nginx configurations...${NC}"
+cp ../nginx_configs/infocoffee.ru.conf /etc/nginx/sites-available/default
+cp ../nginx_configs/app.infocoffee.ru.conf /etc/nginx/sites-available/app.infocoffee.ru
+nginx -t && systemctl reload nginx
+
+# 7. Restart PM2
+echo -e "${YELLOW}7. Restarting PM2 processes...${NC}"
 pm2 reload ../ecosystem.config.js --update-env
 
 echo -e "${GREEN}Deployment completed successfully!${NC}"
