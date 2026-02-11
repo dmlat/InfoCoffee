@@ -1,9 +1,9 @@
 #!/bin/bash
 # deploy.sh - Script for deploying updates to the Production Server (VA)
+# This script is designed to be run ON THE SERVER.
 
 # Configuration
-SERVER_ALIAS="ic"
-REMOTE_DIR="/root/VA"
+PROJECT_DIR="/root/VA"
 BRANCH="master"
 
 # Colors
@@ -12,62 +12,46 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}Starting deployment to ${SERVER_ALIAS} (${REMOTE_DIR})...${NC}"
+echo -e "${YELLOW}Starting local deployment in ${PROJECT_DIR}...${NC}"
 
-# 1. Push local changes
-echo -e "${YELLOW}1. Pushing local changes to GitHub...${NC}"
-git push origin $BRANCH
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Git push failed. Aborting.${NC}"
-    exit 1
-fi
+set -e # Exit on error
 
-# 2. SSH into server and update
-echo -e "${YELLOW}2. Connecting to server to pull changes...${NC}"
-ssh $SERVER_ALIAS "bash -s" << EOF
-    set -e # Exit on error
+# 1. Pull changes from GitHub
+echo -e "${YELLOW}1. Pulling changes from GitHub...${NC}"
+cd ${PROJECT_DIR}
+git pull origin ${BRANCH}
 
-    echo "   -> cd ${REMOTE_DIR}"
-    cd ${REMOTE_DIR}
+# 2. Update TELEGRAM_WEB_APP_URL in backend/.env
+echo -e "${YELLOW}2. Updating TELEGRAM_WEB_APP_URL...${NC}"
+bash ./update_app_version.sh
+echo "   -> TELEGRAM_WEB_APP_URL now:"
+grep "^TELEGRAM_WEB_APP_URL=" backend/.env
 
-    echo "   -> git pull origin ${BRANCH}"
-    git pull origin ${BRANCH}
+# 3. Backend update
+echo -e "${YELLOW}3. Updating backend dependencies...${NC}"
+cd backend
+npm install --production
 
-    echo "   -> update TELEGRAM_WEB_APP_URL in backend/.env"
-    bash ./update_app_version.sh
-    echo "   -> TELEGRAM_WEB_APP_URL now:"
-    grep "^TELEGRAM_WEB_APP_URL=" backend/.env
+# 4. Frontend (TMA) update
+echo -e "${YELLOW}4. Building and deploying TMA...${NC}"
+cd ../frontend
+npm install
+npm run build
+rsync -a --delete build/ /var/www/tma/
 
-    echo "   -> npm install (in backend)"
-    cd backend
-    npm install --production
-
-    echo "   -> Build and deploy frontend (TMA)"
-    cd ../frontend
+# 5. Site update
+echo -e "${YELLOW}5. Building and deploying site...${NC}"
+cd ../site
+if [ -f package.json ]; then
     npm install
     npm run build
-    rsync -a --delete build/ /var/www/tma/
-
-    echo "   -> Build and deploy site"
-    cd ../site
-    if [ -f package.json ]; then
-        npm install
-        npm run build
-        rsync -a --delete build/ /var/www/site/
-    else
-        echo "      (site package.json not found, skipping build, using placeholder)"
-    fi
-
-    echo "   -> Restarting PM2 processes..."
-    # Update process list just in case config changed
-    pm2 reload ../ecosystem.config.js --update-env
-
-    echo "   -> Deployment Success!"
-EOF
-
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}Deployment completed successfully!${NC}"
+    rsync -a --delete build/ /var/www/site/
 else
-    echo -e "${RED}Deployment failed on server.${NC}"
-  exit 1
+    echo -e "${YELLOW}   -> site package.json not found, skipping build, using placeholder.${NC}"
 fi
+
+# 6. Restart PM2
+echo -e "${YELLOW}6. Restarting PM2 processes...${NC}"
+pm2 reload ../ecosystem.config.js --update-env
+
+echo -e "${GREEN}Deployment completed successfully!${NC}"
