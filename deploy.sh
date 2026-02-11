@@ -45,7 +45,7 @@ cd ../site
 if [ -f package.json ]; then
     npm install
     npm run build
-    rsync -a --delete build/ /var/www/site/
+    rsync -a --delete dist/ /var/www/site/
 else
     echo -e "${YELLOW}   -> site package.json not found, copying public/ files directly.${NC}"
     mkdir -p /var/www/site
