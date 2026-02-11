@@ -1,4 +1,6 @@
 ---
+import heroImage from "@/assets/img/hero.webp";
+import { Image } from 'astro:assets';
 import { content } from "@/data/content";
 
 const { hero } = content;
@@ -20,7 +22,7 @@ const { hero } = content;
       </div>
     </div>
     <div class="hero__image-wrapper">
-      <img src="/src/assets/img/hero.webp" alt="Hero Image" class="hero__image" />
+      <Image src={heroImage} alt="Hero Image" class="hero__image" />
       
       <div class="hero__floating-badges">
         <div class="hero__floating-badge hero__floating-badge--1">
