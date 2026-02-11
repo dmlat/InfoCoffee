@@ -18,7 +18,7 @@ const processQueue = (error, token = null) => {
 
 const apiClient = axios.create({
     baseURL: process.env.NODE_ENV === 'production' 
-        ? 'https://infocoffee.ru/api' 
+        ? 'https://app.infocoffee.ru/api' 
         : process.env.REACT_APP_API_BASE_URL || '/api'
 });
 
@@ -87,7 +87,7 @@ apiClient.interceptors.response.use(
             try {
                 const refreshClient = axios.create({ 
                     baseURL: process.env.NODE_ENV === 'production' 
-                        ? 'https://infocoffee.ru/api' 
+                        ? 'https://app.infocoffee.ru/api' 
                         : process.env.REACT_APP_API_BASE_URL || '/api' 
                 });
                 const rs = await refreshClient.post('/auth/refresh-app-token', { initData: tgInitData });

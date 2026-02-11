@@ -42,11 +42,21 @@ ssh $SERVER_ALIAS "bash -s" << EOF
     cd backend
     npm install --production
 
-    echo "   -> Build and deploy frontend"
+    echo "   -> Build and deploy frontend (TMA)"
     cd ../frontend
     npm install
     npm run build
-    rsync -a --delete build/ /var/www/va/
+    rsync -a --delete build/ /var/www/tma/
+
+    echo "   -> Build and deploy site"
+    cd ../site
+    if [ -f package.json ]; then
+        npm install
+        npm run build
+        rsync -a --delete build/ /var/www/site/
+    else
+        echo "      (site package.json not found, skipping build, using placeholder)"
+    fi
 
     echo "   -> Restarting PM2 processes..."
     # Update process list just in case config changed

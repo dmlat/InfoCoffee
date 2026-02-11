@@ -2,7 +2,7 @@
 
 ENV_FILE="./backend/.env"
 
-BASE_WEB_APP_URL="https://infocoffee.ru/" 
+BASE_WEB_APP_URL="https://app.infocoffee.ru/" 
 
 if [ ! -f "$ENV_FILE" ]; then
     echo "Ошибка: Файл .env не найден по пути $ENV_FILE"
