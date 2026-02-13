@@ -277,12 +277,88 @@
     }
   }
 
+  &__mock-list-container {
+    position: relative;
+    width: 305px;
+    flex-shrink: 0;
+    isolation: isolate;
+    overflow: hidden;
+
+    // Настройки выделения (focus frame)
+    // Формат: top right bottom left (как обычный padding в CSS)
+    --focus-padding-name: 3px 5px 5px;
+    --focus-padding-revenue: 1px 5px 3px;
+    --focus-padding-share: 0px 5px 3px;
+    
+    --focus-radius-name: 8px;
+    --focus-radius-revenue: 7px;
+    --focus-radius-share: 6px;
+    --focus-radius-default: 12px;
+
+    .focus-container {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+      box-sizing: border-box;
+      border-radius: 12px; // Match drinkCard radius
+      overflow: hidden; // Force children to respect this radius
+
+      &.is-visible {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .focus-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 1;
+        border-radius: 12px; // Match drinkCard radius
+        // The polygon creates a "hole" by drawing the outer boundary and then the inner boundary in reverse
+        clip-path: polygon(
+          0% 0%, 
+          0% 100%, 
+          100% 100%, 
+          100% 0%, 
+          0% 0%, 
+          
+          var(--l) var(--t), 
+          calc(var(--l) + var(--w)) var(--t), 
+          calc(var(--l) + var(--w)) calc(var(--t) + var(--h)), 
+          var(--l) calc(var(--t) + var(--h)), 
+          var(--l) var(--t)
+        );
+        transition: clip-path 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .focus-stroke {
+        position: absolute;
+        top: var(--t);
+        left: var(--l);
+        width: var(--w);
+        height: var(--h);
+        border-radius: var(--rad);
+        border: 2px solid #c2815e;
+        box-shadow: 
+          0 0 0 1px rgba(0,0,0,0.1), 
+          0 4px 20px rgba(194, 129, 94, 0.35),
+          0 0 0 2000px rgba(0, 0, 0, 0.4); 
+        z-index: 2;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+    }
+  }
+
   &__mock-list {
     display: flex;
     flex-direction: column;
     gap: 12px;
     pointer-events: none;
-    width: 305px;
+    width: 100%;
     flex-shrink: 0;
 
     /* Фон плиток задаётся только в AnalyticsTab.scss (.drinkCard); здесь только доп. стили для превью */
@@ -304,49 +380,6 @@
 
       &.clickable {
         cursor: pointer;
-      }
-
-      &.highlight-name :global(.cardInfo) {
-        position: relative;
-      }
-
-      &.highlight-name :global(.cardInfo)::after {
-        content: '';
-        position: absolute;
-        left: -4px;
-        top: -2px;
-        width: calc(var(--name-highlight-width, 0px) + 8px);
-        height: calc(100% + 4px);
-        box-shadow: inset 0 0 0 2px rgba(194, 129, 94, 0.6);
-        border-radius: 6px;
-        pointer-events: none;
-      }
-
-      &.highlight-revenue :global(.cardRevenue) {
-        box-shadow: inset 0 0 0 2px rgba(194, 129, 94, 0.6);
-        border-radius: 4px;
-        padding: 2px 6px;
-        margin: -2px -6px;
-      }
-
-      &.highlight-share :global(.cardMetaRight) {
-        box-shadow: inset 0 0 0 2px rgba(194, 129, 94, 0.6);
-        border-radius: 4px;
-        padding: 2px 6px;
-        margin: -2px -6px;
-      }
-
-      &.highlight-breakdown :global(.cardBreakdown) {
-        box-shadow: inset 0 0 0 2px rgba(194, 129, 94, 0.6);
-      }
-
-      &.highlight-histogram :global(.cardMain) {
-        box-shadow: inset 0 0 0 2px rgba(194, 129, 94, 0.6);
-        border-radius: 12px 12px 0 0;
-      }
-
-      &.highlight-histogram :global(.progressLine) {
-        opacity: 0.4;
       }
 
       :global(.cardMain) {
@@ -426,6 +459,7 @@
         background: var(--accent);
         opacity: 0.12;
         z-index: 1;
+        transition: opacity 0.3s ease;
       }
 
       :global(.cardBreakdown) {

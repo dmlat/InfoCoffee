@@ -32,7 +32,16 @@ interface Props {
       if (rafId) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         const screenRect = phoneScreen.getBoundingClientRect();
-        const targetRect = currentHighlightEl!.getBoundingClientRect();
+        
+        // If we have a specific sub-element to highlight
+        let targetEl = currentHighlightEl!;
+        const subTarget = focusContainer.getAttribute('data-sub-target');
+        if (subTarget) {
+          const found = currentHighlightEl!.querySelector(`.${subTarget}`) as HTMLElement;
+          if (found) targetEl = found;
+        }
+
+        const targetRect = targetEl.getBoundingClientRect();
         
         const top = targetRect.top - screenRect.top;
         const left = targetRect.left - screenRect.left;
@@ -40,7 +49,7 @@ interface Props {
         const height = targetRect.height;
 
         // #region agent log
-        fetch('http://127.0.0.1:7246/ingest/88e9c59f-ee9b-4ba5-ae42-e75a10c70066', {
+        fetch('http://127.0.0.1:7247/ingest/fd4361cd-0e9e-4e4a-971a-bf109468389c', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -89,6 +98,12 @@ interface Props {
     mockupContainer.addEventListener('mockup:highlight', (e: any) => {
       const { section, action } = e.detail;
       
+      if (action && typeof action === 'string' && action.startsWith('sub:')) {
+        focusContainer.setAttribute('data-sub-target', action.replace('sub:', ''));
+      } else if (!action) {
+        focusContainer.removeAttribute('data-sub-target');
+      }
+
       // Force switch to analytics tab if we are in the analytics preview section
       const isAnalyticsPreview = mockupContainer.closest('#analytics') !== null;
       if (isAnalyticsPreview) {
@@ -115,6 +130,24 @@ interface Props {
       }
 
       if (section && activeTab) {
+        // #region agent log
+        fetch('http://127.0.0.1:7247/ingest/fd4361cd-0e9e-4e4a-971a-bf109468389c', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location: 'MockupFocusManager.astro:highlight-event',
+            message: 'Highlight event received',
+            hypothesisId: 'B,D',
+            data: {
+              section,
+              action,
+              activeTabId: activeTab.id,
+              activeTabClasses: activeTab.className
+            },
+            timestamp: Date.now()
+          })
+        }).catch(() => {});
+        // #endregion
         let el = activeTab.querySelector(`[data-highlight="${section}"]`) as HTMLElement;
         // Fallback: second drinkCard when section targets "drinkCard clickable expanded"
         if (!el && section.includes('drinkCard') && section.includes('expanded')) {
@@ -139,7 +172,7 @@ interface Props {
             const breakdown = el.querySelector('.cardBreakdown') as HTMLElement | null;
             if (breakdown) {
               // #region agent log
-              fetch('http://127.0.0.1:7246/ingest/88e9c59f-ee9b-4ba5-ae42-e75a10c70066', {
+              fetch('http://127.0.0.1:7247/ingest/fd4361cd-0e9e-4e4a-971a-bf109468389c', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

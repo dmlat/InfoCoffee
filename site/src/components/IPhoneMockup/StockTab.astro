@@ -88,6 +88,13 @@ const { active = false } = Astro.props;
         let currentWarehouseStep = 100;
         let activeStockSubtab = 'machine';
 
+        const notifySubtabChange = (subtab: string) => {
+          mockupContainer.dispatchEvent(new CustomEvent('mockup:stock-subtab-change', { 
+            detail: { subtab },
+            bubbles: true 
+          }));
+        };
+
         // Global warehouse data (shared across all locations)
         const globalWarehouse = {
           water: { name: 'Вода', value: 120.00, unit: 'л' },
@@ -228,6 +235,8 @@ const { active = false } = Astro.props;
             if (stockLocSelectorCard) stockLocSelectorCard.style.display = 'none';
           }
           
+          notifySubtabChange(activeStockSubtab);
+
           mockupContainer.querySelectorAll('.stockSubtabContent').forEach(content => {
             content.classList.toggle('active', (content as HTMLElement).dataset.content === activeStockSubtab);
           });

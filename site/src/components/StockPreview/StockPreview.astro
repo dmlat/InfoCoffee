@@ -11,7 +11,7 @@ import IPhoneMockup from "@/components/IPhoneMockup/IPhoneMockup.astro";
         </div>
 
         <div class="stock-preview__menu">
-          <div class="stock-card stock-card--smart">
+          <div class="stock-card stock-card--smart" id="stockSmartCard">
             <span class="stock-card__bg" aria-hidden="true"></span>
             <div class="stock-card__content">
               <h3 class="stock-card__title">Контроль и уведомления</h3>
@@ -26,7 +26,7 @@ import IPhoneMockup from "@/components/IPhoneMockup/IPhoneMockup.astro";
                     <div class="ingStock">Склад: —</div>
                   </div>
                   <div class="ingControls">
-                    <button class="qtyBtn minus">−</button>
+                    <button class="qtyBtn minus" tabindex="-1">−</button>
                     <div class="progressWrapper">
                       <div class="progressBar"></div>
                       <div class="limitLine"></div>
@@ -34,7 +34,7 @@ import IPhoneMockup from "@/components/IPhoneMockup/IPhoneMockup.astro";
                         — <span class="dim">/ —</span>
                       </div>
                     </div>
-                    <button class="qtyBtn plus">+</button>
+                    <button class="qtyBtn plus" tabindex="-1">+</button>
                   </div>
                 </div>
               </div>
@@ -176,10 +176,21 @@ import IPhoneMockup from "@/components/IPhoneMockup/IPhoneMockup.astro";
     const previewLimitLine = previewCard.querySelector('.limitLine') as HTMLElement | null;
     const previewProgressText = previewCard.querySelector('.progressText') as HTMLElement | null;
 
+    const smartCard = document.getElementById('stockSmartCard');
+    const smartTitle = smartCard?.querySelector('.stock-card__title');
+    const smartText = smartCard?.querySelector('.stock-card__text');
+
+    let currentSubtab = 'machine';
+
     function syncCoffeeFromMockup() {
       const mockup = section.querySelector('[data-iphone-mockup]');
       const machineList = mockup?.querySelector('.machineList');
-      const coffeeCard = machineList?.querySelector('.ingCard[data-ing="coffee"]') as HTMLElement | null;
+      const warehouseList = mockup?.querySelector('.warehouseList');
+      
+      const coffeeCard = (currentSubtab === 'machine' 
+        ? machineList?.querySelector('.ingCard[data-ing="coffee"]') 
+        : warehouseList?.querySelector('.ingCard[data-ing="coffee"]')) as HTMLElement | null;
+
       if (!coffeeCard || !previewCard) return;
 
       const coffeeStockEl = coffeeCard.querySelector('.ingStock') as HTMLElement | null;
@@ -204,13 +215,18 @@ import IPhoneMockup from "@/components/IPhoneMockup/IPhoneMockup.astro";
       }
 
       // Состояние критичности (рамка и цвет бара)
-      previewCard.classList.remove('status-critical', 'status-warning', 'status-ok');
-      if (coffeeCard.classList.contains('status-critical')) {
-        previewCard.classList.add('status-critical');
-      } else if (coffeeCard.classList.contains('status-warning')) {
-        previewCard.classList.add('status-warning');
-      } else if (coffeeCard.classList.contains('status-ok')) {
-        previewCard.classList.add('status-ok');
+      previewCard.classList.remove('status-critical', 'status-warning', 'status-ok', 'is-warehouse');
+      
+      if (currentSubtab === 'warehouse') {
+        previewCard.classList.add('is-warehouse');
+      } else {
+        if (coffeeCard.classList.contains('status-critical')) {
+          previewCard.classList.add('status-critical');
+        } else if (coffeeCard.classList.contains('status-warning')) {
+          previewCard.classList.add('status-warning');
+        } else if (coffeeCard.classList.contains('status-ok')) {
+          previewCard.classList.add('status-ok');
+        }
       }
 
       if (coffeeCard.dataset.ing) {
@@ -218,18 +234,47 @@ import IPhoneMockup from "@/components/IPhoneMockup/IPhoneMockup.astro";
       }
     }
 
+    function handleSubtabChange(subtab: string) {
+      currentSubtab = subtab;
+      if (smartTitle && smartText && previewCard) {
+        if (subtab === 'warehouse') {
+          smartTitle.textContent = 'Контроль склада';
+          smartText.textContent = 'Контролируйте складские запасы в реальном времени, чтобы вовремя пополнять расходные материалы';
+        } else {
+          smartTitle.textContent = 'Контроль и уведомления';
+          smartText.textContent = 'Отслеживайте остатки на точках в реальном времени и установите порог запасов для уведомлений о нехватке';
+        }
+      }
+      syncCoffeeFromMockup();
+    }
+
     function startObserving() {
       const mockup = section.querySelector('[data-iphone-mockup]');
-      const machineList = mockup?.querySelector('.machineList');
-      if (!machineList) {
+      if (!mockup) {
         setTimeout(startObserving, 300);
         return;
       }
+
+      mockup.addEventListener('mockup:stock-subtab-change', (e: any) => {
+        handleSubtabChange(e.detail.subtab);
+      });
+
+      const machineList = mockup.querySelector('.machineList');
+      const warehouseList = mockup.querySelector('.warehouseList');
+      
+      if (!machineList || !warehouseList) {
+        setTimeout(startObserving, 300);
+        return;
+      }
+
       syncCoffeeFromMockup();
+      
       const observer = new MutationObserver(() => {
         syncCoffeeFromMockup();
       });
+
       observer.observe(machineList, { childList: true, subtree: true });
+      observer.observe(warehouseList, { childList: true, subtree: true });
     }
 
     if (document.readyState === 'loading') {

@@ -22,7 +22,15 @@ const { hero } = content;
       </div>
     </div>
     <div class="hero__image-wrapper">
-      <Image src={heroImage} alt="Hero Image" class="hero__image" />
+      <Image 
+        src={heroImage} 
+        alt="Hero Image" 
+        class="hero__image" 
+        loading="eager" 
+        fetchpriority="high"
+        widths={[400, 800, 1200, heroImage.width]}
+        sizes={`(max-width: 768px) 100vw, 800px`}
+      />
       
       <div class="hero__floating-badges">
         <div class="hero__floating-badge hero__floating-badge--1">

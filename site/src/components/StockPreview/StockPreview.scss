@@ -76,6 +76,7 @@
     justify-content: space-between;
     gap: 2px;
     overflow: hidden;
+    min-height: 52px; // Фиксированная минимальная высота для стабильности
   }
 
   .stock-card__ing-preview .ingCard .ingInfo {
@@ -83,6 +84,8 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
+    justify-content: center; // Всегда центрируем контент по вертикали
+    height: 34px; // Фиксированная высота текстового блока
   }
 
   .stock-card__ing-preview .ingCard .ingName {
@@ -93,11 +96,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
     width: 100%;
+    line-height: 1.2;
   }
 
   .stock-card__ing-preview .ingCard .ingStock {
     font-size: 14px;
     color: var(--muted);
+    line-height: 1.2;
+    min-height: 1.2em;
   }
 
   .stock-card__ing-preview .ingCard .ingControls {
@@ -117,7 +123,8 @@
     background: rgba(255, 255, 255, 0.06);
     color: var(--text);
     font-size: 18px;
-    cursor: pointer;
+    cursor: default;
+    pointer-events: none;
   }
 
   .stock-card__ing-preview .ingCard .progressWrapper {
@@ -182,6 +189,28 @@
   .stock-card__ing-preview .ingCard.status-critical .progressBar {
     background: #ef4444;
     opacity: 0.4;
+  }
+
+  .stock-card__ing-preview .ingCard.is-warehouse {
+    .ingInfo {
+      // Наследование justify-content: center от родителя
+    }
+    .ingStock {
+      display: none;
+    }
+    .progressBar {
+      width: 0 !important;
+    }
+    .limitLine {
+      display: none;
+    }
+    .progressWrapper {
+      background: rgba(0, 0, 0, 0.4);
+    }
+    .qtyBtn {
+      pointer-events: none;
+      opacity: 0.5;
+    }
   }
 }
 
